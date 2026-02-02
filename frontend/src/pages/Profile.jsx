@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../context/authStore'
 import { useAppStore } from '../context/appStore'
+import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
 
 const Profile = () => {
   const { user, profile, updateProfile, logout } = useAuthStore()
   const { darkMode, toggleDarkMode } = useAppStore()
+  const queryClient = useQueryClient()
   
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
@@ -14,7 +17,19 @@ const Profile = () => {
     preferred_study_time: profile?.preferred_study_time || 'evening',
   })
 
+  const updateGoalMutation = useMutation({
+    mutationFn: (goalMinutes) => analyticsService.updateStudyGoal(goalMinutes),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['studyTimer'])
+    },
+  })
+
   const handleSave = async () => {
+    // Update study goal separately
+    if (formData.daily_study_goal_minutes !== profile?.daily_study_goal_minutes) {
+      await updateGoalMutation.mutateAsync(formData.daily_study_goal_minutes)
+    }
+    
     const result = await updateProfile(formData)
     if (result.success) {
       toast.success('Profile updated!')
@@ -88,27 +103,77 @@ const Profile = () => {
         <div className="space-y-6">
           {/* Daily Study Goal */}
           <div>
-            <label className="block text-sm font-medium mb-3">
-              Daily Study Goal: {formData.daily_study_goal_minutes} minutes
+            <label className="block text-sm font-medium mb-2">
+              Daily Study Goal
             </label>
-            {isEditing ? (
-              <input
-                type="range"
-                min="30"
-                max="180"
-                step="15"
-                value={formData.daily_study_goal_minutes}
-                onChange={(e) => setFormData({ ...formData, daily_study_goal_minutes: parseInt(e.target.value) })}
-                className="w-full"
-              />
-            ) : (
-              <div className="progress-bar h-3">
-                <div 
-                  className="progress-bar-fill bg-primary-500"
-                  style={{ width: `${(formData.daily_study_goal_minutes / 180) * 100}%` }}
-                />
+            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">⏱️</span>
+                  <div>
+                    <p className="text-2xl font-bold">{formData.daily_study_goal_minutes} min</p>
+                    <p className="text-sm text-surface-500">
+                      {Math.floor(formData.daily_study_goal_minutes / 60)}h {formData.daily_study_goal_minutes % 60}m per day
+                    </p>
+                  </div>
+                </div>
+                {!isEditing && (
+                  <span className={`badge ${
+                    formData.daily_study_goal_minutes >= 120 ? 'badge-success' :
+                    formData.daily_study_goal_minutes >= 60 ? 'badge-primary' : 'badge-warning'
+                  }`}>
+                    {formData.daily_study_goal_minutes >= 120 ? '🔥 Intense' :
+                     formData.daily_study_goal_minutes >= 60 ? '💪 Committed' : '📚 Beginner'}
+                  </span>
+                )}
               </div>
-            )}
+              
+              {isEditing ? (
+                <div className="space-y-3">
+                  <input
+                    type="range"
+                    min="15"
+                    max="240"
+                    step="15"
+                    value={formData.daily_study_goal_minutes}
+                    onChange={(e) => setFormData({ ...formData, daily_study_goal_minutes: parseInt(e.target.value) })}
+                    className="w-full accent-primary-500 h-3 rounded-lg cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-surface-500">
+                    <span>15 min</span>
+                    <span>1 hour</span>
+                    <span>2 hours</span>
+                    <span>3 hours</span>
+                    <span>4 hours</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mt-3">
+                    {[30, 60, 90, 120].map((mins) => (
+                      <button
+                        key={mins}
+                        onClick={() => setFormData({ ...formData, daily_study_goal_minutes: mins })}
+                        className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          formData.daily_study_goal_minutes === mins
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-surface-200 dark:bg-surface-700 hover:bg-primary-100 dark:hover:bg-primary-900/30'
+                        }`}
+                      >
+                        {mins} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-3 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-primary-500 to-accent-500 rounded-full"
+                    style={{ width: `${(formData.daily_study_goal_minutes / 240) * 100}%` }}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-surface-500 mt-2">
+              💡 Tip: Start with a smaller goal and gradually increase it. Consistency is key!
+            </p>
           </div>
 
           {/* Preferred Study Time */}

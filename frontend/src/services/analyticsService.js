@@ -71,5 +71,41 @@ export const analyticsService = {
     const response = await api.get('/analytics/weekly-reports/latest/')
     return response.data
   },
+
+  // Study Timer
+  getStudyTimer: async () => {
+    const response = await api.get('/analytics/study-timer/')
+    return response.data
+  },
+
+  startStudyTimer: async () => {
+    const response = await api.post('/analytics/study-timer/')
+    return response.data
+  },
+
+  updateStudyTimer: async (elapsedSeconds) => {
+    const response = await api.put('/analytics/study-timer/', {
+      elapsed_seconds: elapsedSeconds,
+    })
+    return response.data
+  },
+
+  pauseStudyTimer: async () => {
+    const response = await api.delete('/analytics/study-timer/')
+    return response.data
+  },
+
+  // Study Goal
+  getStudyGoal: async () => {
+    const response = await api.get('/analytics/study-goal/')
+    return response.data
+  },
+
+  updateStudyGoal: async (goalMinutes) => {
+    const response = await api.put('/analytics/study-goal/', {
+      daily_study_goal_minutes: goalMinutes,
+    })
+    return response.data
+  },
 }
 

@@ -6,7 +6,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     DashboardView,
     TopicMasteryViewSet, SubjectPerformanceViewSet,
-    DailyActivityViewSet, StreakViewSet, WeeklyReportViewSet
+    DailyActivityViewSet, StreakViewSet, WeeklyReportViewSet,
+    StudyTimerView, StudyGoalView
 )
 
 router = DefaultRouter()
@@ -18,6 +19,8 @@ router.register(r'weekly-reports', WeeklyReportViewSet, basename='weekly-report'
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('study-timer/', StudyTimerView.as_view(), name='study-timer'),
+    path('study-goal/', StudyGoalView.as_view(), name='study-goal'),
     path('', include(router.urls)),
 ]
 

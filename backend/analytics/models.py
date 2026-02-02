@@ -279,3 +279,58 @@ class WeeklyReport(TimeStampedModel):
     def __str__(self):
         return f"{self.student.user.email} - Week of {self.week_start}"
 
+
+class StudySession(TimeStampedModel):
+    """
+    Tracks active study sessions for real-time timer functionality.
+    Records when user is actively on the website.
+    """
+    student = models.ForeignKey(
+        'users.StudentProfile',
+        on_delete=models.CASCADE,
+        related_name='study_sessions'
+    )
+    date = models.DateField()
+    
+    # Time tracking (all in seconds for precision)
+    total_seconds_today = models.PositiveIntegerField(default=0)
+    goal_seconds = models.PositiveIntegerField(default=0)  # Copied from profile on session start
+    
+    # Session state
+    is_active = models.BooleanField(default=False)
+    last_heartbeat = models.DateTimeField(auto_now=True)
+    session_started_at = models.DateTimeField(null=True, blank=True)
+    
+    # Goal tracking
+    goal_achieved = models.BooleanField(default=False)
+    goal_achieved_at = models.DateTimeField(null=True, blank=True)
+    
+    # Rewards given
+    goal_xp_awarded = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ['student', 'date']
+        verbose_name = 'Study Session'
+        verbose_name_plural = 'Study Sessions'
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"{self.student.user.email} - {self.date} ({self.total_seconds_today}s)"
+    
+    @property
+    def remaining_seconds(self):
+        """Seconds remaining to reach goal (can be negative if exceeded)."""
+        return self.goal_seconds - self.total_seconds_today
+    
+    @property
+    def progress_percentage(self):
+        """Progress towards goal (can exceed 100%)."""
+        if self.goal_seconds == 0:
+            return 0
+        return (self.total_seconds_today / self.goal_seconds) * 100
+    
+    @property
+    def exceeded_goal(self):
+        """Whether the user has exceeded their daily goal."""
+        return self.total_seconds_today > self.goal_seconds
+

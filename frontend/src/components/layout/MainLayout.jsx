@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import MobileNav from './MobileNav'
+import StudyTimer from '../common/StudyTimer'
 import { useAppStore } from '../../context/appStore'
 
 const MainLayout = () => {
@@ -48,6 +49,9 @@ const MainLayout = () => {
           </motion.div>
         </main>
       </div>
+
+      {/* Study Timer Widget */}
+      <StudyTimer />
 
       {/* Mobile Menu Overlay */}
       <AnimatePresence>

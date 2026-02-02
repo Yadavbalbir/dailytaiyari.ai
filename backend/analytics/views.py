@@ -8,13 +8,14 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import TopicMastery, SubjectPerformance, DailyActivity, Streak, WeeklyReport
+from .models import TopicMastery, SubjectPerformance, DailyActivity, Streak, WeeklyReport, StudySession
 from .serializers import (
     TopicMasterySerializer, SubjectPerformanceSerializer,
     DailyActivitySerializer, StreakSerializer, WeeklyReportSerializer,
     DashboardStatsSerializer, PerformanceChartSerializer
 )
 from .services import AnalyticsService
+from gamification.services import GamificationService
 
 
 class DashboardView(APIView):
@@ -232,4 +233,212 @@ class WeeklyReportViewSet(viewsets.ReadOnlyModelViewSet):
         """Generate a new weekly report."""
         report = AnalyticsService.generate_weekly_report(request.user.profile)
         return Response(WeeklyReportSerializer(report).data)
+
+
+class StudyTimerView(APIView):
+    """
+    Real-time study timer tracking.
+    Handles starting, updating, and pausing study sessions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get current study session state."""
+        student = request.user.profile
+        today = timezone.now().date()
+        
+        session, created = StudySession.objects.get_or_create(
+            student=student,
+            date=today,
+            defaults={
+                'goal_seconds': student.daily_study_goal_minutes * 60,
+            }
+        )
+        
+        return Response({
+            'date': str(session.date),
+            'total_seconds_today': session.total_seconds_today,
+            'goal_seconds': session.goal_seconds,
+            'remaining_seconds': session.remaining_seconds,
+            'progress_percentage': round(session.progress_percentage, 2),
+            'goal_achieved': session.goal_achieved,
+            'goal_achieved_at': session.goal_achieved_at.isoformat() if session.goal_achieved_at else None,
+            'exceeded_goal': session.exceeded_goal,
+            'is_active': session.is_active,
+            'goal_minutes': session.goal_seconds // 60,
+            'total_minutes_today': session.total_seconds_today // 60,
+        })
+
+    def post(self, request):
+        """Start or resume a study session."""
+        student = request.user.profile
+        today = timezone.now().date()
+        
+        session, created = StudySession.objects.get_or_create(
+            student=student,
+            date=today,
+            defaults={
+                'goal_seconds': student.daily_study_goal_minutes * 60,
+            }
+        )
+        
+        session.is_active = True
+        session.session_started_at = timezone.now()
+        session.last_heartbeat = timezone.now()
+        session.save()
+        
+        return Response({
+            'message': 'Session started',
+            'total_seconds_today': session.total_seconds_today,
+            'goal_seconds': session.goal_seconds,
+            'remaining_seconds': session.remaining_seconds,
+            'progress_percentage': round(session.progress_percentage, 2),
+        })
+
+    def put(self, request):
+        """
+        Update study session with elapsed time (heartbeat).
+        Called periodically while user is active on the site.
+        """
+        student = request.user.profile
+        today = timezone.now().date()
+        
+        elapsed_seconds = request.data.get('elapsed_seconds', 0)
+        
+        try:
+            session = StudySession.objects.get(student=student, date=today)
+        except StudySession.DoesNotExist:
+            return Response(
+                {'error': 'No active session found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Update session
+        previous_total = session.total_seconds_today
+        session.total_seconds_today += elapsed_seconds
+        session.last_heartbeat = timezone.now()
+        
+        # Check if goal was just achieved
+        goal_just_achieved = False
+        xp_awarded = 0
+        streak_updated = False
+        
+        if not session.goal_achieved and session.total_seconds_today >= session.goal_seconds:
+            session.goal_achieved = True
+            session.goal_achieved_at = timezone.now()
+            goal_just_achieved = True
+            
+            # Award XP for achieving daily goal
+            if not session.goal_xp_awarded:
+                xp_awarded = 50  # Base XP for achieving daily goal
+                
+                # Bonus XP based on streak
+                streak = Streak.objects.filter(student=student).first()
+                if streak and streak.current_streak > 0:
+                    # Extra 5 XP per day of streak (max 50)
+                    streak_bonus = min(50, streak.current_streak * 5)
+                    xp_awarded += streak_bonus
+                
+                GamificationService.award_xp(
+                    student,
+                    xp_awarded,
+                    'daily_goal',
+                    f'Achieved daily study goal of {session.goal_seconds // 60} minutes',
+                    str(session.id),
+                    update_daily_activity=True
+                )
+                session.goal_xp_awarded = True
+                
+                # Update streak based on goal achievement
+                AnalyticsService.update_streak(student, today, None)
+                streak_updated = True
+                
+                # Mark daily activity goal as met
+                DailyActivity.objects.filter(
+                    student=student,
+                    date=today
+                ).update(daily_goal_met=True)
+        
+        session.save()
+        
+        # Also update DailyActivity study_time
+        AnalyticsService.update_daily_activity(
+            student,
+            study_time_minutes=elapsed_seconds // 60 if elapsed_seconds >= 60 else 0
+        )
+        
+        return Response({
+            'total_seconds_today': session.total_seconds_today,
+            'goal_seconds': session.goal_seconds,
+            'remaining_seconds': session.remaining_seconds,
+            'progress_percentage': round(session.progress_percentage, 2),
+            'goal_achieved': session.goal_achieved,
+            'goal_just_achieved': goal_just_achieved,
+            'exceeded_goal': session.exceeded_goal,
+            'xp_awarded': xp_awarded,
+            'streak_updated': streak_updated,
+        })
+
+    def delete(self, request):
+        """Pause/stop the study session."""
+        student = request.user.profile
+        today = timezone.now().date()
+        
+        try:
+            session = StudySession.objects.get(student=student, date=today)
+            session.is_active = False
+            session.save()
+            
+            return Response({
+                'message': 'Session paused',
+                'total_seconds_today': session.total_seconds_today,
+            })
+        except StudySession.DoesNotExist:
+            return Response({'message': 'No active session'})
+
+
+class StudyGoalView(APIView):
+    """
+    Manage user's daily study goal.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get current study goal settings."""
+        student = request.user.profile
+        return Response({
+            'daily_study_goal_minutes': student.daily_study_goal_minutes,
+        })
+
+    def put(self, request):
+        """Update study goal."""
+        student = request.user.profile
+        new_goal = request.data.get('daily_study_goal_minutes')
+        
+        if not new_goal or new_goal < 5:
+            return Response(
+                {'error': 'Goal must be at least 5 minutes'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if new_goal > 480:  # Max 8 hours
+            return Response(
+                {'error': 'Goal cannot exceed 8 hours'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        student.daily_study_goal_minutes = new_goal
+        student.save(update_fields=['daily_study_goal_minutes'])
+        
+        # Update today's session if exists
+        today = timezone.now().date()
+        StudySession.objects.filter(
+            student=student,
+            date=today
+        ).update(goal_seconds=new_goal * 60)
+        
+        return Response({
+            'message': 'Goal updated',
+            'daily_study_goal_minutes': new_goal,
+        })
 
