@@ -1,17 +1,72 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
+import toast from 'react-hot-toast'
+
+const REPORT_TYPES = [
+  { value: 'wrong_answer', label: '❌ Wrong Answer/Solution' },
+  { value: 'unclear_question', label: '❓ Unclear Question' },
+  { value: 'wrong_options', label: '📝 Wrong/Missing Options' },
+  { value: 'formatting_issue', label: '🔧 Formatting Issue' },
+  { value: 'typo', label: '✏️ Typo/Spelling Error' },
+  { value: 'wrong_topic', label: '📚 Wrong Topic/Subject' },
+  { value: 'duplicate', label: '🔄 Duplicate Question' },
+  { value: 'outdated', label: '📅 Outdated Information' },
+  { value: 'other', label: '💭 Other' },
+]
 
 const MockTestReview = () => {
   const { attemptId } = useParams()
   const navigate = useNavigate()
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportingQuestion, setReportingQuestion] = useState(null)
+  const [reportType, setReportType] = useState('')
+  const [reportDescription, setReportDescription] = useState('')
+  const [filter, setFilter] = useState('all') // all, correct, wrong, skipped
 
   const { data: attempt, isLoading, error } = useQuery({
     queryKey: ['mockAttemptReview', attemptId],
     queryFn: () => quizService.getMockAttemptReview(attemptId),
   })
+
+  const reportMutation = useMutation({
+    mutationFn: (data) => quizService.reportQuestion(data),
+    onSuccess: () => {
+      toast.success('Report submitted successfully!')
+      setReportModalOpen(false)
+      setReportingQuestion(null)
+      setReportType('')
+      setReportDescription('')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.error || 'Failed to submit report')
+    },
+  })
+
+  const handleReport = (question) => {
+    setReportingQuestion(question)
+    setReportModalOpen(true)
+  }
+
+  const submitReport = () => {
+    if (!reportType) {
+      toast.error('Please select a report type')
+      return
+    }
+    if (!reportDescription.trim()) {
+      toast.error('Please describe the issue')
+      return
+    }
+    
+    reportMutation.mutate({
+      question: reportingQuestion.id,
+      report_type: reportType,
+      description: reportDescription,
+    })
+  }
 
   if (isLoading) return <Loading fullScreen />
 
@@ -27,16 +82,26 @@ const MockTestReview = () => {
     )
   }
 
-  const getScoreColor = (percentage) => {
-    if (percentage >= 70) return 'text-success-500'
-    if (percentage >= 40) return 'text-warning-500'
-    return 'text-error-500'
-  }
-
   const getScoreBg = (percentage) => {
     if (percentage >= 70) return 'from-success-500 to-success-600'
     if (percentage >= 40) return 'from-warning-500 to-warning-600'
     return 'from-error-500 to-error-600'
+  }
+
+  // Use the new all_questions structure
+  const allQuestions = attempt?.all_questions || []
+  
+  // Filter questions based on selected filter
+  const filteredQuestions = allQuestions.filter(q => {
+    if (filter === 'all') return true
+    return q.status === filter
+  })
+
+  const questionCounts = {
+    all: allQuestions.length,
+    correct: allQuestions.filter(q => q.status === 'correct').length,
+    wrong: allQuestions.filter(q => q.status === 'wrong').length,
+    skipped: allQuestions.filter(q => q.status === 'skipped').length,
   }
 
   return (
@@ -86,6 +151,18 @@ const MockTestReview = () => {
                   {Math.floor((attempt?.time_taken_seconds || 0) / 60)}:{String((attempt?.time_taken_seconds || 0) % 60).padStart(2, '0')}
                 </p>
               </div>
+              {attempt?.rank && (
+                <div>
+                  <p className="text-white/80 text-sm">Rank</p>
+                  <p className="text-xl font-semibold">#{attempt.rank}</p>
+                </div>
+              )}
+              {attempt?.percentile && (
+                <div>
+                  <p className="text-white/80 text-sm">Percentile</p>
+                  <p className="text-xl font-semibold">{Math.round(attempt.percentile)}%</p>
+                </div>
+              )}
               <div>
                 <p className="text-white/80 text-sm">XP Earned</p>
                 <p className="text-xl font-semibold">+{attempt?.xp_earned || 0}</p>
@@ -105,9 +182,7 @@ const MockTestReview = () => {
             <p className="text-white/70 text-sm">Wrong</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold">
-              {(attempt?.total_questions || 0) - (attempt?.attempted_questions || 0)}
-            </p>
+            <p className="text-2xl font-bold">{(attempt?.total_questions || 0) - (attempt?.attempted_questions || 0)}</p>
             <p className="text-white/70 text-sm">Skipped</p>
           </div>
           <div className="text-center">
@@ -115,66 +190,111 @@ const MockTestReview = () => {
             <p className="text-white/70 text-sm">Marks</p>
           </div>
         </div>
-
-        {/* Rank & Percentile */}
-        {(attempt?.rank || attempt?.percentile) && (
-          <div className="flex items-center justify-center gap-8 mt-6 pt-6 border-t border-white/20">
-            {attempt?.rank && (
-              <div className="text-center">
-                <p className="text-white/80 text-sm">Rank</p>
-                <p className="text-2xl font-bold">#{attempt.rank}</p>
-              </div>
-            )}
-            {attempt?.percentile && (
-              <div className="text-center">
-                <p className="text-white/80 text-sm">Percentile</p>
-                <p className="text-2xl font-bold">{Math.round(attempt.percentile)}%</p>
-              </div>
-            )}
-          </div>
-        )}
       </motion.div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {[
+          { value: 'all', label: 'All', color: 'bg-primary-500' },
+          { value: 'correct', label: 'Correct', color: 'bg-success-500' },
+          { value: 'wrong', label: 'Wrong', color: 'bg-error-500' },
+          { value: 'skipped', label: 'Skipped', color: 'bg-surface-400' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setFilter(tab.value)}
+            className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex items-center gap-2 ${
+              filter === tab.value
+                ? `${tab.color} text-white`
+                : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              filter === tab.value 
+                ? 'bg-white/20' 
+                : 'bg-surface-200 dark:bg-surface-700'
+            }`}>
+              {questionCounts[tab.value]}
+            </span>
+          </button>
+        ))}
+      </div>
 
       {/* Questions Review */}
       <div className="card p-5">
         <h2 className="font-semibold text-lg mb-4">Question-wise Review</h2>
         
         <div className="space-y-6">
-          {(attempt?.answers || []).map((answer, index) => {
-            const question = answer.question_data
-            const isCorrect = answer.is_correct
-            const selectedOption = answer.selected_option
+          {filteredQuestions.map((item, index) => {
+            const question = item.question
+            const userAnswer = item.user_answer
+            const questionStatus = item.status
+            const isCorrect = questionStatus === 'correct'
+            const isSkipped = questionStatus === 'skipped'
+            const selectedOption = userAnswer?.selected_option
+            
+            let borderClass = ''
+            let bgClass = ''
+            let statusText = ''
+            let statusIcon = ''
+            
+            if (isCorrect) {
+              borderClass = 'border-success-200'
+              bgClass = 'bg-success-50 dark:bg-success-900/10'
+              statusText = '✓ Correct'
+              statusIcon = 'bg-success-500'
+            } else if (isSkipped) {
+              borderClass = 'border-surface-300'
+              bgClass = 'bg-surface-50 dark:bg-surface-800/50'
+              statusText = '○ Skipped'
+              statusIcon = 'bg-surface-400'
+            } else {
+              borderClass = 'border-error-200'
+              bgClass = 'bg-error-50 dark:bg-error-900/10'
+              statusText = '✗ Incorrect'
+              statusIcon = 'bg-error-500'
+            }
             
             return (
               <motion.div
-                key={answer.id}
+                key={question.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                className={`p-4 rounded-xl border-2 ${
-                  isCorrect 
-                    ? 'border-success-200 bg-success-50 dark:bg-success-900/10' 
-                    : 'border-error-200 bg-error-50 dark:bg-error-900/10'
-                }`}
+                className={`p-4 rounded-xl border-2 ${borderClass} ${bgClass}`}
               >
                 {/* Question Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
-                      isCorrect ? 'bg-success-500' : 'bg-error-500'
-                    }`}>
-                      {index + 1}
+                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${statusIcon}`}>
+                      {item.question_number}
                     </span>
-                    <span className={`text-sm font-medium ${isCorrect ? 'text-success-600' : 'text-error-600'}`}>
-                      {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                    <span className={`text-sm font-medium ${
+                      isCorrect ? 'text-success-600' : isSkipped ? 'text-surface-500' : 'text-error-600'
+                    }`}>
+                      {statusText}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-surface-500">
-                    <span>{answer.time_taken_seconds}s</span>
-                    <span>•</span>
-                    <span className={isCorrect ? 'text-success-600' : 'text-error-600'}>
-                      {answer.marks_obtained > 0 ? '+' : ''}{answer.marks_obtained} marks
-                    </span>
+                  <div className="flex items-center gap-3">
+                    {!isSkipped && (
+                      <div className="flex items-center gap-2 text-sm text-surface-500">
+                        <span>{userAnswer?.time_taken_seconds || 0}s</span>
+                        <span>•</span>
+                        <span className={isCorrect ? 'text-success-600' : 'text-error-600'}>
+                          {(userAnswer?.marks_obtained || 0) > 0 ? '+' : ''}{userAnswer?.marks_obtained || 0} marks
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleReport(question)}
+                      className="text-surface-400 hover:text-error-500 transition-colors p-1"
+                      title="Report a problem"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
@@ -209,7 +329,7 @@ const MockTestReview = () => {
                       <div
                         key={option.id || optIndex}
                         className={`p-3 rounded-lg border-2 ${optionClass} ${
-                          isSelected ? 'border-2' : 'border-transparent'
+                          isSelected || isCorrectOption ? 'border-2' : 'border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -251,29 +371,30 @@ const MockTestReview = () => {
                   </div>
                 )}
 
-                {/* Subject & Topic Tags */}
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  {question?.subject_name && (
-                    <>
-                      <span className="text-xs text-surface-500">Subject:</span>
-                      <span className="badge bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs">
+                {/* Topic Tag */}
+                {question?.topic_name && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-xs text-surface-500">Topic:</span>
+                    <span className="badge bg-surface-200 dark:bg-surface-700 text-xs">
+                      {question.topic_name}
+                    </span>
+                    {question?.subject_name && (
+                      <span className="badge bg-surface-200 dark:bg-surface-700 text-xs">
                         {question.subject_name}
                       </span>
-                    </>
-                  )}
-                  {question?.topic_name && (
-                    <>
-                      <span className="text-xs text-surface-500 ml-2">Topic:</span>
-                      <span className="badge bg-surface-200 dark:bg-surface-700 text-xs">
-                        {question.topic_name}
-                      </span>
-                    </>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )
           })}
         </div>
+        
+        {filteredQuestions.length === 0 && (
+          <div className="text-center py-8 text-surface-500">
+            No questions match this filter
+          </div>
+        )}
       </div>
 
       {/* Bottom Actions */}
@@ -291,9 +412,90 @@ const MockTestReview = () => {
           Retry This Test
         </button>
       </div>
+
+      {/* Report Modal */}
+      <AnimatePresence>
+        {reportModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setReportModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-surface-900 rounded-2xl p-6 max-w-md w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Report a Problem</h3>
+                <button 
+                  onClick={() => setReportModalOpen(false)}
+                  className="text-surface-400 hover:text-surface-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-sm text-surface-500 mb-4">
+                Help us improve by reporting issues with this question.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Issue Type</label>
+                  <select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value)}
+                    className="input w-full"
+                  >
+                    <option value="">Select an issue type</option>
+                    {REPORT_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Description</label>
+                  <textarea
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    placeholder="Please describe the issue in detail..."
+                    rows={4}
+                    className="input w-full resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setReportModalOpen(false)}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitReport}
+                    disabled={reportMutation.isPending}
+                    className="btn-primary flex-1"
+                  >
+                    {reportMutation.isPending ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
 export default MockTestReview
-

@@ -1,9 +1,15 @@
 import api from './api'
 
 export const quizService = {
-  // Get quizzes
+  // Get quizzes with filters
   getQuizzes: async (params = {}) => {
     const response = await api.get('/quiz/quizzes/', { params })
+    return response.data
+  },
+
+  // Get filter options
+  getFilterOptions: async () => {
+    const response = await api.get('/quiz/quizzes/filter_options/')
     return response.data
   },
 
@@ -69,6 +75,12 @@ export const quizService = {
     return response.data
   },
 
+  // Get mock test filter options
+  getMockTestFilterOptions: async () => {
+    const response = await api.get('/quiz/mock-tests/filter_options/')
+    return response.data
+  },
+
   getMockTestDetails: async (testId) => {
     const response = await api.get(`/quiz/mock-tests/${testId}/`)
     return response.data
@@ -113,6 +125,18 @@ export const quizService = {
     const response = await api.get('/quiz/questions/by_topic/', {
       params: { topic_id: topicId, limit, difficulty },
     })
+    return response.data
+  },
+
+  // Report a question problem
+  reportQuestion: async (data) => {
+    const response = await api.post('/quiz/reports/', data)
+    return response.data
+  },
+
+  // Get user's question reports
+  getMyReports: async () => {
+    const response = await api.get('/quiz/reports/my_reports/')
     return response.data
   },
 }

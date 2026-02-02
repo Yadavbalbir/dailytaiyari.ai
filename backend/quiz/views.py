@@ -8,10 +8,10 @@ from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from .models import (
-    Question, Quiz, MockTest, QuizAttempt, MockTestAttempt, Answer
+    Question, Quiz, MockTest, QuizAttempt, MockTestAttempt, Answer, QuestionReport
 )
 from .serializers import (
     QuestionSerializer, QuestionWithAnswerSerializer,
@@ -19,7 +19,9 @@ from .serializers import (
     MockTestSerializer, MockTestDetailSerializer,
     QuizAttemptSerializer, QuizAttemptSummarySerializer,
     MockTestAttemptSerializer, MockTestAttemptSummarySerializer,
-    AnswerSubmitSerializer, QuizStartSerializer, QuizSubmitSerializer
+    AnswerSubmitSerializer, QuizStartSerializer, QuizSubmitSerializer,
+    QuizAttemptReviewSerializer, MockTestAttemptReviewSerializer,
+    QuestionReportSerializer, QuestionReportCreateSerializer
 )
 from core.utils import calculate_xp_for_quiz
 from analytics.services import AnalyticsService
@@ -77,6 +79,93 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve':
             return QuizDetailSerializer
         return QuizSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        request = self.request
+        
+        # Filter by attempted status
+        attempted_filter = request.query_params.get('attempted')
+        if attempted_filter is not None and request.user.is_authenticated:
+            profile = request.user.profile
+            attempted_quiz_ids = QuizAttempt.objects.filter(
+                student=profile,
+                status='completed'
+            ).values_list('quiz_id', flat=True).distinct()
+            
+            if attempted_filter.lower() == 'true':
+                queryset = queryset.filter(id__in=attempted_quiz_ids)
+            elif attempted_filter.lower() == 'false':
+                queryset = queryset.exclude(id__in=attempted_quiz_ids)
+        
+        # Filter by difficulty
+        difficulty = request.query_params.get('difficulty')
+        if difficulty:
+            # Filter quizzes that have questions with this difficulty
+            queryset = queryset.filter(questions__difficulty=difficulty).distinct()
+        
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Get available filter options for quizzes."""
+        from exams.models import Subject, Topic, Exam
+        
+        # Get subjects that have quizzes
+        subjects_with_quizzes = Subject.objects.filter(
+            quizzes__status='published'
+        ).distinct().values('id', 'name')
+        
+        # Get topics that have quizzes
+        topics_with_quizzes = Topic.objects.filter(
+            quizzes__status='published'
+        ).distinct().values('id', 'name', 'subject_id', 'subject__name')
+        
+        # Get exams that have quizzes
+        exams_with_quizzes = Exam.objects.filter(
+            quizzes__status='published'
+        ).distinct().values('id', 'name', 'short_name')
+        
+        # Get quiz type counts
+        quiz_types = Quiz.objects.filter(status='published').values('quiz_type').annotate(
+            count=Count('id')
+        )
+        
+        # Get attempted/non-attempted counts for the user
+        attempted_count = 0
+        non_attempted_count = 0
+        if request.user.is_authenticated:
+            profile = request.user.profile
+            attempted_quiz_ids = QuizAttempt.objects.filter(
+                student=profile,
+                status='completed'
+            ).values_list('quiz_id', flat=True).distinct()
+            
+            total_quizzes = Quiz.objects.filter(status='published').count()
+            attempted_count = len(set(attempted_quiz_ids))
+            non_attempted_count = total_quizzes - attempted_count
+        
+        return Response({
+            'subjects': list(subjects_with_quizzes),
+            'topics': list(topics_with_quizzes),
+            'exams': list(exams_with_quizzes),
+            'quiz_types': [
+                {'value': 'topic', 'label': 'Topic Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'topic'), 0)},
+                {'value': 'subject', 'label': 'Subject Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'subject'), 0)},
+                {'value': 'mixed', 'label': 'Mixed Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'mixed'), 0)},
+                {'value': 'pyq', 'label': 'Previous Year Questions', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'pyq'), 0)},
+                {'value': 'daily', 'label': 'Daily Challenge', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'daily'), 0)},
+            ],
+            'difficulties': [
+                {'value': 'easy', 'label': 'Easy'},
+                {'value': 'medium', 'label': 'Medium'},
+                {'value': 'hard', 'label': 'Hard'},
+            ],
+            'attempt_status': {
+                'attempted': attempted_count,
+                'not_attempted': non_attempted_count,
+            }
+        })
 
     @action(detail=False, methods=['get'])
     def daily_challenge(self, request):
@@ -281,6 +370,58 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve':
             return MockTestDetailSerializer
         return MockTestSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        request = self.request
+        
+        # Filter by attempted status
+        attempted_filter = request.query_params.get('attempted')
+        if attempted_filter is not None and request.user.is_authenticated:
+            profile = request.user.profile
+            attempted_test_ids = MockTestAttempt.objects.filter(
+                student=profile,
+                status='completed'
+            ).values_list('mock_test_id', flat=True).distinct()
+            
+            if attempted_filter.lower() == 'true':
+                queryset = queryset.filter(id__in=attempted_test_ids)
+            elif attempted_filter.lower() == 'false':
+                queryset = queryset.exclude(id__in=attempted_test_ids)
+        
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Get available filter options for mock tests."""
+        from exams.models import Exam
+        
+        # Get exams that have mock tests
+        exams_with_tests = Exam.objects.filter(
+            mock_tests__status='published'
+        ).distinct().values('id', 'name', 'short_name')
+        
+        # Get attempted/non-attempted counts for the user
+        attempted_count = 0
+        non_attempted_count = 0
+        if request.user.is_authenticated:
+            profile = request.user.profile
+            attempted_test_ids = MockTestAttempt.objects.filter(
+                student=profile,
+                status='completed'
+            ).values_list('mock_test_id', flat=True).distinct()
+            
+            total_tests = MockTest.objects.filter(status='published').count()
+            attempted_count = len(set(attempted_test_ids))
+            non_attempted_count = total_tests - attempted_count
+        
+        return Response({
+            'exams': list(exams_with_tests),
+            'attempt_status': {
+                'attempted': attempted_count,
+                'not_attempted': non_attempted_count,
+            }
+        })
 
     @action(detail=True, methods=['get'])
     def my_attempts(self, request, pk=None):
@@ -467,7 +608,7 @@ class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['get'])
     def review(self, request, pk=None):
-        """Get detailed review with answers and correct options."""
+        """Get detailed review with all questions (including unanswered)."""
         attempt = self.get_object()
         
         if attempt.status != 'completed':
@@ -476,7 +617,8 @@ class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        return Response(QuizAttemptSerializer(attempt).data)
+        # Use the new review serializer that includes all questions
+        return Response(QuizAttemptReviewSerializer(attempt).data)
 
 
 class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
@@ -509,7 +651,7 @@ class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['get'])
     def review(self, request, pk=None):
-        """Get detailed review with answers and correct options."""
+        """Get detailed review with all questions (including unanswered)."""
         attempt = self.get_object()
         
         if attempt.status != 'completed':
@@ -518,5 +660,51 @@ class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        return Response(MockTestAttemptSerializer(attempt).data)
+        # Use the new review serializer that includes all questions
+        return Response(MockTestAttemptReviewSerializer(attempt).data)
+
+
+class QuestionReportViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for reporting problems with questions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return QuestionReport.objects.filter(reported_by=self.request.user.profile)
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return QuestionReportCreateSerializer
+        return QuestionReportSerializer
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new question report."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Check if user has already reported this question
+        existing_report = QuestionReport.objects.filter(
+            question=serializer.validated_data['question'],
+            reported_by=request.user.profile,
+            status__in=['pending', 'reviewing']
+        ).first()
+        
+        if existing_report:
+            return Response(
+                {'error': 'You have already reported this question. Your report is being reviewed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        self.perform_create(serializer)
+        return Response(
+            {'message': 'Thank you for your report. We will review it shortly.'},
+            status=status.HTTP_201_CREATED
+        )
+    
+    @action(detail=False, methods=['get'])
+    def my_reports(self, request):
+        """Get user's question reports."""
+        reports = self.get_queryset().order_by('-created_at')[:20]
+        return Response(QuestionReportSerializer(reports, many=True).data)
 

@@ -1,15 +1,40 @@
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
 
 const MockTest = () => {
   const navigate = useNavigate()
+  const [showFilters, setShowFilters] = useState(false)
+  
+  // Filter state
+  const [filters, setFilters] = useState({
+    exam: '',
+    attempted: '', // '', 'true', 'false'
+    is_free: '',
+    search: '',
+  })
+
+  // Build query params
+  const queryParams = useMemo(() => {
+    const params = {}
+    if (filters.exam) params.exam = filters.exam
+    if (filters.attempted) params.attempted = filters.attempted
+    if (filters.is_free) params.is_free = filters.is_free
+    if (filters.search) params.search = filters.search
+    return params
+  }, [filters])
 
   const { data: mockTests, isLoading } = useQuery({
-    queryKey: ['mockTests'],
-    queryFn: () => quizService.getMockTests(),
+    queryKey: ['mockTests', queryParams],
+    queryFn: () => quizService.getMockTests(queryParams),
+  })
+
+  const { data: filterOptions } = useQuery({
+    queryKey: ['mockTestFilterOptions'],
+    queryFn: () => quizService.getMockTestFilterOptions(),
   })
 
   const { data: recentAttempts } = useQuery({
@@ -26,16 +51,45 @@ const MockTest = () => {
     }
   }
 
-  if (isLoading) return <Loading fullScreen />
+  const updateFilter = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      exam: '',
+      attempted: '',
+      is_free: '',
+      search: '',
+    })
+  }
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length
 
   const tests = mockTests?.results || mockTests || []
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-display font-bold">Mock Tests</h1>
-        <p className="text-surface-500 mt-1">Practice with full-length exam simulations</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Mock Tests</h1>
+          <p className="text-surface-500 mt-1">Practice with full-length exam simulations</p>
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`btn-secondary flex items-center gap-2 ${showFilters ? 'bg-primary-100 dark:bg-primary-900/30' : ''}`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Info Banner */}
@@ -52,102 +106,331 @@ const MockTest = () => {
         </div>
       </div>
 
-      {/* Mock Tests Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {tests.map((test) => {
-          const attemptInfo = test.user_attempt_info
-          const hasAttempted = attemptInfo?.attempted
-          
-          return (
-            <motion.div
-              key={test.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`card p-5 ${hasAttempted ? 'ring-2 ring-primary-200 dark:ring-primary-800' : ''}`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="badge-primary">{test.exam_name}</span>
-                    {hasAttempted && (
-                      <span className={`badge ${
-                        attemptInfo.best_score >= 70 ? 'badge-success' :
-                        attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
-                      }`}>
-                        Best: {Math.round(attemptInfo.best_score)}%
+      {/* Filters Panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="card p-5 space-y-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Search</label>
+                <div className="relative">
+                  <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => updateFilter('search', e.target.value)}
+                    placeholder="Search mock tests..."
+                    className="input pl-10 w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Filters - Attempt Status */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Status</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('attempted', '')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      filters.attempted === ''
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    All Tests
+                    {filterOptions?.attempt_status && (
+                      <span className="ml-1 opacity-70">
+                        ({filterOptions.attempt_status.attempted + filterOptions.attempt_status.not_attempted})
                       </span>
                     )}
-                  </div>
-                  <h3 className="text-lg font-semibold">{test.title}</h3>
-                </div>
-                {!hasAttempted && (
-                  test.is_free ? (
-                    <span className="badge-success">Free</span>
-                  ) : (
-                    <span className="badge-warning">Premium</span>
-                  )
-                )}
-              </div>
-
-              <p className="text-sm text-surface-500 mb-4">{test.description}</p>
-
-              <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                  <p className="text-lg font-bold">{test.questions_count}</p>
-                  <p className="text-xs text-surface-500">Questions</p>
-                </div>
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                  <p className="text-lg font-bold">{test.duration_minutes}m</p>
-                  <p className="text-xs text-surface-500">Duration</p>
-                </div>
-                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                  <p className="text-lg font-bold">{test.total_marks}</p>
-                  <p className="text-xs text-surface-500">Marks</p>
-                </div>
-              </div>
-
-              {hasAttempted ? (
-                <>
-                  <div className="text-sm text-surface-500 mb-3">
-                    <span>{attemptInfo.attempts_count} attempt{attemptInfo.attempts_count > 1 ? 's' : ''}</span>
-                    {attemptInfo.rank && <span> • Rank #{attemptInfo.rank}</span>}
-                    {attemptInfo.percentile && <span> • Top {Math.round(100 - attemptInfo.percentile)}%</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => navigate(`/mock-test/review/${attemptInfo.best_attempt_id}`)}
-                      className="btn-secondary flex-1"
-                    >
-                      View Result
-                    </button>
-                    <button
-                      onClick={() => handleStartTest(test.id)}
-                      className="btn-primary flex-1"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-surface-500">
-                    <span>{test.total_attempts} attempts</span>
-                    {test.average_score > 0 && (
-                      <span> • Avg: {Math.round(test.average_score)}%</span>
-                    )}
-                  </div>
+                  </button>
                   <button
-                    onClick={() => handleStartTest(test.id)}
-                    className="btn-primary"
+                    onClick={() => updateFilter('attempted', filters.attempted === 'true' ? '' : 'true')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      filters.attempted === 'true'
+                        ? 'bg-success-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
                   >
-                    Start Test
+                    <span>✅</span>
+                    Attempted
+                    {filterOptions?.attempt_status && (
+                      <span className="opacity-70">({filterOptions.attempt_status.attempted})</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => updateFilter('attempted', filters.attempted === 'false' ? '' : 'false')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      filters.attempted === 'false'
+                        ? 'bg-warning-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    <span>🆕</span>
+                    Not Attempted
+                    {filterOptions?.attempt_status && (
+                      <span className="opacity-70">({filterOptions.attempt_status.not_attempted})</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Exam Filter */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Exam</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('exam', '')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      filters.exam === ''
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    All Exams
+                  </button>
+                  {filterOptions?.exams?.map((exam) => (
+                    <button
+                      key={exam.id}
+                      onClick={() => updateFilter('exam', filters.exam === exam.id ? '' : exam.id)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        filters.exam === exam.id
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      }`}
+                    >
+                      {exam.short_name || exam.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price Filter */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Price</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('is_free', '')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      filters.is_free === ''
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => updateFilter('is_free', filters.is_free === 'true' ? '' : 'true')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      filters.is_free === 'true'
+                        ? 'bg-success-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    🆓 Free
+                  </button>
+                  <button
+                    onClick={() => updateFilter('is_free', filters.is_free === 'false' ? '' : 'false')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      filters.is_free === 'false'
+                        ? 'bg-warning-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                    }`}
+                  >
+                    ⭐ Premium
+                  </button>
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              {activeFilterCount > 0 && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-primary-500 hover:text-primary-600 font-medium"
+                  >
+                    Clear all filters
                   </button>
                 </div>
               )}
-            </motion.div>
-          )
-        })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Active Filters Summary (when filter panel is closed) */}
+      {!showFilters && activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-surface-500">Active filters:</span>
+          {filters.attempted === 'true' && (
+            <span className="badge badge-success flex items-center gap-1">
+              ✅ Attempted
+              <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.attempted === 'false' && (
+            <span className="badge badge-warning flex items-center gap-1">
+              🆕 Not Attempted
+              <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.exam && (
+            <span className="badge badge-primary flex items-center gap-1">
+              📚 {filterOptions?.exams?.find(e => e.id === filters.exam)?.name}
+              <button onClick={() => updateFilter('exam', '')} className="ml-1 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.is_free === 'true' && (
+            <span className="badge badge-success flex items-center gap-1">
+              🆓 Free
+              <button onClick={() => updateFilter('is_free', '')} className="ml-1 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.is_free === 'false' && (
+            <span className="badge badge-warning flex items-center gap-1">
+              ⭐ Premium
+              <button onClick={() => updateFilter('is_free', '')} className="ml-1 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.search && (
+            <span className="badge bg-surface-200 dark:bg-surface-700 flex items-center gap-1">
+              🔍 "{filters.search}"
+              <button onClick={() => updateFilter('search', '')} className="ml-1 hover:opacity-70">×</button>
+            </span>
+          )}
+          <button
+            onClick={clearFilters}
+            className="text-sm text-primary-500 hover:text-primary-600 font-medium ml-2"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Results Count */}
+      <div className="text-sm text-surface-500">
+        {isLoading ? 'Loading...' : `${tests.length} mock tests found`}
       </div>
+
+      {/* Mock Tests Grid */}
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {tests.map((test) => {
+            const attemptInfo = test.user_attempt_info
+            const hasAttempted = attemptInfo?.attempted
+            
+            return (
+              <motion.div
+                key={test.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`card p-5 ${hasAttempted ? 'ring-2 ring-primary-200 dark:ring-primary-800' : ''}`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="badge-primary">{test.exam_name}</span>
+                      {hasAttempted && (
+                        <span className={`badge ${
+                          attemptInfo.best_score >= 70 ? 'badge-success' :
+                          attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                        }`}>
+                          Best: {Math.round(attemptInfo.best_score)}%
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold">{test.title}</h3>
+                  </div>
+                  {!hasAttempted && (
+                    test.is_free ? (
+                      <span className="badge-success">Free</span>
+                    ) : (
+                      <span className="badge-warning">Premium</span>
+                    )
+                  )}
+                </div>
+
+                <p className="text-sm text-surface-500 mb-4">{test.description}</p>
+
+                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                  <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                    <p className="text-lg font-bold">{test.questions_count}</p>
+                    <p className="text-xs text-surface-500">Questions</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                    <p className="text-lg font-bold">{test.duration_minutes}m</p>
+                    <p className="text-xs text-surface-500">Duration</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                    <p className="text-lg font-bold">{test.total_marks}</p>
+                    <p className="text-xs text-surface-500">Marks</p>
+                  </div>
+                </div>
+
+                {hasAttempted ? (
+                  <>
+                    <div className="text-sm text-surface-500 mb-3">
+                      <span>{attemptInfo.attempts_count} attempt{attemptInfo.attempts_count > 1 ? 's' : ''}</span>
+                      {attemptInfo.rank && <span> • Rank #{attemptInfo.rank}</span>}
+                      {attemptInfo.percentile && <span> • Top {Math.round(100 - attemptInfo.percentile)}%</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => navigate(`/mock-test/review/${attemptInfo.best_attempt_id}`)}
+                        className="btn-secondary flex-1"
+                      >
+                        View Result
+                      </button>
+                      <button
+                        onClick={() => handleStartTest(test.id)}
+                        className="btn-primary flex-1"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-surface-500">
+                      <span>{test.total_attempts} attempts</span>
+                      {test.average_score > 0 && (
+                        <span> • Avg: {Math.round(test.average_score)}%</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleStartTest(test.id)}
+                      className="btn-primary"
+                    >
+                      Start Test
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && tests.length === 0 && (
+        <div className="text-center py-12">
+          <span className="text-4xl mb-4 block">🔍</span>
+          <p className="text-surface-500">No mock tests found matching your filters</p>
+          <button onClick={clearFilters} className="btn-primary mt-4">
+            Clear Filters
+          </button>
+        </div>
+      )}
 
       {/* Recent Attempts */}
       {recentAttempts?.length > 0 && (
@@ -197,17 +480,8 @@ const MockTest = () => {
           </div>
         </div>
       )}
-
-      {tests.length === 0 && (
-        <div className="text-center py-12">
-          <span className="text-4xl mb-4 block">📝</span>
-          <p className="text-surface-500">No mock tests available right now</p>
-          <p className="text-sm text-surface-400 mt-1">Check back later for new tests</p>
-        </div>
-      )}
     </div>
   )
 }
 
 export default MockTest
-

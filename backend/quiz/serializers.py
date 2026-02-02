@@ -4,7 +4,7 @@ Serializers for Quiz app.
 from rest_framework import serializers
 from .models import (
     Question, QuestionOption, Quiz, QuizQuestion,
-    MockTest, QuizAttempt, MockTestAttempt, Answer
+    MockTest, QuizAttempt, MockTestAttempt, Answer, QuestionReport
 )
 
 
@@ -282,4 +282,130 @@ class QuizSubmitSerializer(serializers.Serializer):
     """Serializer for submitting a complete quiz."""
     answers = AnswerSubmitSerializer(many=True)
     time_taken_seconds = serializers.IntegerField()
+
+
+class QuizAttemptReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer for detailed quiz attempt review.
+    Includes ALL questions (answered and unanswered).
+    """
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    all_questions = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id', 'quiz', 'quiz_title', 'started_at', 'completed_at',
+            'time_taken_seconds', 'status', 'total_questions',
+            'attempted_questions', 'correct_answers', 'wrong_answers',
+            'skipped_questions', 'marks_obtained', 'total_marks',
+            'percentage', 'xp_earned', 'all_questions'
+        ]
+    
+    def get_all_questions(self, obj):
+        """Get all questions with user's answers (including unanswered)."""
+        questions = obj.quiz.questions.all().order_by('id')
+        answers_map = {str(a.question_id): a for a in obj.answers.all()}
+        
+        result = []
+        for idx, question in enumerate(questions):
+            q_id = str(question.id)
+            answer = answers_map.get(q_id)
+            
+            # Serialize question with answer info
+            question_data = QuestionWithAnswerSerializer(question).data
+            
+            result.append({
+                'question_number': idx + 1,
+                'question': question_data,
+                'user_answer': {
+                    'selected_option': answer.selected_option if answer else None,
+                    'answer_text': answer.answer_text if answer else None,
+                    'numerical_answer': str(answer.numerical_answer) if answer and answer.numerical_answer else None,
+                    'is_correct': answer.is_correct if answer else None,
+                    'marks_obtained': float(answer.marks_obtained) if answer else 0,
+                    'time_taken_seconds': answer.time_taken_seconds if answer else 0,
+                    'is_marked_for_review': answer.is_marked_for_review if answer else False,
+                } if answer else None,
+                'status': 'correct' if (answer and answer.is_correct) else ('wrong' if answer else 'skipped')
+            })
+        
+        return result
+
+
+class MockTestAttemptReviewSerializer(serializers.ModelSerializer):
+    """
+    Serializer for detailed mock test attempt review.
+    Includes ALL questions (answered and unanswered).
+    """
+    mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
+    all_questions = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MockTestAttempt
+        fields = [
+            'id', 'mock_test', 'mock_test_title', 'started_at',
+            'completed_at', 'time_taken_seconds', 'status',
+            'total_questions', 'attempted_questions', 'correct_answers',
+            'wrong_answers', 'marks_obtained', 'percentage',
+            'section_results', 'rank', 'percentile', 'xp_earned',
+            'all_questions'
+        ]
+    
+    def get_all_questions(self, obj):
+        """Get all questions with user's answers (including unanswered)."""
+        questions = obj.mock_test.questions.all().order_by('id')
+        answers_map = {str(a.question_id): a for a in obj.answers.all()}
+        
+        result = []
+        for idx, question in enumerate(questions):
+            q_id = str(question.id)
+            answer = answers_map.get(q_id)
+            
+            # Serialize question with answer info
+            question_data = QuestionWithAnswerSerializer(question).data
+            
+            result.append({
+                'question_number': idx + 1,
+                'question': question_data,
+                'user_answer': {
+                    'selected_option': answer.selected_option if answer else None,
+                    'answer_text': answer.answer_text if answer else None,
+                    'numerical_answer': str(answer.numerical_answer) if answer and answer.numerical_answer else None,
+                    'is_correct': answer.is_correct if answer else None,
+                    'marks_obtained': float(answer.marks_obtained) if answer else 0,
+                    'time_taken_seconds': answer.time_taken_seconds if answer else 0,
+                    'is_marked_for_review': answer.is_marked_for_review if answer else False,
+                } if answer else None,
+                'status': 'correct' if (answer and answer.is_correct) else ('wrong' if answer else 'skipped')
+            })
+        
+        return result
+
+
+class QuestionReportSerializer(serializers.ModelSerializer):
+    """Serializer for question reports."""
+    reported_by_name = serializers.CharField(source='reported_by.user.full_name', read_only=True)
+    question_text = serializers.CharField(source='question.question_text', read_only=True)
+    
+    class Meta:
+        model = QuestionReport
+        fields = [
+            'id', 'question', 'question_text', 'reported_by', 'reported_by_name',
+            'report_type', 'description', 'status', 'admin_response',
+            'created_at', 'resolved_at'
+        ]
+        read_only_fields = ['id', 'reported_by', 'status', 'admin_response', 'resolved_at']
+
+
+class QuestionReportCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating question reports."""
+    
+    class Meta:
+        model = QuestionReport
+        fields = ['question', 'report_type', 'description']
+    
+    def create(self, validated_data):
+        validated_data['reported_by'] = self.context['request'].user.profile
+        return super().create(validated_data)
 

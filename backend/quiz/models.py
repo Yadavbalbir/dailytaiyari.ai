@@ -436,3 +436,56 @@ class Answer(TimeStampedModel):
         self.save()
         return self.is_correct
 
+
+class QuestionReport(TimeStampedModel):
+    """
+    Model for reporting problems with questions.
+    """
+    REPORT_TYPES = [
+        ('wrong_answer', 'Wrong Answer/Solution'),
+        ('unclear_question', 'Unclear Question'),
+        ('wrong_options', 'Wrong/Missing Options'),
+        ('formatting_issue', 'Formatting Issue'),
+        ('typo', 'Typo/Spelling Error'),
+        ('wrong_topic', 'Wrong Topic/Subject'),
+        ('duplicate', 'Duplicate Question'),
+        ('outdated', 'Outdated Information'),
+        ('other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('reviewing', 'Under Review'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+    ]
+    
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='reports')
+    reported_by = models.ForeignKey(
+        'users.StudentProfile',
+        on_delete=models.CASCADE,
+        related_name='question_reports'
+    )
+    
+    report_type = models.CharField(max_length=30, choices=REPORT_TYPES)
+    description = models.TextField()
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    admin_response = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_reports'
+    )
+    
+    class Meta:
+        verbose_name = 'Question Report'
+        verbose_name_plural = 'Question Reports'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Report on Q{self.question_id} by {self.reported_by}"
+
