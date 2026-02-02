@@ -35,6 +35,11 @@ const Dashboard = () => {
     queryFn: () => analyticsService.getWeakTopics(),
   })
 
+  const { data: dailyChallenge } = useQuery({
+    queryKey: ['dailyChallenge'],
+    queryFn: () => quizService.getDailyChallenge(),
+  })
+
   if (statsLoading) return <Loading fullScreen />
 
   const stats = dashboardStats || {
@@ -67,10 +72,12 @@ const Dashboard = () => {
         
         {/* Streak & Level */}
         <div className="flex items-center gap-4">
-          <StreakFire streak={stats.current_streak} size="md" />
+          {stats.current_streak > 0 && (
+            <StreakFire streak={stats.current_streak} size="md" />
+          )}
           <div className="text-center">
             <p className="text-sm text-surface-500">Level</p>
-            <p className="text-2xl font-bold gradient-text">{stats.profile.level}</p>
+            <p className="text-2xl font-bold gradient-text">{stats.profile?.level || 1}</p>
           </div>
         </div>
       </div>
@@ -129,21 +136,23 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <QuickActionButton
             title="Daily Challenge"
-            subtitle="5 questions • +50 XP"
+            subtitle={dailyChallenge 
+              ? `${dailyChallenge.questions_count} questions • +${dailyChallenge.total_marks * 5} XP`
+              : 'Take today\'s challenge'}
             icon="🎯"
             to="/quiz"
             variant="primary"
-            badge="NEW"
+            badge={dailyChallenge ? "NEW" : null}
           />
           <QuickActionButton
             title="Resume Study"
-            subtitle={studyPlan?.items?.[0]?.title || 'Continue where you left off'}
+            subtitle={studyPlan?.items?.[0]?.title || 'Start learning'}
             icon="📚"
             to="/study"
           />
           <QuickActionButton
             title="Mock Test"
-            subtitle="Full-length practice test"
+            subtitle="Practice with full tests"
             icon="📝"
             to="/mock-test"
           />
@@ -156,9 +165,7 @@ const Dashboard = () => {
           title="Weekly XP"
           value={stats.weekly.xp_earned?.toLocaleString() || 0}
           icon="⚡"
-          subtitle="Keep it up!"
-          trend="up"
-          trendValue="+12%"
+          subtitle={`${stats.weekly.days_active || 0} active days`}
         />
         <StatCard
           title="Questions Done"
@@ -171,14 +178,13 @@ const Dashboard = () => {
           value={`${Math.round(stats.weekly.accuracy || 0)}%`}
           icon="🎯"
           subtitle="Weekly average"
-          trend={stats.weekly.accuracy >= 70 ? 'up' : 'down'}
-          trendValue={stats.weekly.accuracy >= 70 ? 'Great!' : 'Improve'}
+          variant={stats.weekly.accuracy >= 70 ? 'success' : stats.weekly.accuracy >= 50 ? 'warning' : 'default'}
         />
         <StatCard
           title="Topics Mastered"
           value={stats.mastery.mastered || 0}
           icon="👑"
-          subtitle={`of ${stats.mastery.total_topics} topics`}
+          subtitle={`of ${stats.mastery.total_topics || 0} topics`}
         />
       </div>
 

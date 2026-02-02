@@ -39,13 +39,14 @@ const Analytics = () => {
 
   const COLORS = ['#f97316', '#d946ef', '#10b981', '#3b82f6', '#f59e0b']
 
-  // Mastery distribution data for pie chart
+  // Mastery distribution data for pie chart - using actual data from API
+  const distribution = stats?.mastery?.distribution || {}
   const masteryData = [
-    { name: 'Master', value: stats?.mastery?.mastered || 0, color: '#a855f7' },
-    { name: 'Expert', value: 3, color: '#10b981' },
-    { name: 'Proficient', value: 5, color: '#f59e0b' },
-    { name: 'Developing', value: stats?.mastery?.weak || 0, color: '#f97316' },
-    { name: 'Beginner', value: 2, color: '#ef4444' },
+    { name: 'Master', value: distribution.master || 0, color: '#a855f7' },
+    { name: 'Expert', value: distribution.expert || 0, color: '#10b981' },
+    { name: 'Proficient', value: distribution.proficient || 0, color: '#f59e0b' },
+    { name: 'Developing', value: distribution.developing || 0, color: '#f97316' },
+    { name: 'Beginner', value: distribution.beginner || 0, color: '#ef4444' },
   ]
 
   return (
@@ -108,7 +109,15 @@ const Analytics = () => {
           <h3 className="font-semibold mb-4">Accuracy Trend</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData || []}>
+              <AreaChart data={
+                // Transform API response to chart format
+                (chartData?.labels || []).map((label, i) => ({
+                  label,
+                  accuracy: chartData?.accuracy?.[i] || 0,
+                  questions: chartData?.questions?.[i] || 0,
+                  study_time: chartData?.study_time?.[i] || 0,
+                }))
+              }>
                 <defs>
                   <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
@@ -116,7 +125,7 @@ const Analytics = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="labels" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                 <Tooltip 
                   contentStyle={{ 
@@ -143,9 +152,14 @@ const Analytics = () => {
           <h3 className="font-semibold mb-4">Questions Per Day</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData || []}>
+              <BarChart data={
+                (chartData?.labels || []).map((label, i) => ({
+                  label,
+                  questions: chartData?.questions?.[i] || 0,
+                }))
+              }>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="labels" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
                   contentStyle={{ 

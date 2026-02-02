@@ -1,14 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../../context/authStore'
 import { useAppStore } from '../../context/appStore'
+import { analyticsService } from '../../services/analyticsService'
 
 const Header = () => {
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
   const { sidebarOpen, toggleSidebar, toggleMobileMenu, darkMode, toggleDarkMode } = useAppStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  // Fetch current streak
+  const { data: streakData } = useQuery({
+    queryKey: ['currentStreak'],
+    queryFn: () => analyticsService.getCurrentStreak(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
 
   return (
     <header className="sticky top-0 z-30 bg-white/80 dark:bg-surface-900/80 backdrop-blur-lg border-b border-surface-200 dark:border-surface-800">
@@ -60,10 +69,14 @@ const Header = () => {
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
           {/* Streak Indicator */}
-          <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-900/30">
-            <span className="text-lg">🔥</span>
-            <span className="font-semibold text-primary-600 dark:text-primary-400">7</span>
-          </div>
+          {(streakData?.current_streak > 0) && (
+            <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-900/30">
+              <span className="text-lg">🔥</span>
+              <span className="font-semibold text-primary-600 dark:text-primary-400">
+                {streakData?.current_streak || 0}
+              </span>
+            </div>
+          )}
 
           {/* XP */}
           <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent-50 dark:bg-accent-900/30">
@@ -95,9 +108,8 @@ const Header = () => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary-500 rounded-full text-[10px] text-white flex items-center justify-center">
-              3
-            </span>
+            {/* Notification badge - shows when there are unread notifications */}
+            {/* TODO: Connect to notifications API when available */}
           </button>
 
           {/* User Menu */}

@@ -53,13 +53,15 @@ const Sidebar = () => {
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
               <span className="text-surface-600 dark:text-surface-400">XP Progress</span>
-              <span className="font-medium">{profile.total_xp?.toLocaleString()} XP</span>
+              <span className="font-medium">{(profile.total_xp || 0).toLocaleString()} XP</span>
             </div>
             <div className="progress-bar">
               <div 
                 className="progress-bar-fill bg-gradient-to-r from-primary-500 to-accent-500"
                 style={{ 
-                  width: `${Math.max(5, 100 - (profile.xp_for_next_level / (profile.current_level * 150) * 100))}%` 
+                  width: profile.total_xp > 0 
+                    ? `${Math.max(5, 100 - ((profile.xp_for_next_level || 100) / ((profile.current_level || 1) * 150) * 100))}%`
+                    : '0%'
                 }}
               />
             </div>

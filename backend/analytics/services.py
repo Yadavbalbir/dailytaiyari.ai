@@ -155,7 +155,12 @@ class AnalyticsService:
         mastery_summary = TopicMastery.objects.filter(student=student).aggregate(
             total_topics=Count('id'),
             mastered_topics=Count('id', filter=Q(mastery_level__gte=4)),
-            weak_topics=Count('id', filter=Q(mastery_level__lte=2))
+            weak_topics=Count('id', filter=Q(mastery_level__lte=2)),
+            level_1=Count('id', filter=Q(mastery_level=1)),
+            level_2=Count('id', filter=Q(mastery_level=2)),
+            level_3=Count('id', filter=Q(mastery_level=3)),
+            level_4=Count('id', filter=Q(mastery_level=4)),
+            level_5=Count('id', filter=Q(mastery_level=5)),
         )
         
         # Get weak topics for revision
@@ -188,6 +193,13 @@ class AnalyticsService:
                 'total_topics': mastery_summary['total_topics'] or 0,
                 'mastered': mastery_summary['mastered_topics'] or 0,
                 'weak': mastery_summary['weak_topics'] or 0,
+                'distribution': {
+                    'beginner': mastery_summary['level_1'] or 0,
+                    'developing': mastery_summary['level_2'] or 0,
+                    'proficient': mastery_summary['level_3'] or 0,
+                    'expert': mastery_summary['level_4'] or 0,
+                    'master': mastery_summary['level_5'] or 0,
+                },
                 'weak_topics': [
                     {'id': str(tm.topic.id), 'name': tm.topic.name, 'level': tm.mastery_level}
                     for tm in weak_topics
