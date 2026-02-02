@@ -90,14 +90,57 @@ class ContentProgressViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
-        """Mark content as completed."""
+        """Mark content as completed and award XP."""
+        from gamification.services import GamificationService
+        from analytics.services import AnalyticsService
+        
         progress = self.get_object()
+        student = request.user.profile
+        
+        # Check if already completed (don't award XP twice)
+        if progress.is_completed:
+            return Response(ContentProgressSerializer(progress).data)
+        
         progress.is_completed = True
         progress.completed_at = timezone.now()
         progress.progress_percentage = 100
         progress.save()
         
-        return Response(ContentProgressSerializer(progress).data)
+        # Calculate XP based on content type
+        content = progress.content
+        xp_amount = 10  # Base XP for notes
+        if content.content_type == 'video':
+            xp_amount = 15
+        elif content.content_type == 'pdf':
+            xp_amount = 12
+        
+        # Award XP
+        GamificationService.award_xp(
+            student,
+            xp_amount,
+            'content_complete',
+            f'Completed: {content.title}',
+            str(content.id)
+        )
+        
+        # Update daily activity
+        study_minutes = progress.time_spent_minutes or content.estimated_time_minutes or 5
+        AnalyticsService.update_daily_activity(
+            student,
+            study_time_minutes=study_minutes,
+            notes_read=1 if content.content_type in ['notes', 'pdf'] else 0,
+            videos_watched=1 if content.content_type == 'video' else 0,
+            xp_earned=xp_amount
+        )
+        
+        # Update profile study time
+        student.total_study_time_minutes += study_minutes
+        student.save(update_fields=['total_study_time_minutes'])
+        
+        response_data = ContentProgressSerializer(progress).data
+        response_data['xp_earned'] = xp_amount
+        
+        return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def toggle_bookmark(self, request, pk=None):

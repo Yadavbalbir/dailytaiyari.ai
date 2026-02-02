@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
 import Confetti from 'react-confetti'
@@ -10,6 +11,8 @@ import Confetti from 'react-confetti'
 const QuizAttempt = () => {
   const { quizId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { fetchProfile } = useAuthStore()
   
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -75,6 +78,18 @@ const QuizAttempt = () => {
       })
       
       setResult(response)
+      
+      // Invalidate caches to refresh dashboard and analytics
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
+      queryClient.invalidateQueries({ queryKey: ['recentAttempts'] })
+      queryClient.invalidateQueries({ queryKey: ['topicMastery'] })
+      queryClient.invalidateQueries({ queryKey: ['weakTopics'] })
+      queryClient.invalidateQueries({ queryKey: ['strongTopics'] })
+      queryClient.invalidateQueries({ queryKey: ['chartData'] })
+      queryClient.invalidateQueries({ queryKey: ['currentStreak'] })
+      
+      // Refresh user profile to get updated XP
+      fetchProfile()
       
       if (response.percentage >= 70) {
         setShowConfetti(true)

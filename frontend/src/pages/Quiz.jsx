@@ -54,8 +54,7 @@ const Quiz = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card p-6 bg-gradient-to-r from-primary-500 to-accent-500 text-white cursor-pointer"
-          onClick={() => handleStartQuiz(dailyChallenge.id)}
+          className="card p-6 bg-gradient-to-r from-primary-500 to-accent-500 text-white"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -66,15 +65,33 @@ const Quiz = () => {
                 <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium">
                   +{dailyChallenge.total_marks * 5} XP
                 </span>
+                {dailyChallenge.user_attempt_info?.attempted && (
+                  <span className="px-2 py-0.5 bg-white/30 rounded-full text-xs font-medium">
+                    ✅ Best: {Math.round(dailyChallenge.user_attempt_info.best_score)}%
+                  </span>
+                )}
               </div>
               <h2 className="text-xl font-semibold">{dailyChallenge.title}</h2>
               <p className="text-white/80 mt-1">
                 {dailyChallenge.questions_count} questions • {dailyChallenge.duration_minutes} minutes
               </p>
             </div>
-            <button className="btn bg-white text-primary-600 hover:bg-white/90">
-              Start Now
-            </button>
+            <div className="flex gap-2">
+              {dailyChallenge.user_attempt_info?.attempted && (
+                <button 
+                  onClick={() => navigate(`/quiz/review/${dailyChallenge.user_attempt_info.best_attempt_id}`)}
+                  className="btn bg-white/20 text-white hover:bg-white/30"
+                >
+                  View Result
+                </button>
+              )}
+              <button 
+                onClick={() => handleStartQuiz(dailyChallenge.id)}
+                className="btn bg-white text-primary-600 hover:bg-white/90"
+              >
+                {dailyChallenge.user_attempt_info?.attempted ? 'Retry' : 'Start Now'}
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
@@ -101,55 +118,101 @@ const Quiz = () => {
         <Loading />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(quizzes?.results || quizzes || []).map((quiz) => (
-            <motion.div
-              key={quiz.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ scale: 1.02 }}
-              className="card p-5 cursor-pointer"
-              onClick={() => handleStartQuiz(quiz.id)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">
-                    {quiz.quiz_type === 'topic' ? '📖' : 
-                     quiz.quiz_type === 'subject' ? '📚' :
-                     quiz.quiz_type === 'pyq' ? '📜' : '✍️'}
-                  </span>
-                  <span className={`badge ${
-                    quiz.quiz_type === 'daily' ? 'badge-primary' :
-                    quiz.quiz_type === 'pyq' ? 'badge-warning' : 'badge-success'
-                  }`}>
-                    {quiz.quiz_type}
-                  </span>
+          {(quizzes?.results || quizzes || []).map((quiz) => {
+            const attemptInfo = quiz.user_attempt_info
+            const hasAttempted = attemptInfo?.attempted
+            
+            return (
+              <motion.div
+                key={quiz.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.02 }}
+                className={`card p-5 ${hasAttempted ? 'ring-2 ring-primary-200 dark:ring-primary-800' : ''}`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">
+                      {quiz.quiz_type === 'topic' ? '📖' : 
+                       quiz.quiz_type === 'subject' ? '📚' :
+                       quiz.quiz_type === 'pyq' ? '📜' : '✍️'}
+                    </span>
+                    <span className={`badge ${
+                      quiz.quiz_type === 'daily' ? 'badge-primary' :
+                      quiz.quiz_type === 'pyq' ? 'badge-warning' : 'badge-success'
+                    }`}>
+                      {quiz.quiz_type}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasAttempted && (
+                      <span className={`badge ${
+                        attemptInfo.best_score >= 70 ? 'badge-success' :
+                        attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                      }`}>
+                        Best: {Math.round(attemptInfo.best_score)}%
+                      </span>
+                    )}
+                    {quiz.is_free && !hasAttempted && (
+                      <span className="badge-success">Free</span>
+                    )}
+                  </div>
                 </div>
-                {quiz.is_free && (
-                  <span className="badge-success">Free</span>
+
+                <h3 className="font-semibold mb-2 line-clamp-2">{quiz.title}</h3>
+                
+                <div className="flex items-center gap-4 text-sm text-surface-500 mb-4">
+                  <span>{quiz.questions_count} Qs</span>
+                  <span>•</span>
+                  <span>{quiz.duration_minutes} min</span>
+                  <span>•</span>
+                  <span>{quiz.total_marks} marks</span>
+                  {hasAttempted && (
+                    <>
+                      <span>•</span>
+                      <span className="text-primary-500">{attemptInfo.attempts_count} attempt{attemptInfo.attempts_count > 1 ? 's' : ''}</span>
+                    </>
+                  )}
+                </div>
+
+                {hasAttempted ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/quiz/review/${attemptInfo.best_attempt_id}`)
+                      }}
+                      className="btn-secondary text-sm px-4 py-2 flex-1"
+                    >
+                      View Result
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleStartQuiz(quiz.id)
+                      }}
+                      className="btn-primary text-sm px-4 py-2 flex-1"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="text-surface-500">Avg Score: </span>
+                      <span className="font-medium">{Math.round(quiz.average_score || 0)}%</span>
+                    </div>
+                    <button 
+                      onClick={() => handleStartQuiz(quiz.id)}
+                      className="btn-primary text-sm px-4 py-2"
+                    >
+                      Start Quiz
+                    </button>
+                  </div>
                 )}
-              </div>
-
-              <h3 className="font-semibold mb-2 line-clamp-2">{quiz.title}</h3>
-              
-              <div className="flex items-center gap-4 text-sm text-surface-500 mb-4">
-                <span>{quiz.questions_count} Qs</span>
-                <span>•</span>
-                <span>{quiz.duration_minutes} min</span>
-                <span>•</span>
-                <span>{quiz.total_marks} marks</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <span className="text-surface-500">Avg Score: </span>
-                  <span className="font-medium">{Math.round(quiz.average_score || 0)}%</span>
-                </div>
-                <button className="btn-primary text-sm px-4 py-2">
-                  Start Quiz
-                </button>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            )
+          })}
         </div>
       )}
 
@@ -169,16 +232,32 @@ const Quiz = () => {
                     {new Date(attempt.completed_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className={`font-bold ${
-                    attempt.percentage >= 70 ? 'text-success-500' :
-                    attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
-                  }`}>
-                    {Math.round(attempt.percentage)}%
-                  </p>
-                  <p className="text-sm text-surface-500">
-                    {attempt.correct_answers}/{attempt.total_questions}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className={`font-bold ${
+                      attempt.percentage >= 70 ? 'text-success-500' :
+                      attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                    }`}>
+                      {Math.round(attempt.percentage)}%
+                    </p>
+                    <p className="text-sm text-surface-500">
+                      {attempt.correct_answers}/{attempt.total_questions}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/quiz/review/${attempt.id}`)}
+                      className="btn-secondary text-xs px-3 py-1.5"
+                    >
+                      View Result
+                    </button>
+                    <button
+                      onClick={() => handleStartQuiz(attempt.quiz)}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

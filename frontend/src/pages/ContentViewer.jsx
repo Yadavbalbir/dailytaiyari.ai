@@ -17,9 +17,15 @@ const ContentViewer = () => {
 
   const markCompleteMutation = useMutation({
     mutationFn: () => contentService.markComplete(contentId),
-    onSuccess: () => {
-      toast.success('Content marked as complete! +10 XP')
+    onSuccess: (data) => {
+      const xpEarned = data?.xp_earned || 0
+      if (xpEarned > 0) {
+        toast.success(`Content marked as complete! +${xpEarned} XP`)
+      } else {
+        toast.success('Content marked as complete!')
+      }
       queryClient.invalidateQueries(['content', contentId])
+      queryClient.invalidateQueries(['dashboardStats'])
     },
   })
 

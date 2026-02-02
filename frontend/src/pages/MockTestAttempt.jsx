@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
 
 const MockTestAttempt = () => {
   const { testId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { fetchProfile } = useAuthStore()
   
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -71,6 +74,17 @@ const MockTestAttempt = () => {
         time_taken_seconds: test.duration_minutes * 60 - timeLeft,
       })
       setResult(response)
+      
+      // Invalidate caches to refresh dashboard and analytics
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
+      queryClient.invalidateQueries({ queryKey: ['topicMastery'] })
+      queryClient.invalidateQueries({ queryKey: ['weakTopics'] })
+      queryClient.invalidateQueries({ queryKey: ['strongTopics'] })
+      queryClient.invalidateQueries({ queryKey: ['chartData'] })
+      queryClient.invalidateQueries({ queryKey: ['currentStreak'] })
+      
+      // Refresh user profile to get updated XP
+      fetchProfile()
     } catch (error) {
       toast.error('Failed to submit test')
     } finally {

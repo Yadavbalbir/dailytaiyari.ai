@@ -52,9 +52,10 @@ class StudentBadgeViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['post'])
     def check_new(self, request):
-        """Check for newly earned badges."""
+        """Check for newly earned badges (passive badges only - no context-dependent badges)."""
         student = request.user.profile
-        new_badges = GamificationService.check_and_award_badges(student)
+        # Pass empty context - only awards badges that don't require context
+        new_badges = GamificationService.check_and_award_badges(student, context={})
         
         return Response({
             'new_badges': BadgeSerializer(new_badges, many=True).data,
@@ -106,21 +107,18 @@ class LeaderboardView(APIView):
             from exams.models import Exam
             exam = Exam.objects.filter(id=exam_id).first()
         
-        # Get leaderboard entries
+        # Get leaderboard entries (now returns list of dicts)
         entries = GamificationService.get_leaderboard(period, exam, limit)
         
         # Get user's rank
         student = request.user.profile
         user_rank = GamificationService.get_student_rank(student, period, exam)
         
-        # Total participants
-        total = LeaderboardEntry.objects.filter(
-            period=period,
-            exam=exam
-        ).count()
+        # Total participants is the number of entries with activity
+        total = len(entries)
         
         return Response({
-            'entries': LeaderboardEntrySerializer(entries, many=True).data,
+            'entries': entries,  # Already in dict format
             'user_rank': user_rank,
             'total_participants': total
         })

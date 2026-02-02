@@ -12,6 +12,11 @@ const MockTest = () => {
     queryFn: () => quizService.getMockTests(),
   })
 
+  const { data: recentAttempts } = useQuery({
+    queryKey: ['recentMockAttempts'],
+    queryFn: () => quizService.getMockAttempts(),
+  })
+
   const handleStartTest = async (testId) => {
     try {
       await quizService.startMockTest(testId)
@@ -49,59 +54,149 @@ const MockTest = () => {
 
       {/* Mock Tests Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {tests.map((test) => (
-          <motion.div
-            key={test.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="card p-5"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <span className="badge-primary mb-2">{test.exam_name}</span>
-                <h3 className="text-lg font-semibold">{test.title}</h3>
-              </div>
-              {test.is_free ? (
-                <span className="badge-success">Free</span>
-              ) : (
-                <span className="badge-warning">Premium</span>
-              )}
-            </div>
-
-            <p className="text-sm text-surface-500 mb-4">{test.description}</p>
-
-            <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-              <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                <p className="text-lg font-bold">{test.questions_count}</p>
-                <p className="text-xs text-surface-500">Questions</p>
-              </div>
-              <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                <p className="text-lg font-bold">{test.duration_minutes}m</p>
-                <p className="text-xs text-surface-500">Duration</p>
-              </div>
-              <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
-                <p className="text-lg font-bold">{test.total_marks}</p>
-                <p className="text-xs text-surface-500">Marks</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-surface-500">
-                <span>{test.total_attempts} attempts</span>
-                {test.average_score > 0 && (
-                  <span> • Avg: {Math.round(test.average_score)}%</span>
+        {tests.map((test) => {
+          const attemptInfo = test.user_attempt_info
+          const hasAttempted = attemptInfo?.attempted
+          
+          return (
+            <motion.div
+              key={test.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`card p-5 ${hasAttempted ? 'ring-2 ring-primary-200 dark:ring-primary-800' : ''}`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="badge-primary">{test.exam_name}</span>
+                    {hasAttempted && (
+                      <span className={`badge ${
+                        attemptInfo.best_score >= 70 ? 'badge-success' :
+                        attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                      }`}>
+                        Best: {Math.round(attemptInfo.best_score)}%
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold">{test.title}</h3>
+                </div>
+                {!hasAttempted && (
+                  test.is_free ? (
+                    <span className="badge-success">Free</span>
+                  ) : (
+                    <span className="badge-warning">Premium</span>
+                  )
                 )}
               </div>
-              <button
-                onClick={() => handleStartTest(test.id)}
-                className="btn-primary"
-              >
-                Start Test
-              </button>
-            </div>
-          </motion.div>
-        ))}
+
+              <p className="text-sm text-surface-500 mb-4">{test.description}</p>
+
+              <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                  <p className="text-lg font-bold">{test.questions_count}</p>
+                  <p className="text-xs text-surface-500">Questions</p>
+                </div>
+                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                  <p className="text-lg font-bold">{test.duration_minutes}m</p>
+                  <p className="text-xs text-surface-500">Duration</p>
+                </div>
+                <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                  <p className="text-lg font-bold">{test.total_marks}</p>
+                  <p className="text-xs text-surface-500">Marks</p>
+                </div>
+              </div>
+
+              {hasAttempted ? (
+                <>
+                  <div className="text-sm text-surface-500 mb-3">
+                    <span>{attemptInfo.attempts_count} attempt{attemptInfo.attempts_count > 1 ? 's' : ''}</span>
+                    {attemptInfo.rank && <span> • Rank #{attemptInfo.rank}</span>}
+                    {attemptInfo.percentile && <span> • Top {Math.round(100 - attemptInfo.percentile)}%</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(`/mock-test/review/${attemptInfo.best_attempt_id}`)}
+                      className="btn-secondary flex-1"
+                    >
+                      View Result
+                    </button>
+                    <button
+                      onClick={() => handleStartTest(test.id)}
+                      className="btn-primary flex-1"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-surface-500">
+                    <span>{test.total_attempts} attempts</span>
+                    {test.average_score > 0 && (
+                      <span> • Avg: {Math.round(test.average_score)}%</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleStartTest(test.id)}
+                    className="btn-primary"
+                  >
+                    Start Test
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          )
+        })}
       </div>
+
+      {/* Recent Attempts */}
+      {recentAttempts?.length > 0 && (
+        <div className="card p-5">
+          <h3 className="font-semibold mb-4">Recent Attempts</h3>
+          <div className="space-y-3">
+            {recentAttempts.slice(0, 5).map((attempt) => (
+              <div
+                key={attempt.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-surface-50 dark:bg-surface-800"
+              >
+                <div>
+                  <p className="font-medium">{attempt.mock_test_title}</p>
+                  <p className="text-sm text-surface-500">
+                    {attempt.completed_at ? new Date(attempt.completed_at).toLocaleDateString() : 'In Progress'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className={`font-bold ${
+                      attempt.percentage >= 70 ? 'text-success-500' :
+                      attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                    }`}>
+                      {Math.round(attempt.percentage || 0)}%
+                    </p>
+                    <p className="text-sm text-surface-500">
+                      {attempt.correct_answers}/{attempt.total_questions}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(`/mock-test/review/${attempt.id}`)}
+                      className="btn-secondary text-xs px-3 py-1.5"
+                    >
+                      View Result
+                    </button>
+                    <button
+                      onClick={() => handleStartTest(attempt.mock_test)}
+                      className="btn-primary text-xs px-3 py-1.5"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {tests.length === 0 && (
         <div className="text-center py-12">

@@ -17,10 +17,13 @@ from .serializers import (
     QuestionSerializer, QuestionWithAnswerSerializer,
     QuizSerializer, QuizDetailSerializer,
     MockTestSerializer, MockTestDetailSerializer,
-    QuizAttemptSerializer, MockTestAttemptSerializer,
+    QuizAttemptSerializer, QuizAttemptSummarySerializer,
+    MockTestAttemptSerializer, MockTestAttemptSummarySerializer,
     AnswerSubmitSerializer, QuizStartSerializer, QuizSubmitSerializer
 )
 from core.utils import calculate_xp_for_quiz
+from analytics.services import AnalyticsService
+from gamification.services import GamificationService
 
 
 class QuizSubmitThrottle(UserRateThrottle):
@@ -96,6 +99,19 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
             )
         
         return Response(QuizDetailSerializer(quiz).data)
+
+    @action(detail=True, methods=['get'])
+    def my_attempts(self, request, pk=None):
+        """Get all attempts for this quiz by the current user."""
+        quiz = self.get_object()
+        student = request.user.profile
+        
+        attempts = QuizAttempt.objects.filter(
+            student=student,
+            quiz=quiz
+        ).order_by('-started_at')
+        
+        return Response(QuizAttemptSummarySerializer(attempts, many=True).data)
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
@@ -203,7 +219,46 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
         # Update student profile
         student.total_questions_attempted += attempt.attempted_questions
         student.total_correct_answers += attempt.correct_answers
-        student.add_xp(xp)
+        student.save()
+        
+        # Award XP through gamification service (creates XP transaction)
+        GamificationService.award_xp(
+            student,
+            xp,
+            'quiz_complete',
+            f'Completed quiz: {quiz.title}',
+            str(attempt.id)
+        )
+        
+        # Update daily activity (convert time_taken_seconds to minutes)
+        study_minutes = max(1, attempt.time_taken_seconds // 60)  # At least 1 minute
+        AnalyticsService.update_daily_activity(
+            student,
+            study_time_minutes=study_minutes,
+            questions_attempted=attempt.attempted_questions,
+            questions_correct=attempt.correct_answers,
+            quizzes_completed=1,
+            xp_earned=xp
+        )
+        
+        # Also update profile study time
+        student.total_study_time_minutes += study_minutes
+        student.save(update_fields=['total_study_time_minutes'])
+        
+        # Update topic mastery
+        AnalyticsService.update_topic_mastery_from_attempt(attempt)
+        
+        # Build badge context for accurate badge awarding
+        badge_context = {
+            'perfect_quiz': attempt.percentage == 100,
+            'speed_quiz': attempt.time_taken_seconds < (quiz.duration_minutes * 60 / 2) if quiz.duration_minutes > 0 else False,
+            'early_study': timezone.now().hour < 6,
+            'night_study': timezone.now().hour >= 22,
+            'weekend_study': timezone.now().weekday() >= 5,
+        }
+        
+        # Check for new badges with context
+        GamificationService.check_and_award_badges(student, context=badge_context)
         
         # Update quiz statistics
         quiz.total_attempts += 1
@@ -226,6 +281,19 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve':
             return MockTestDetailSerializer
         return MockTestSerializer
+
+    @action(detail=True, methods=['get'])
+    def my_attempts(self, request, pk=None):
+        """Get all attempts for this mock test by the current user."""
+        mock_test = self.get_object()
+        student = request.user.profile
+        
+        attempts = MockTestAttempt.objects.filter(
+            student=student,
+            mock_test=mock_test
+        ).order_by('-started_at')
+        
+        return Response(MockTestAttemptSummarySerializer(attempts, many=True).data)
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
@@ -309,6 +377,57 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         attempt.time_taken_seconds = serializer.validated_data['time_taken_seconds']
         attempt.save()
         
+        # Calculate XP for mock test
+        xp = calculate_xp_for_quiz(
+            attempt.percentage,
+            attempt.total_questions,
+            is_daily_challenge=False
+        ) * 2  # Double XP for mock tests
+        
+        # Update student profile
+        student.total_questions_attempted += attempt.attempted_questions
+        student.total_correct_answers += attempt.correct_answers
+        student.save()
+        
+        # Award XP through gamification service
+        GamificationService.award_xp(
+            student,
+            xp,
+            'mock_test',
+            f'Completed mock test: {mock_test.title}',
+            str(attempt.id)
+        )
+        
+        # Update daily activity (convert time_taken_seconds to minutes)
+        study_minutes = max(1, attempt.time_taken_seconds // 60)  # At least 1 minute
+        AnalyticsService.update_daily_activity(
+            student,
+            study_time_minutes=study_minutes,
+            questions_attempted=attempt.attempted_questions,
+            questions_correct=attempt.correct_answers,
+            mock_tests_completed=1,
+            xp_earned=xp
+        )
+        
+        # Also update profile study time
+        student.total_study_time_minutes += study_minutes
+        student.save(update_fields=['total_study_time_minutes'])
+        
+        # Update topic mastery and subject performance
+        AnalyticsService.update_mock_test_analytics(attempt)
+        
+        # Build badge context for accurate badge awarding
+        badge_context = {
+            'perfect_quiz': attempt.percentage == 100,
+            'speed_quiz': attempt.time_taken_seconds < (mock_test.duration_minutes * 60 / 2) if mock_test.duration_minutes > 0 else False,
+            'early_study': timezone.now().hour < 6,
+            'night_study': timezone.now().hour >= 22,
+            'weekend_study': timezone.now().weekday() >= 5,
+        }
+        
+        # Check for new badges with context
+        GamificationService.check_and_award_badges(student, context=badge_context)
+        
         # Update mock test stats
         mock_test.total_attempts += 1
         if attempt.marks_obtained > mock_test.highest_score:
@@ -322,7 +441,7 @@ class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for viewing quiz attempts.
     """
-    serializer_class = QuizAttemptSerializer
+    serializer_class = QuizAttemptSummarySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
@@ -330,22 +449,74 @@ class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
             student=self.request.user.profile
         ).order_by('-started_at')
 
+    def retrieve(self, request, *args, **kwargs):
+        """Get attempt with full answers for review."""
+        instance = self.get_object()
+        # Only show answers if attempt is completed
+        if instance.status == 'completed':
+            serializer = QuizAttemptSerializer(instance)
+        else:
+            serializer = QuizAttemptSummarySerializer(instance)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def recent(self, request):
         """Get recent quiz attempts."""
-        attempts = self.get_queryset()[:10]
-        return Response(QuizAttemptSerializer(attempts, many=True).data)
+        attempts = self.get_queryset().filter(status='completed')[:10]
+        return Response(QuizAttemptSummarySerializer(attempts, many=True).data)
+
+    @action(detail=True, methods=['get'])
+    def review(self, request, pk=None):
+        """Get detailed review with answers and correct options."""
+        attempt = self.get_object()
+        
+        if attempt.status != 'completed':
+            return Response(
+                {'error': 'Can only review completed attempts'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response(QuizAttemptSerializer(attempt).data)
 
 
 class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for viewing mock test attempts.
     """
-    serializer_class = MockTestAttemptSerializer
+    serializer_class = MockTestAttemptSummarySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return MockTestAttempt.objects.filter(
             student=self.request.user.profile
         ).order_by('-started_at')
+
+    def retrieve(self, request, *args, **kwargs):
+        """Get attempt with full answers for review."""
+        instance = self.get_object()
+        # Only show answers if attempt is completed
+        if instance.status == 'completed':
+            serializer = MockTestAttemptSerializer(instance)
+        else:
+            serializer = MockTestAttemptSummarySerializer(instance)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """Get recent mock test attempts."""
+        attempts = self.get_queryset().filter(status='completed')[:10]
+        return Response(MockTestAttemptSummarySerializer(attempts, many=True).data)
+
+    @action(detail=True, methods=['get'])
+    def review(self, request, pk=None):
+        """Get detailed review with answers and correct options."""
+        attempt = self.get_object()
+        
+        if attempt.status != 'completed':
+            return Response(
+                {'error': 'Can only review completed attempts'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response(MockTestAttemptSerializer(attempt).data)
 

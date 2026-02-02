@@ -209,7 +209,10 @@ class AnalyticsService:
                 'total_xp': student.total_xp,
                 'level': student.current_level,
                 'xp_for_next_level': student.xp_for_next_level,
-                'overall_accuracy': student.overall_accuracy
+                'overall_accuracy': student.overall_accuracy,
+                'total_questions': student.total_questions_attempted,
+                'total_correct': student.total_correct_answers,
+                'total_study_time': student.total_study_time_minutes
             }
         }
     

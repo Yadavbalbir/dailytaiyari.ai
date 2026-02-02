@@ -51,6 +51,18 @@ export const quizService = {
     return response.data
   },
 
+  // Get my attempts for a specific quiz
+  getQuizAttempts: async (quizId) => {
+    const response = await api.get(`/quiz/quizzes/${quizId}/my_attempts/`)
+    return response.data
+  },
+
+  // Get attempt review (with answers and correct options)
+  getAttemptReview: async (attemptId) => {
+    const response = await api.get(`/quiz/attempts/${attemptId}/review/`)
+    return response.data
+  },
+
   // Mock Tests
   getMockTests: async (params = {}) => {
     const response = await api.get('/quiz/mock-tests/', { params })
@@ -69,6 +81,30 @@ export const quizService = {
 
   submitMockTest: async (testId, data) => {
     const response = await api.post(`/quiz/mock-tests/${testId}/submit/`, data)
+    return response.data
+  },
+
+  // Get my attempts for a specific mock test
+  getMockTestAttempts: async (testId) => {
+    const response = await api.get(`/quiz/mock-tests/${testId}/my_attempts/`)
+    return response.data
+  },
+
+  // Get mock test attempts
+  getMockAttempts: async () => {
+    const response = await api.get('/quiz/mock-attempts/')
+    return response.data
+  },
+
+  // Get mock attempt details
+  getMockAttemptDetails: async (attemptId) => {
+    const response = await api.get(`/quiz/mock-attempts/${attemptId}/`)
+    return response.data
+  },
+
+  // Get mock attempt review (with answers and correct options)
+  getMockAttemptReview: async (attemptId) => {
+    const response = await api.get(`/quiz/mock-attempts/${attemptId}/review/`)
     return response.data
   },
 

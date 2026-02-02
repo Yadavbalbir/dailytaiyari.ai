@@ -59,6 +59,7 @@ class QuizSerializer(serializers.ModelSerializer):
     exam_name = serializers.CharField(source='exam.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     topic_name = serializers.CharField(source='topic.name', read_only=True)
+    user_attempt_info = serializers.SerializerMethodField()
     
     class Meta:
         model = Quiz
@@ -68,8 +69,41 @@ class QuizSerializer(serializers.ModelSerializer):
             'topic', 'topic_name', 'questions_count',
             'duration_minutes', 'total_marks', 'is_free',
             'is_daily_challenge', 'challenge_date',
-            'total_attempts', 'average_score', 'created_at'
+            'total_attempts', 'average_score', 'created_at',
+            'user_attempt_info'
         ]
+    
+    def get_user_attempt_info(self, obj):
+        """Get user's attempt info for this quiz."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        
+        try:
+            profile = request.user.profile
+            attempts = QuizAttempt.objects.filter(
+                student=profile,
+                quiz=obj,
+                status='completed'
+            ).order_by('-completed_at')
+            
+            if not attempts.exists():
+                return None
+            
+            best_attempt = attempts.order_by('-percentage').first()
+            latest_attempt = attempts.first()
+            
+            return {
+                'attempted': True,
+                'attempts_count': attempts.count(),
+                'best_score': float(best_attempt.percentage) if best_attempt else 0,
+                'best_attempt_id': str(best_attempt.id) if best_attempt else None,
+                'latest_attempt_id': str(latest_attempt.id) if latest_attempt else None,
+                'latest_score': float(latest_attempt.percentage) if latest_attempt else 0,
+                'latest_date': latest_attempt.completed_at.isoformat() if latest_attempt else None,
+            }
+        except Exception:
+            return None
 
 
 class QuizDetailSerializer(QuizSerializer):
@@ -87,6 +121,7 @@ class MockTestSerializer(serializers.ModelSerializer):
     """Serializer for mock test listings."""
     exam_name = serializers.CharField(source='exam.name', read_only=True)
     questions_count = serializers.SerializerMethodField()
+    user_attempt_info = serializers.SerializerMethodField()
     
     class Meta:
         model = MockTest
@@ -95,11 +130,46 @@ class MockTestSerializer(serializers.ModelSerializer):
             'duration_minutes', 'total_marks', 'negative_marking',
             'status', 'is_free', 'sections', 'questions_count',
             'total_attempts', 'average_score', 'highest_score',
-            'available_from', 'available_until', 'created_at'
+            'available_from', 'available_until', 'created_at',
+            'user_attempt_info'
         ]
     
     def get_questions_count(self, obj):
         return obj.questions.count()
+    
+    def get_user_attempt_info(self, obj):
+        """Get user's attempt info for this mock test."""
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        
+        try:
+            profile = request.user.profile
+            attempts = MockTestAttempt.objects.filter(
+                student=profile,
+                mock_test=obj,
+                status='completed'
+            ).order_by('-completed_at')
+            
+            if not attempts.exists():
+                return None
+            
+            best_attempt = attempts.order_by('-percentage').first()
+            latest_attempt = attempts.first()
+            
+            return {
+                'attempted': True,
+                'attempts_count': attempts.count(),
+                'best_score': float(best_attempt.percentage) if best_attempt else 0,
+                'best_attempt_id': str(best_attempt.id) if best_attempt else None,
+                'latest_attempt_id': str(latest_attempt.id) if latest_attempt else None,
+                'latest_score': float(latest_attempt.percentage) if latest_attempt else 0,
+                'latest_date': latest_attempt.completed_at.isoformat() if latest_attempt else None,
+                'rank': best_attempt.rank if best_attempt else None,
+                'percentile': float(best_attempt.percentile) if best_attempt and best_attempt.percentile else None,
+            }
+        except Exception:
+            return None
 
 
 class MockTestDetailSerializer(MockTestSerializer):
@@ -136,8 +206,23 @@ class AnswerSubmitSerializer(serializers.Serializer):
     is_marked_for_review = serializers.BooleanField(default=False)
 
 
+class QuizAttemptSummarySerializer(serializers.ModelSerializer):
+    """Summary serializer for quiz attempts (without answers)."""
+    quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    
+    class Meta:
+        model = QuizAttempt
+        fields = [
+            'id', 'quiz', 'quiz_title', 'started_at', 'completed_at',
+            'time_taken_seconds', 'status', 'total_questions',
+            'attempted_questions', 'correct_answers', 'wrong_answers',
+            'skipped_questions', 'marks_obtained', 'total_marks',
+            'percentage', 'xp_earned'
+        ]
+
+
 class QuizAttemptSerializer(serializers.ModelSerializer):
-    """Serializer for quiz attempts."""
+    """Serializer for quiz attempts with answers."""
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
     answers = AnswerSerializer(many=True, read_only=True)
     
@@ -157,8 +242,23 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
         ]
 
 
+class MockTestAttemptSummarySerializer(serializers.ModelSerializer):
+    """Summary serializer for mock test attempts (without answers)."""
+    mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
+    
+    class Meta:
+        model = MockTestAttempt
+        fields = [
+            'id', 'mock_test', 'mock_test_title', 'started_at',
+            'completed_at', 'time_taken_seconds', 'status',
+            'total_questions', 'attempted_questions', 'correct_answers',
+            'wrong_answers', 'marks_obtained', 'percentage',
+            'section_results', 'rank', 'percentile', 'xp_earned'
+        ]
+
+
 class MockTestAttemptSerializer(serializers.ModelSerializer):
-    """Serializer for mock test attempts."""
+    """Serializer for mock test attempts with answers."""
     mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
     answers = AnswerSerializer(many=True, read_only=True)
     

@@ -17,8 +17,10 @@ import TopicView from './pages/TopicView'
 import ContentViewer from './pages/ContentViewer'
 import Quiz from './pages/Quiz'
 import QuizAttempt from './pages/QuizAttempt'
+import QuizReview from './pages/QuizReview'
 import MockTest from './pages/MockTest'
 import MockTestAttempt from './pages/MockTestAttempt'
+import MockTestReview from './pages/MockTestReview'
 import Analytics from './pages/Analytics'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
@@ -89,8 +91,10 @@ function App() {
         <Route path="/content/:contentId" element={<ContentViewer />} />
         <Route path="/quiz" element={<Quiz />} />
         <Route path="/quiz/:quizId" element={<QuizAttempt />} />
+        <Route path="/quiz/review/:attemptId" element={<QuizReview />} />
         <Route path="/mock-test" element={<MockTest />} />
         <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
+        <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/profile" element={<Profile />} />
