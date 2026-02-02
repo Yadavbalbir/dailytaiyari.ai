@@ -1,14 +1,150 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import { chatService } from '../services/chatService'
 import Loading from '../components/common/Loading'
+import MathRenderer from '../components/chat/MathRenderer'
+import ChatQuiz from '../components/chat/ChatQuiz'
 import toast from 'react-hot-toast'
-import 'katex/dist/katex.min.css'
+
+/**
+ * Detects if the message contains a quiz format and extracts it
+ */
+const parseQuizFromMessage = (content) => {
+  if (!content) return null
+
+  // Try to find JSON quiz block
+  const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"type"\s*:\s*"quiz"[\s\S]*?\})\s*```/i)
+  if (jsonMatch) {
+    try {
+      const quiz = JSON.parse(jsonMatch[1])
+      if (quiz.type === 'quiz' && quiz.questions) {
+        return {
+          quiz,
+          remainingContent: content.replace(jsonMatch[0], '').trim()
+        }
+      }
+    } catch (e) {
+      // JSON parse failed, continue to other detection methods
+    }
+  }
+
+  // Parse structured quiz format
+  const lines = content.split('\n')
+  const questions = []
+  let currentQuestion = null
+  let currentOptions = []
+  let currentExplanation = ''
+  let correctAnswer = null
+  let introText = []
+  let isInQuiz = false
+
+  const saveCurrentQuestion = () => {
+    if (currentQuestion && currentOptions.length >= 2) {
+      let correctIndex = -1
+      if (correctAnswer) {
+        correctIndex = correctAnswer.toUpperCase().charCodeAt(0) - 65
+      }
+      if (correctIndex === -1 || correctIndex >= currentOptions.length) {
+        correctIndex = currentOptions.findIndex(o => o.isCorrect)
+      }
+      if (correctIndex === -1) correctIndex = 0
+
+      questions.push({
+        question: currentQuestion,
+        options: currentOptions.map(o => o.text),
+        correct_option: correctIndex,
+        explanation: currentExplanation.trim() || null,
+        difficulty: 'medium'
+      })
+    }
+    currentQuestion = null
+    currentOptions = []
+    currentExplanation = ''
+    correctAnswer = null
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    
+    const questionMatch = line.match(/^\*{0,2}Q(?:uestion)?\.?\s*(\d+)[\.\):\s]+\*{0,2}\s*(.+)/i) ||
+                          line.match(/^(\d+)[\.\)]\s+(.+)/)
+    
+    if (questionMatch && !line.match(/^[A-Da-d][\.\)]/)) {
+      saveCurrentQuestion()
+      isInQuiz = true
+      currentQuestion = questionMatch[2].trim().replace(/\*+/g, '')
+      continue
+    }
+
+    const optionMatch = line.match(/^\*{0,2}([A-Da-d])[\.\):\s]+\*{0,2}\s*(.+)/i)
+    if (optionMatch && currentQuestion) {
+      const optionLetter = optionMatch[1].toUpperCase()
+      let optionText = optionMatch[2].trim()
+      
+      const isCorrect = optionText.includes('✓') || 
+                       optionText.toLowerCase().includes('(correct)') || 
+                       optionText.includes('✔') ||
+                       /\*{2}correct\*{2}/i.test(optionText)
+      
+      optionText = optionText
+        .replace(/[✓✔]/g, '')
+        .replace(/\*{0,2}\(correct\)\*{0,2}/gi, '')
+        .replace(/\*{2}correct\*{2}/gi, '')
+        .trim()
+      
+      currentOptions.push({
+        letter: optionLetter,
+        text: optionText,
+        isCorrect
+      })
+      continue
+    }
+
+    const answerMatch = line.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]+\*{0,2}([A-Da-d])\)?/i)
+    if (answerMatch && currentQuestion) {
+      correctAnswer = answerMatch[1].toUpperCase()
+      continue
+    }
+
+    const explanationMatch = line.match(/^\*{0,2}(?:Explanation|Solution|Reason)\*{0,2}[:\s]+(.+)/i)
+    if (explanationMatch && currentQuestion) {
+      currentExplanation = explanationMatch[1].trim()
+      while (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim()
+        if (!nextLine || 
+            nextLine.match(/^\*{0,2}Q(?:uestion)?\.?\s*\d+/i) ||
+            nextLine.match(/^\d+[\.\)]\s+/) ||
+            nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i)) {
+          break
+        }
+        i++
+        currentExplanation += ' ' + nextLine
+      }
+      continue
+    }
+
+    if (!isInQuiz) {
+      introText.push(line)
+    }
+  }
+
+  saveCurrentQuestion()
+
+  if (questions.length >= 1) {
+    return {
+      quiz: {
+        type: 'quiz',
+        title: 'Practice Quiz',
+        questions
+      },
+      remainingContent: introText.join('\n').trim()
+    }
+  }
+
+  return null
+}
 
 const AIDoubtSolver = () => {
   const queryClient = useQueryClient()
@@ -17,7 +153,9 @@ const AIDoubtSolver = () => {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [showSidebar, setShowSidebar] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
   const textareaRef = useRef(null)
 
@@ -49,16 +187,24 @@ const AIDoubtSolver = () => {
     },
   })
 
-  // Auto-scroll to bottom
+  // Smooth scroll to bottom (only scroll container, not the page)
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
+  }, [])
+
+  // Auto-scroll on new messages (debounced to prevent flickering)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [sessionData?.messages, streamingContent])
+    const timeout = setTimeout(scrollToBottom, 50)
+    return () => clearTimeout(timeout)
+  }, [sessionData?.messages, streamingContent, scrollToBottom])
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
     }
   }, [input])
 
@@ -66,6 +212,17 @@ const AIDoubtSolver = () => {
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeSession])
+
+  // Handle ESC key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreen])
 
   const handleNewChat = async () => {
     setActiveSession(null)
@@ -84,7 +241,6 @@ const AIDoubtSolver = () => {
 
     let sessionId = activeSession
 
-    // Create session if none exists
     if (!sessionId) {
       try {
         const session = await createSessionMutation.mutateAsync({
@@ -98,30 +254,19 @@ const AIDoubtSolver = () => {
       }
     }
 
-    // Optimistically add user message to UI
-    const optimisticMessages = [
-      ...(sessionData?.messages || []),
-      { id: 'temp-user', role: 'user', content: message, created_at: new Date().toISOString() }
-    ]
-
-    // Use streaming API
     try {
       await chatService.sendMessageStream(
         sessionId,
         message,
-        // onChunk - called for each chunk of content
         (chunk, fullContent) => {
           setStreamingContent(fullContent)
         },
-        // onComplete - called when streaming is done
         async (data) => {
           setIsStreaming(false)
           setStreamingContent('')
-          // Refetch the session to get the saved messages
           await refetchSession()
           queryClient.invalidateQueries(['chatSessions'])
         },
-        // onError - called on error
         (error) => {
           setIsStreaming(false)
           setStreamingContent('')
@@ -134,7 +279,7 @@ const AIDoubtSolver = () => {
       setStreamingContent('')
       toast.error('Failed to send message')
     }
-  }, [input, activeSession, isStreaming, sessionData, refetchSession, queryClient, createSessionMutation])
+  }, [input, activeSession, isStreaming, refetchSession, queryClient, createSessionMutation])
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -162,44 +307,99 @@ const AIDoubtSolver = () => {
     }
   }
 
+  const renderMessageContent = (content, isStreamingMsg = false) => {
+    // Don't parse quiz during streaming - just show a loading placeholder
+    if (isStreamingMsg) {
+      // Check if content looks like it might be a quiz (to show appropriate loading state)
+      const looksLikeQuiz = /^\*{0,2}Q(?:uestion)?\.?\s*\d+/im.test(content) ||
+                           /^\d+[\.\)]\s+.+\n.*[A-D][\.\)]/m.test(content)
+      
+      if (looksLikeQuiz) {
+        // Show a quiz loading indicator instead of revealing answers
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="font-medium">Generating quiz questions...</span>
+            </div>
+            <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
+              <div className="flex items-center gap-3 text-sm text-violet-700 dark:text-violet-300">
+                <span className="text-2xl">📝</span>
+                <div>
+                  <p className="font-medium">Interactive quiz loading</p>
+                  <p className="text-xs opacity-70">Questions will appear shortly...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      
+      // For non-quiz content during streaming, render normally
+      return <MathRenderer content={content} />
+    }
+    
+    // After streaming is complete, parse and render quiz if present
+    const quizData = parseQuizFromMessage(content)
+    
+    if (quizData) {
+      return (
+        <div className="space-y-4">
+          {quizData.remainingContent && (
+            <MathRenderer content={quizData.remainingContent} />
+          )}
+          <ChatQuiz quiz={quizData.quiz} />
+        </div>
+      )
+    }
+
+    return <MathRenderer content={content} />
+  }
+
   const messages = sessionData?.messages || []
   const sessionsList = sessions?.results || sessions || []
 
-  // Suggested questions for empty state
   const suggestedQuestions = faqSuggestions?.length > 0 ? faqSuggestions : [
     { question: "Explain Newton's laws of motion with examples" },
     { question: "How to solve quadratic equations step by step?" },
     { question: "What is the structure and function of DNA?" },
-    { question: "Explain the laws of thermodynamics" },
-    { question: "What is electromagnetic induction?" },
-    { question: "Explain periodic table trends" },
+    { question: "Give me 5 practice questions on thermodynamics" },
+    { question: "Quiz me on electromagnetic induction" },
+    { question: "Create a practice test on periodic table trends" },
   ]
 
+  // Container classes for fullscreen/normal mode
+  const containerClasses = isFullscreen
+    ? 'fixed inset-0 z-50 bg-white dark:bg-surface-900 flex'
+    : 'flex h-[calc(100vh-8rem)] lg:h-[calc(100vh-6rem)] gap-4'
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] lg:h-[calc(100vh-6rem)] gap-4">
+    <div className={containerClasses}>
       {/* Sidebar Toggle for Mobile */}
-      <button
-        onClick={() => setShowSidebar(!showSidebar)}
-        className="lg:hidden fixed left-4 top-20 z-50 btn-secondary p-2"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+      {!isFullscreen && (
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="lg:hidden fixed left-4 top-20 z-50 btn-secondary p-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
 
       {/* Sidebar - Chat History */}
       <AnimatePresence>
-        {showSidebar && (
+        {showSidebar && !isFullscreen && (
           <motion.div
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            className={`${
-              showSidebar ? 'fixed lg:relative' : 'hidden'
-            } left-0 top-0 h-full w-72 flex-shrink-0 z-40 lg:z-0`}
+            className="fixed lg:relative left-0 top-0 h-full w-72 flex-shrink-0 z-40 lg:z-0"
           >
             <div className="card h-full flex flex-col bg-white dark:bg-surface-900 shadow-xl lg:shadow-none">
-              {/* Sidebar Header */}
               <div className="p-4 border-b border-surface-200 dark:border-surface-700">
                 <button
                   onClick={handleNewChat}
@@ -212,7 +412,6 @@ const AIDoubtSolver = () => {
                 </button>
               </div>
               
-              {/* Sessions List */}
               <div className="flex-1 overflow-y-auto p-2">
                 {sessionsLoading ? (
                   <div className="flex justify-center p-4">
@@ -253,7 +452,6 @@ const AIDoubtSolver = () => {
                 )}
               </div>
 
-              {/* Close button for mobile */}
               <button
                 onClick={() => setShowSidebar(false)}
                 className="lg:hidden absolute top-4 right-4 p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg"
@@ -268,7 +466,7 @@ const AIDoubtSolver = () => {
       </AnimatePresence>
 
       {/* Mobile Overlay */}
-      {showSidebar && (
+      {showSidebar && !isFullscreen && (
         <div 
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setShowSidebar(false)}
@@ -276,197 +474,219 @@ const AIDoubtSolver = () => {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col card overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
-            <span className="text-2xl">🤖</span>
-          </div>
-          <div className="flex-1">
-            <h2 className="font-bold text-lg">AI Doubt Solver</h2>
-            <p className="text-xs text-surface-500 flex items-center gap-1">
-              <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
-              Powered by GPT-4 • Ask any exam doubt
-            </p>
-          </div>
-          {activeSession && (
+      <div className={`flex-1 flex flex-col overflow-hidden ${isFullscreen ? '' : 'card'}`}>
+        {/* Header - Fixed height */}
+        <div className="flex-shrink-0 h-[72px] p-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-3 bg-white dark:bg-surface-900">
+          {isFullscreen && (
             <button
-              onClick={handleNewChat}
-              className="btn-secondary text-sm"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="btn-icon mr-2"
             >
-              New Chat
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
           )}
+          
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 flex-shrink-0">
+            <span className="text-xl">🤖</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-base truncate">AI Doubt Solver</h2>
+            <p className="text-xs text-surface-500 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse"></span>
+              GPT-4 • Ask doubts or request quizzes
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeSession && (
+              <button
+                onClick={handleNewChat}
+                className="btn-secondary text-sm hidden sm:flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New
+              </button>
+            )}
+            
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="btn-icon"
+              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+            >
+              {isFullscreen ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {messages.length === 0 && !isStreaming ? (
-            <div className="h-full flex flex-col items-center justify-center text-center px-4">
-              {/* Hero Icon */}
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="w-24 h-24 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-6 shadow-2xl shadow-violet-500/30"
-              >
-                <span className="text-5xl">🎓</span>
-              </motion.div>
-              
-              <motion.h3
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.1 }}
-                className="text-2xl font-bold mb-3"
-              >
-                How can I help you today?
-              </motion.h3>
-              
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-surface-500 max-w-md mb-8"
-              >
-                I'm your AI tutor, ready to help with NEET, JEE, CBSE, or any competitive exam topics. 
-                Ask me anything - from complex problems to simple concept explanations!
-              </motion.p>
-              
-              {/* Suggested Questions */}
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="w-full max-w-2xl"
-              >
-                <p className="text-sm text-surface-400 mb-4">Try asking about:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {suggestedQuestions.slice(0, 6).map((faq, index) => (
-                    <motion.button
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 + index * 0.05 }}
-                      onClick={() => handleFAQClick(faq.question)}
-                      className="p-4 text-left text-sm rounded-xl border-2 border-surface-200 dark:border-surface-700 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all group"
-                    >
-                      <span className="flex items-start gap-2">
-                        <span className="text-violet-500 group-hover:scale-110 transition-transform">💡</span>
-                        <span>{faq.question}</span>
-                      </span>
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          ) : (
-            <>
-              {messages.map((message, index) => (
+        {/* Messages Area - Flex grow with fixed overflow */}
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{ minHeight: 0 }} // Important for flex child scrolling
+        >
+          <div className="p-4 space-y-6">
+            {messages.length === 0 && !isStreaming ? (
+              <div className="flex flex-col items-center justify-center text-center px-4 py-12">
+                {/* Hero Icon */}
                 <motion.div
-                  key={message.id || index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-6 shadow-xl shadow-violet-500/30"
                 >
-                  {message.role === 'assistant' && (
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-lg">🤖</span>
-                    </div>
-                  )}
-                  
+                  <span className="text-4xl">🎓</span>
+                </motion.div>
+                
+                <motion.h3
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-xl font-bold mb-2"
+                >
+                  How can I help you today?
+                </motion.h3>
+                
+                <motion.p
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-surface-500 max-w-md mb-8 text-sm"
+                >
+                  Ask about NEET, JEE, CBSE topics, or say{' '}
+                  <span className="font-semibold text-violet-600">"Quiz me on..."</span> for interactive practice!
+                </motion.p>
+                
+                {/* Suggested Questions */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="w-full max-w-xl"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {suggestedQuestions.slice(0, 6).map((faq, index) => (
+                      <motion.button
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 + index * 0.05 }}
+                        onClick={() => handleFAQClick(faq.question)}
+                        className="p-3 text-left text-sm rounded-xl border border-surface-200 dark:border-surface-700 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all"
+                      >
+                        <span className="flex items-start gap-2">
+                          <span className="text-violet-500 flex-shrink-0">
+                            {faq.question.toLowerCase().includes('quiz') || faq.question.toLowerCase().includes('practice') ? '📝' : '💡'}
+                          </span>
+                          <span className="line-clamp-2">{faq.question}</span>
+                        </span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            ) : (
+              <>
+                {messages.map((message, index) => (
                   <div
-                    className={`max-w-[85%] lg:max-w-[75%] rounded-2xl ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white px-5 py-3'
-                        : 'bg-surface-100 dark:bg-surface-800 px-5 py-4'
-                    }`}
+                    key={message.id || index}
+                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
                   >
-                    {message.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:my-3 prose-li:my-1 prose-pre:bg-surface-200 dark:prose-pre:bg-surface-900 prose-code:text-violet-600 dark:prose-code:text-violet-400">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
+                    {message.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                        <span className="text-sm">🤖</span>
                       </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
                     
-                    {message.role === 'assistant' && (
-                      <div className="flex items-center gap-3 mt-4 pt-3 border-t border-surface-200 dark:border-surface-700">
-                        <button 
-                          onClick={() => handleMarkHelpful(message.id, true)}
-                          className="flex items-center gap-1 text-xs text-surface-500 hover:text-success-500 transition-colors"
-                        >
-                          <span>👍</span> Helpful
-                        </button>
-                        <button 
-                          onClick={() => handleMarkHelpful(message.id, false)}
-                          className="flex items-center gap-1 text-xs text-surface-500 hover:text-error-500 transition-colors"
-                        >
-                          <span>👎</span> Not helpful
-                        </button>
-                        <button 
-                          onClick={() => handleCopyMessage(message.content)}
-                          className="flex items-center gap-1 text-xs text-surface-500 hover:text-primary-500 transition-colors"
-                        >
-                          <span>📋</span> Copy
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {message.role === 'user' && (
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-lg">👤</span>
+                    <div
+                      className={`max-w-[85%] lg:max-w-[75%] rounded-2xl ${
+                        message.role === 'user'
+                          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3'
+                          : 'bg-surface-100 dark:bg-surface-800 px-4 py-3'
+                      }`}
+                    >
+                      {message.role === 'assistant' ? (
+                        <>
+                          {renderMessageContent(message.content)}
+                          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-surface-200 dark:border-surface-700">
+                            <button 
+                              onClick={() => handleMarkHelpful(message.id, true)}
+                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-success-500 transition-colors"
+                            >
+                              👍 Helpful
+                            </button>
+                            <button 
+                              onClick={() => handleMarkHelpful(message.id, false)}
+                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-error-500 transition-colors"
+                            >
+                              👎
+                            </button>
+                            <button 
+                              onClick={() => handleCopyMessage(message.content)}
+                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-primary-500 transition-colors"
+                            >
+                              📋 Copy
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                      )}
                     </div>
-                  )}
-                </motion.div>
-              ))}
-              
-              {/* Streaming Response */}
-              {isStreaming && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-3"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                    <span className="text-lg">🤖</span>
-                  </div>
-                  <div className="max-w-[85%] lg:max-w-[75%] bg-surface-100 dark:bg-surface-800 rounded-2xl px-5 py-4">
-                    {streamingContent ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                        >
-                          {streamingContent}
-                        </ReactMarkdown>
-                        <span className="inline-block w-2 h-5 bg-violet-500 animate-pulse ml-1"></span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-surface-500">Thinking</span>
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                        </div>
+
+                    {message.role === 'user' && (
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                        <span className="text-sm">👤</span>
                       </div>
                     )}
                   </div>
-                </motion.div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </>
-          )}
+                ))}
+                
+                {/* Streaming Response */}
+                {isStreaming && (
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                      <span className="text-sm">🤖</span>
+                    </div>
+                    <div className="max-w-[85%] lg:max-w-[75%] bg-surface-100 dark:bg-surface-800 rounded-2xl px-4 py-3">
+                      {streamingContent ? (
+                        <div>
+                          {renderMessageContent(streamingContent, true)}
+                          <span className="inline-block w-1.5 h-4 bg-violet-500 animate-pulse ml-0.5 align-middle"></span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 py-1">
+                          <span className="text-surface-500 text-sm">Thinking</span>
+                          <div className="flex gap-1">
+                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <div ref={messagesEndRef} className="h-4" />
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900">
+        {/* Input Area - Fixed height */}
+        <div className="flex-shrink-0 p-4 border-t border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900">
           <div className="relative">
             <textarea
               ref={(el) => {
@@ -476,35 +696,115 @@ const AIDoubtSolver = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Type your doubt here... (Shift+Enter for new line)"
+              placeholder="Type your doubt or 'Quiz me on [topic]'..."
               rows={1}
               disabled={isStreaming}
-              className="input resize-none pr-14 min-h-[52px] max-h-[200px] py-3.5"
+              className="input resize-none pr-12 min-h-[44px] max-h-[150px] py-3 text-sm"
               style={{ height: 'auto' }}
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isStreaming}
-              className="absolute right-2 bottom-2 w-10 h-10 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-violet-500/25 transition-all"
+              className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-violet-500/25 transition-all"
             >
               {isStreaming ? (
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               )}
             </button>
           </div>
-          <div className="flex items-center justify-between mt-2 text-xs text-surface-500">
-            <p>Press Enter to send, Shift+Enter for new line</p>
-            <p>AI responses may contain errors. Verify important info.</p>
+          <div className="flex items-center justify-between mt-1.5 text-xs text-surface-400">
+            <p>💡 "Quiz me on [topic]" for practice</p>
+            <p className="hidden sm:block">Enter to send • Shift+Enter for new line</p>
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Sidebar */}
+      <AnimatePresence>
+        {isFullscreen && showSidebar && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowSidebar(false)}
+            />
+            <motion.div
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              className="fixed left-0 top-0 h-full w-72 z-50 bg-white dark:bg-surface-900 shadow-2xl flex flex-col"
+            >
+              <div className="p-4 border-b border-surface-200 dark:border-surface-700 flex items-center justify-between">
+                <h3 className="font-semibold">Chat History</h3>
+                <button
+                  onClick={() => setShowSidebar(false)}
+                  className="btn-icon"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-4 border-b border-surface-200 dark:border-surface-700">
+                <button
+                  onClick={() => { handleNewChat(); setShowSidebar(false); }}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Chat
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-2">
+                {sessionsList.length === 0 ? (
+                  <div className="text-center p-4 text-surface-500">
+                    <p className="text-sm">No previous chats</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {sessionsList.map((session) => (
+                      <button
+                        key={session.id}
+                        onClick={() => {
+                          setActiveSession(session.id)
+                          setShowSidebar(false)
+                        }}
+                        className={`w-full text-left p-3 rounded-xl transition-all ${
+                          activeSession === session.id
+                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                            : 'hover:bg-surface-100 dark:hover:bg-surface-800'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-lg">💬</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{session.title || 'New Chat'}</p>
+                            <p className="text-xs text-surface-500 mt-0.5">
+                              {session.message_count || 0} messages
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
