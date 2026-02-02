@@ -7,7 +7,7 @@ import confetti from 'canvas-confetti'
 
 const StudyTimer = () => {
   const queryClient = useQueryClient()
-  const [isMinimized, setIsMinimized] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [localElapsed, setLocalElapsed] = useState(0)
   const timerRef = useRef(null)
@@ -59,6 +59,18 @@ const StudyTimer = () => {
       return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     }
     return `${minutes}:${String(seconds).padStart(2, '0')}`
+  }
+
+  // Compact time format for minimized view
+  const formatTimeCompact = (totalSeconds) => {
+    const absSeconds = Math.abs(totalSeconds)
+    const hours = Math.floor(absSeconds / 3600)
+    const minutes = Math.floor((absSeconds % 3600) / 60)
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    }
+    return `${minutes}m`
   }
 
   // Trigger celebration effects
@@ -213,176 +225,211 @@ const StudyTimer = () => {
   const exceededGoal = localElapsed > goalSeconds
   const overageSeconds = exceededGoal ? localElapsed - goalSeconds : 0
 
+  // Determine color scheme based on state
+  const getColorScheme = () => {
+    if (exceededGoal) return {
+      bg: 'bg-success-500',
+      text: 'text-white',
+      border: 'border-success-600',
+      progressBg: 'bg-success-300',
+      progressFill: 'bg-white',
+    }
+    if (timerData.goal_achieved) return {
+      bg: 'bg-success-100 dark:bg-success-900/50',
+      text: 'text-success-700 dark:text-success-300',
+      border: 'border-success-300 dark:border-success-700',
+      progressBg: 'bg-success-200 dark:bg-success-800',
+      progressFill: 'bg-success-500',
+    }
+    return {
+      bg: 'bg-white dark:bg-surface-800',
+      text: 'text-surface-800 dark:text-surface-200',
+      border: 'border-surface-200 dark:border-surface-700',
+      progressBg: 'bg-surface-200 dark:bg-surface-700',
+      progressFill: 'bg-primary-500',
+    }
+  }
+
+  const colors = getColorScheme()
+
   return (
     <>
-      {/* Timer Widget */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`fixed bottom-4 right-4 z-40 ${isMinimized ? 'w-auto' : 'w-72'}`}
-      >
-        <div className={`card shadow-xl border-2 ${
-          exceededGoal 
-            ? 'border-success-500 bg-gradient-to-br from-success-50 to-white dark:from-success-900/20 dark:to-surface-900' 
-            : timerData.goal_achieved
-            ? 'border-success-400 bg-white dark:bg-surface-900'
-            : 'border-primary-200 bg-white dark:bg-surface-900'
-        }`}>
-          {/* Header */}
-          <div 
-            className="flex items-center justify-between p-3 cursor-pointer"
-            onClick={() => setIsMinimized(!isMinimized)}
+      {/* Collapsed Timer Badge - positioned to not obstruct content */}
+      <AnimatePresence>
+        {!isExpanded && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsExpanded(true)}
+            className={`fixed bottom-4 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border-2 transition-colors ${colors.bg} ${colors.text} ${colors.border}`}
           >
-            <div className="flex items-center gap-2">
-              <span className={`text-xl ${exceededGoal ? 'animate-pulse' : ''}`}>
-                {exceededGoal ? '🔥' : timerData.goal_achieved ? '✅' : '⏱️'}
-              </span>
-              <span className="font-semibold text-sm">
-                {exceededGoal ? 'Excellent Progress!' : timerData.goal_achieved ? 'Goal Achieved!' : 'Study Timer'}
-              </span>
+            <span className={exceededGoal ? 'animate-pulse' : ''}>
+              {exceededGoal ? '🔥' : timerData.goal_achieved ? '✅' : '⏱️'}
+            </span>
+            <span className="font-semibold text-sm font-mono">
+              {exceededGoal 
+                ? `+${formatTimeCompact(overageSeconds)}`
+                : timerData.goal_achieved 
+                ? formatTimeCompact(localElapsed)
+                : formatTimeCompact(remainingSeconds)
+              }
+            </span>
+            {/* Mini progress arc/indicator */}
+            <div className={`w-6 h-6 rounded-full ${colors.progressBg} relative overflow-hidden`}>
+              <div 
+                className={`absolute bottom-0 left-0 right-0 ${colors.progressFill} transition-all duration-500`}
+                style={{ height: `${Math.min(progressPercent, 100)}%` }}
+              />
             </div>
-            <button className="p-1 hover:bg-surface-100 dark:hover:bg-surface-800 rounded">
-              <svg 
-                className={`w-4 h-4 transform transition-transform ${isMinimized ? '' : 'rotate-180'}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
+            <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-          {/* Content */}
-          <AnimatePresence>
-            {!isMinimized && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4 space-y-4">
-                  {/* Main Timer Display */}
-                  <div className="text-center">
+      {/* Expanded Timer Panel */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-4 right-4 z-40 w-72"
+          >
+            <div className={`card shadow-xl border-2 ${
+              exceededGoal 
+                ? 'border-success-500 bg-gradient-to-br from-success-50 to-white dark:from-success-900/20 dark:to-surface-900' 
+                : timerData.goal_achieved
+                ? 'border-success-400 bg-white dark:bg-surface-900'
+                : 'border-primary-200 bg-white dark:bg-surface-900'
+            }`}>
+              {/* Header with collapse button */}
+              <div className="flex items-center justify-between p-3 border-b border-surface-100 dark:border-surface-800">
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg ${exceededGoal ? 'animate-pulse' : ''}`}>
+                    {exceededGoal ? '🔥' : timerData.goal_achieved ? '✅' : '⏱️'}
+                  </span>
+                  <span className="font-semibold text-sm">
+                    {exceededGoal ? 'Excellent Progress!' : timerData.goal_achieved ? 'Goal Achieved!' : 'Study Timer'}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="p-1.5 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
+                  aria-label="Minimize timer"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-4 space-y-4">
+                {/* Main Timer Display */}
+                <div className="text-center">
+                  {exceededGoal ? (
+                    <>
+                      <div className="text-xs text-success-600 font-medium mb-1">
+                        +{formatTime(overageSeconds)} beyond goal!
+                      </div>
+                      <div className="text-3xl font-bold font-mono text-success-600">
+                        {formatTime(localElapsed)}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs text-surface-500 mb-1">
+                        {timerData.goal_achieved ? 'Time studied' : 'Time remaining'}
+                      </div>
+                      <div className={`text-3xl font-bold font-mono ${
+                        remainingSeconds < 300 && !timerData.goal_achieved
+                          ? 'text-warning-500 animate-pulse' 
+                          : timerData.goal_achieved 
+                          ? 'text-success-500'
+                          : 'text-surface-900 dark:text-white'
+                      }`}>
+                        {timerData.goal_achieved 
+                          ? formatTime(localElapsed)
+                          : formatTime(Math.max(0, remainingSeconds))
+                        }
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-surface-500">
+                    <span>{formatTime(localElapsed)}</span>
+                    <span>Goal: {formatTime(goalSeconds)}</span>
+                  </div>
+                  <div className="h-2.5 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${
+                        exceededGoal 
+                          ? 'bg-gradient-to-r from-success-500 to-success-400'
+                          : timerData.goal_achieved
+                          ? 'bg-success-500'
+                          : progressPercent > 75
+                          ? 'bg-gradient-to-r from-warning-500 to-primary-500'
+                          : 'bg-gradient-to-r from-primary-500 to-accent-500'
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(progressPercent, 100)}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                  <div className="text-center text-xs font-medium">
                     {exceededGoal ? (
-                      <>
-                        <div className="text-xs text-success-600 font-medium mb-1">
-                          +{formatTime(overageSeconds)} beyond goal!
-                        </div>
-                        <div className="text-3xl font-bold font-mono text-success-600">
-                          {formatTime(localElapsed)}
-                        </div>
-                      </>
+                      <span className="text-success-600">
+                        {Math.round((localElapsed / goalSeconds) * 100)}% of goal!
+                      </span>
                     ) : (
-                      <>
-                        <div className="text-xs text-surface-500 mb-1">
-                          {timerData.goal_achieved ? 'Time studied' : 'Time remaining'}
-                        </div>
-                        <div className={`text-3xl font-bold font-mono ${
-                          remainingSeconds < 300 && !timerData.goal_achieved
-                            ? 'text-warning-500 animate-pulse' 
-                            : timerData.goal_achieved 
-                            ? 'text-success-500'
-                            : 'text-surface-900 dark:text-white'
-                        }`}>
-                          {timerData.goal_achieved 
-                            ? formatTime(localElapsed)
-                            : formatTime(Math.max(0, remainingSeconds))
-                          }
-                        </div>
-                      </>
+                      <span className={timerData.goal_achieved ? 'text-success-600' : 'text-surface-600'}>
+                        {Math.round(progressPercent)}% complete
+                      </span>
                     )}
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-surface-500">
-                      <span>{formatTime(localElapsed)}</span>
-                      <span>Goal: {formatTime(goalSeconds)}</span>
-                    </div>
-                    <div className="h-3 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
-                      <motion.div
-                        className={`h-full rounded-full ${
-                          exceededGoal 
-                            ? 'bg-gradient-to-r from-success-500 to-success-400'
-                            : timerData.goal_achieved
-                            ? 'bg-success-500'
-                            : progressPercent > 75
-                            ? 'bg-gradient-to-r from-warning-500 to-primary-500'
-                            : 'bg-gradient-to-r from-primary-500 to-accent-500'
-                        }`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(progressPercent, 100)}%` }}
-                        transition={{ duration: 0.5 }}
-                      />
-                    </div>
-                    <div className="text-center text-xs font-medium">
-                      {exceededGoal ? (
-                        <span className="text-success-600">
-                          {Math.round((localElapsed / goalSeconds) * 100)}% of goal completed!
-                        </span>
-                      ) : (
-                        <span className={timerData.goal_achieved ? 'text-success-600' : 'text-surface-600'}>
-                          {Math.round(progressPercent)}% complete
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Motivational Message */}
-                  <div className={`text-center text-xs py-2 px-3 rounded-lg ${
-                    exceededGoal 
-                      ? 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400'
-                      : timerData.goal_achieved
-                      ? 'bg-success-50 dark:bg-success-900/20 text-success-600'
-                      : 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                  }`}>
-                    {exceededGoal ? (
-                      <span>🌟 You're on fire! Keep going!</span>
-                    ) : timerData.goal_achieved ? (
-                      <span>🎉 Great job! Goal completed! Keep studying to exceed your target.</span>
-                    ) : remainingSeconds < 300 ? (
-                      <span>💪 Almost there! Just {formatTime(remainingSeconds)} to go!</span>
-                    ) : (
-                      <span>📚 Stay focused! You're making progress.</span>
-                    )}
-                  </div>
-
-                  {/* Status Indicator */}
-                  <div className="flex items-center justify-center gap-2 text-xs">
-                    <span className={`w-2 h-2 rounded-full ${
-                      isVisibleRef.current ? 'bg-success-500 animate-pulse' : 'bg-surface-400'
-                    }`}></span>
-                    <span className="text-surface-500">
-                      {isVisibleRef.current ? 'Timer running' : 'Timer paused'}
-                    </span>
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
-          {/* Minimized View */}
-          {isMinimized && (
-            <div className="px-3 pb-3 flex items-center gap-3">
-              <div className={`text-lg font-bold font-mono ${
-                exceededGoal ? 'text-success-600' : timerData.goal_achieved ? 'text-success-500' : ''
-              }`}>
-                {exceededGoal ? `+${formatTime(overageSeconds)}` : formatTime(remainingSeconds > 0 ? remainingSeconds : localElapsed)}
-              </div>
-              <div className="flex-1 h-2 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    exceededGoal ? 'bg-success-500' : timerData.goal_achieved ? 'bg-success-500' : 'bg-primary-500'
-                  }`}
-                  style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                />
+                {/* Motivational Message */}
+                <div className={`text-center text-xs py-2 px-3 rounded-lg ${
+                  exceededGoal 
+                    ? 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400'
+                    : timerData.goal_achieved
+                    ? 'bg-success-50 dark:bg-success-900/20 text-success-600'
+                    : 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
+                }`}>
+                  {exceededGoal ? (
+                    <span>🌟 You're on fire! Keep going!</span>
+                  ) : timerData.goal_achieved ? (
+                    <span>🎉 Great job! Keep going to exceed your target.</span>
+                  ) : remainingSeconds < 300 ? (
+                    <span>💪 Almost there! Just {formatTime(remainingSeconds)} to go!</span>
+                  ) : (
+                    <span>📚 Stay focused! You're making progress.</span>
+                  )}
+                </div>
+
+                {/* Status Indicator */}
+                <div className="flex items-center justify-center gap-2 text-xs">
+                  <span className={`w-2 h-2 rounded-full ${
+                    isVisibleRef.current ? 'bg-success-500 animate-pulse' : 'bg-surface-400'
+                  }`}></span>
+                  <span className="text-surface-500">
+                    {isVisibleRef.current ? 'Timer running' : 'Timer paused'}
+                  </span>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Celebration Overlay */}
       <AnimatePresence>
@@ -427,4 +474,3 @@ const StudyTimer = () => {
 }
 
 export default StudyTimer
-

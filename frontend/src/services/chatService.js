@@ -1,6 +1,13 @@
 import api from './api'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+// For streaming endpoints that need direct fetch instead of axios
+const getStreamingBaseUrl = () => {
+  // In development, use localhost. In production, use relative path
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000/api/v1'
+  }
+  return '/api/v1'
+}
 
 export const chatService = {
   // Sessions
@@ -39,11 +46,17 @@ export const chatService = {
 
   // Streaming message send
   sendMessageStream: async (sessionId, content, onChunk, onComplete, onError) => {
-    const token = localStorage.getItem('access_token')
+    // Get token from auth storage (same way api.js does)
+    let token = null
+    const authData = localStorage.getItem('auth-storage')
+    if (authData) {
+      const { state } = JSON.parse(authData)
+      token = state?.tokens?.access
+    }
     
     try {
       const response = await fetch(
-        `${API_BASE_URL}/chatbot/sessions/${sessionId}/send_message_stream/`,
+        `${getStreamingBaseUrl()}/chatbot/sessions/${sessionId}/send_message_stream/`,
         {
           method: 'POST',
           headers: {
