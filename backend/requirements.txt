@@ -1,37 +1,29 @@
 # Django Core
-Django==5.0.1
-djangorestframework==3.14.0
-django-cors-headers==4.3.1
+Django>=5.0,<6.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
 
 # Authentication
-djangorestframework-simplejwt==5.3.1
-PyJWT==2.8.0
+djangorestframework-simplejwt>=5.3.0
+PyJWT>=2.8.0
 
-# Database
-psycopg2-binary==2.9.9
+# Database - Using SQLite3 (built-in, no extra package needed)
+# For PostgreSQL later: psycopg2-binary
 
 # Environment & Config
-python-decouple==3.8
-python-dotenv==1.0.0
+python-decouple>=3.8
+python-dotenv>=1.0.0
 
 # AI/LLM Integration
-openai==1.12.0
-langchain==0.1.6
+openai>=1.12.0
 
 # Utilities
-Pillow==10.2.0
-django-filter==23.5
-drf-yasg==1.21.7
-
-# Caching & Performance
-redis==5.0.1
-django-redis==5.4.0
-
-# Task Queue (for async operations)
-celery==5.3.6
+Pillow>=10.4.0
+django-filter>=23.5
+drf-yasg>=1.21.7
 
 # Testing
-pytest==8.0.0
-pytest-django==4.7.0
-factory-boy==3.3.0
+pytest>=8.0.0
+pytest-django>=4.7.0
+factory-boy>=3.3.0
 
