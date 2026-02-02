@@ -1,5 +1,7 @@
 import api from './api'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+
 export const chatService = {
   // Sessions
   getSessions: async () => {
@@ -17,6 +19,7 @@ export const chatService = {
     return response.data
   },
 
+  // Non-streaming message send
   sendMessage: async (sessionId, content, image = null) => {
     const formData = new FormData()
     formData.append('content', content)
@@ -32,6 +35,63 @@ export const chatService = {
       }
     )
     return response.data
+  },
+
+  // Streaming message send
+  sendMessageStream: async (sessionId, content, onChunk, onComplete, onError) => {
+    const token = localStorage.getItem('access_token')
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/chatbot/sessions/${sessionId}/send_message_stream/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n').filter(line => line.trim())
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line)
+            
+            if (data.done) {
+              onComplete?.(data)
+            } else if (data.content) {
+              fullContent += data.content
+              onChunk?.(data.content, fullContent)
+            }
+          } catch (e) {
+            // Ignore parse errors for incomplete chunks
+          }
+        }
+      }
+
+      return { success: true, content: fullContent }
+    } catch (error) {
+      console.error('Streaming error:', error)
+      onError?.(error)
+      return { success: false, error: error.message }
+    }
   },
 
   closeSession: async (sessionId) => {
@@ -92,4 +152,3 @@ export const chatService = {
     return response.data
   },
 }
-

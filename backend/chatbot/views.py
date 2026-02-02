@@ -4,6 +4,8 @@ Views for Chatbot app.
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 
@@ -70,7 +72,7 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
-        """Send a message in the session."""
+        """Send a message in the session (non-streaming)."""
         session = self.get_object()
         
         serializer = SendMessageSerializer(data=request.data)
@@ -86,6 +88,28 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
             'message': ChatMessageSerializer(result['message']).data,
             'success': result['success']
         })
+
+    @action(detail=True, methods=['post'])
+    def send_message_stream(self, request, pk=None):
+        """Send a message with streaming response."""
+        session = self.get_object()
+        
+        serializer = SendMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Create streaming response
+        response = StreamingHttpResponse(
+            ChatService.process_question_streaming(
+                session,
+                serializer.validated_data['content'],
+                image=serializer.validated_data.get('image')
+            ),
+            content_type='text/event-stream'
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        
+        return response
 
     @action(detail=True, methods=['post'])
     def close(self, request, pk=None):
