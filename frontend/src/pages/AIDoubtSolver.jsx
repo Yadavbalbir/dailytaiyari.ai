@@ -152,6 +152,7 @@ const AIDoubtSolver = () => {
   const [activeSession, setActiveSession] = useState(null)
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
+  const [pendingUserMessage, setPendingUserMessage] = useState(null) // For optimistic UI
   const [showSidebar, setShowSidebar] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const messagesEndRef = useRef(null)
@@ -238,6 +239,14 @@ const AIDoubtSolver = () => {
     setInput('')
     setStreamingContent('')
     setIsStreaming(true)
+    
+    // Optimistically show user message immediately
+    setPendingUserMessage({
+      id: 'pending-user-' + Date.now(),
+      role: 'user',
+      content: message,
+      created_at: new Date().toISOString()
+    })
 
     let sessionId = activeSession
 
@@ -250,6 +259,7 @@ const AIDoubtSolver = () => {
       } catch (error) {
         toast.error('Failed to create chat session')
         setIsStreaming(false)
+        setPendingUserMessage(null)
         return
       }
     }
@@ -264,12 +274,14 @@ const AIDoubtSolver = () => {
         async (data) => {
           setIsStreaming(false)
           setStreamingContent('')
+          setPendingUserMessage(null) // Clear pending message
           await refetchSession()
           queryClient.invalidateQueries(['chatSessions'])
         },
         (error) => {
           setIsStreaming(false)
           setStreamingContent('')
+          setPendingUserMessage(null)
           toast.error('Failed to get response. Please try again.')
           refetchSession()
         }
@@ -277,6 +289,7 @@ const AIDoubtSolver = () => {
     } catch (error) {
       setIsStreaming(false)
       setStreamingContent('')
+      setPendingUserMessage(null)
       toast.error('Failed to send message')
     }
   }, [input, activeSession, isStreaming, refetchSession, queryClient, createSessionMutation])
@@ -598,6 +611,7 @@ const AIDoubtSolver = () => {
               </div>
             ) : (
               <>
+                {/* Render existing messages */}
                 {messages.map((message, index) => (
                   <div
                     key={message.id || index}
@@ -652,6 +666,18 @@ const AIDoubtSolver = () => {
                     )}
                   </div>
                 ))}
+                
+                {/* Render pending user message (optimistic UI) */}
+                {pendingUserMessage && (
+                  <div className="flex gap-3 justify-end">
+                    <div className="max-w-[85%] lg:max-w-[75%] rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3">
+                      <p className="whitespace-pre-wrap text-sm">{pendingUserMessage.content}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                      <span className="text-sm">👤</span>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Streaming Response */}
                 {isStreaming && (
