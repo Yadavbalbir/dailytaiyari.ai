@@ -67,10 +67,10 @@ const parseQuizFromMessage = (content) => {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
-    
+
     const questionMatch = line.match(/^\*{0,2}Q(?:uestion)?\.?\s*(\d+)[\.\):\s]+\*{0,2}\s*(.+)/i) ||
-                          line.match(/^(\d+)[\.\)]\s+(.+)/)
-    
+      line.match(/^(\d+)[\.\)]\s+(.+)/)
+
     if (questionMatch && !line.match(/^[A-Da-d][\.\)]/)) {
       saveCurrentQuestion()
       isInQuiz = true
@@ -82,18 +82,18 @@ const parseQuizFromMessage = (content) => {
     if (optionMatch && currentQuestion) {
       const optionLetter = optionMatch[1].toUpperCase()
       let optionText = optionMatch[2].trim()
-      
-      const isCorrect = optionText.includes('✓') || 
-                       optionText.toLowerCase().includes('(correct)') || 
-                       optionText.includes('✔') ||
-                       /\*{2}correct\*{2}/i.test(optionText)
-      
+
+      const isCorrect = optionText.includes('✓') ||
+        optionText.toLowerCase().includes('(correct)') ||
+        optionText.includes('✔') ||
+        /\*{2}correct\*{2}/i.test(optionText)
+
       optionText = optionText
         .replace(/[✓✔]/g, '')
         .replace(/\*{0,2}\(correct\)\*{0,2}/gi, '')
         .replace(/\*{2}correct\*{2}/gi, '')
         .trim()
-      
+
       currentOptions.push({
         letter: optionLetter,
         text: optionText,
@@ -113,10 +113,10 @@ const parseQuizFromMessage = (content) => {
       currentExplanation = explanationMatch[1].trim()
       while (i + 1 < lines.length) {
         const nextLine = lines[i + 1].trim()
-        if (!nextLine || 
-            nextLine.match(/^\*{0,2}Q(?:uestion)?\.?\s*\d+/i) ||
-            nextLine.match(/^\d+[\.\)]\s+/) ||
-            nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i)) {
+        if (!nextLine ||
+          nextLine.match(/^\*{0,2}Q(?:uestion)?\.?\s*\d+/i) ||
+          nextLine.match(/^\d+[\.\)]\s+/) ||
+          nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i)) {
           break
         }
         i++
@@ -239,7 +239,7 @@ const AIDoubtSolver = () => {
     setInput('')
     setStreamingContent('')
     setIsStreaming(true)
-    
+
     // Optimistically show user message immediately
     setPendingUserMessage({
       id: 'pending-user-' + Date.now(),
@@ -325,8 +325,8 @@ const AIDoubtSolver = () => {
     if (isStreamingMsg) {
       // Check if content looks like it might be a quiz (to show appropriate loading state)
       const looksLikeQuiz = /^\*{0,2}Q(?:uestion)?\.?\s*\d+/im.test(content) ||
-                           /^\d+[\.\)]\s+.+\n.*[A-D][\.\)]/m.test(content)
-      
+        /^\d+[\.\)]\s+.+\n.*[A-D][\.\)]/m.test(content)
+
       if (looksLikeQuiz) {
         // Show a quiz loading indicator instead of revealing answers
         return (
@@ -350,22 +350,22 @@ const AIDoubtSolver = () => {
           </div>
         )
       }
-      
+
       // For non-quiz content during streaming, render normally
       return <MathRenderer content={content} />
     }
-    
+
     // After streaming is complete, parse and render quiz if present
     const quizData = parseQuizFromMessage(content)
-    
+
     if (quizData) {
       return (
         <div className="space-y-4">
           {quizData.remainingContent && (
             <MathRenderer content={quizData.remainingContent} />
           )}
-          <ChatQuiz 
-            quiz={quizData.quiz} 
+          <ChatQuiz
+            quiz={quizData.quiz}
             sessionId={activeSession}
             onComplete={(result) => {
               // Refresh queries when quiz is completed
@@ -380,6 +380,13 @@ const AIDoubtSolver = () => {
   }
 
   const messages = sessionData?.messages || []
+
+  // Filter out any message that matches the pending user message to prevent duplicates
+  // This handles the case where the server returns the user message before we clear pendingUserMessage
+  const filteredMessages = pendingUserMessage
+    ? messages.filter(m => !(m.role === 'user' && m.content === pendingUserMessage.content))
+    : messages
+
   const sessionsList = sessions?.results || sessions || []
 
   const suggestedQuestions = faqSuggestions?.length > 0 ? faqSuggestions : [
@@ -431,7 +438,7 @@ const AIDoubtSolver = () => {
                   New Chat
                 </button>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-2">
                 {sessionsLoading ? (
                   <div className="flex justify-center p-4">
@@ -451,11 +458,10 @@ const AIDoubtSolver = () => {
                           setActiveSession(session.id)
                           setShowSidebar(false)
                         }}
-                        className={`w-full text-left p-3 rounded-xl transition-all group ${
-                          activeSession === session.id
-                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                            : 'hover:bg-surface-100 dark:hover:bg-surface-800'
-                        }`}
+                        className={`w-full text-left p-3 rounded-xl transition-all group ${activeSession === session.id
+                          ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                          : 'hover:bg-surface-100 dark:hover:bg-surface-800'
+                          }`}
                       >
                         <div className="flex items-start gap-2">
                           <span className="text-lg mt-0.5">💬</span>
@@ -487,7 +493,7 @@ const AIDoubtSolver = () => {
 
       {/* Mobile Overlay */}
       {showSidebar && !isFullscreen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setShowSidebar(false)}
         />
@@ -507,7 +513,7 @@ const AIDoubtSolver = () => {
               </svg>
             </button>
           )}
-          
+
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 flex-shrink-0">
             <span className="text-xl">🤖</span>
           </div>
@@ -518,7 +524,7 @@ const AIDoubtSolver = () => {
               GPT-4 • Ask doubts or request quizzes
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2 flex-shrink-0">
             {activeSession && (
               <button
@@ -531,7 +537,7 @@ const AIDoubtSolver = () => {
                 New
               </button>
             )}
-            
+
             {/* Fullscreen Toggle */}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
@@ -552,13 +558,13 @@ const AIDoubtSolver = () => {
         </div>
 
         {/* Messages Area - Flex grow with fixed overflow */}
-        <div 
+        <div
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto overscroll-contain"
           style={{ minHeight: 0 }} // Important for flex child scrolling
         >
           <div className="p-4 space-y-6">
-            {messages.length === 0 && !isStreaming ? (
+            {filteredMessages.length === 0 && !isStreaming && !pendingUserMessage ? (
               <div className="flex flex-col items-center justify-center text-center px-4 py-12">
                 {/* Hero Icon */}
                 <motion.div
@@ -568,7 +574,7 @@ const AIDoubtSolver = () => {
                 >
                   <span className="text-4xl">🎓</span>
                 </motion.div>
-                
+
                 <motion.h3
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -577,7 +583,7 @@ const AIDoubtSolver = () => {
                 >
                   How can I help you today?
                 </motion.h3>
-                
+
                 <motion.p
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -587,7 +593,7 @@ const AIDoubtSolver = () => {
                   Ask about NEET, JEE, CBSE topics, or say{' '}
                   <span className="font-semibold text-violet-600">"Quiz me on..."</span> for interactive practice!
                 </motion.p>
-                
+
                 {/* Suggested Questions */}
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
@@ -619,7 +625,7 @@ const AIDoubtSolver = () => {
             ) : (
               <>
                 {/* Render existing messages */}
-                {messages.map((message, index) => (
+                {filteredMessages.map((message, index) => (
                   <div
                     key={message.id || index}
                     className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
@@ -629,31 +635,30 @@ const AIDoubtSolver = () => {
                         <span className="text-sm">🤖</span>
                       </div>
                     )}
-                    
+
                     <div
-                      className={`max-w-[85%] lg:max-w-[75%] rounded-2xl ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3'
-                          : 'bg-surface-100 dark:bg-surface-800 px-4 py-3'
-                      }`}
+                      className={`max-w-[85%] lg:max-w-[75%] rounded-2xl ${message.role === 'user'
+                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3'
+                        : 'bg-surface-100 dark:bg-surface-800 px-4 py-3'
+                        }`}
                     >
                       {message.role === 'assistant' ? (
                         <>
                           {renderMessageContent(message.content)}
                           <div className="flex items-center gap-3 mt-3 pt-2 border-t border-surface-200 dark:border-surface-700">
-                            <button 
+                            <button
                               onClick={() => handleMarkHelpful(message.id, true)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-success-500 transition-colors"
                             >
                               👍 Helpful
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleMarkHelpful(message.id, false)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-error-500 transition-colors"
                             >
                               👎
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleCopyMessage(message.content)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-primary-500 transition-colors"
                             >
@@ -673,7 +678,7 @@ const AIDoubtSolver = () => {
                     )}
                   </div>
                 ))}
-                
+
                 {/* Render pending user message (optimistic UI) */}
                 {pendingUserMessage && (
                   <div className="flex gap-3 justify-end">
@@ -685,7 +690,7 @@ const AIDoubtSolver = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Streaming Response */}
                 {isStreaming && (
                   <div className="flex gap-3">
@@ -711,7 +716,7 @@ const AIDoubtSolver = () => {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} className="h-4" />
               </>
             )}
@@ -787,7 +792,7 @@ const AIDoubtSolver = () => {
                   </svg>
                 </button>
               </div>
-              
+
               <div className="p-4 border-b border-surface-200 dark:border-surface-700">
                 <button
                   onClick={() => { handleNewChat(); setShowSidebar(false); }}
@@ -799,7 +804,7 @@ const AIDoubtSolver = () => {
                   New Chat
                 </button>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-2">
                 {sessionsList.length === 0 ? (
                   <div className="text-center p-4 text-surface-500">
@@ -814,11 +819,10 @@ const AIDoubtSolver = () => {
                           setActiveSession(session.id)
                           setShowSidebar(false)
                         }}
-                        className={`w-full text-left p-3 rounded-xl transition-all ${
-                          activeSession === session.id
-                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                            : 'hover:bg-surface-100 dark:hover:bg-surface-800'
-                        }`}
+                        className={`w-full text-left p-3 rounded-xl transition-all ${activeSession === session.id
+                          ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                          : 'hover:bg-surface-100 dark:hover:bg-surface-800'
+                          }`}
                       >
                         <div className="flex items-start gap-2">
                           <span className="text-lg">💬</span>
