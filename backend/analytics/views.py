@@ -219,11 +219,22 @@ class WeeklyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'])
     def latest(self, request):
-        """Get the latest weekly report."""
-        report = self.get_queryset().first()
+        """Get the latest weekly report for the current week."""
+        from datetime import timedelta
         
-        if not report:
-            # Generate report
+        today = timezone.now().date()
+        current_week_start = today - timedelta(days=today.weekday())
+        
+        # Check if we have a report for the current week
+        current_week_report = self.get_queryset().filter(
+            week_start=current_week_start
+        ).first()
+        
+        if current_week_report:
+            # Update the report with fresh data (in case activity happened since report was created)
+            report = AnalyticsService.update_weekly_report(current_week_report)
+        else:
+            # Generate new report for current week
             report = AnalyticsService.generate_weekly_report(request.user.profile)
         
         return Response(WeeklyReportSerializer(report).data)

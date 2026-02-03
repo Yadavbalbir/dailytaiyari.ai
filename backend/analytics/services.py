@@ -257,7 +257,7 @@ class AnalyticsService:
         ).first()
         
         if existing:
-            return existing
+            return AnalyticsService.update_weekly_report(existing)
         
         # Get daily activities for the week
         activities = DailyActivity.objects.filter(
@@ -268,13 +268,22 @@ class AnalyticsService:
         
         # Aggregate stats
         stats = activities.aggregate(
-            total_time=Sum('study_time_minutes'),
             questions=Sum('questions_attempted'),
             correct=Sum('questions_correct'),
             xp=Sum('xp_earned'),
             days=Count('id'),
             goals=Count('id', filter=Q(daily_goal_met=True))
         )
+        
+        # Get study time from StudySession (more accurate real-time tracking)
+        study_sessions = StudySession.objects.filter(
+            student=student,
+            date__gte=week_start,
+            date__lte=week_end
+        ).aggregate(
+            total_seconds=Sum('total_seconds_today')
+        )
+        total_study_minutes = (study_sessions['total_seconds'] or 0) // 60
         
         # Get weak topics
         weak = TopicMastery.objects.filter(
@@ -287,7 +296,7 @@ class AnalyticsService:
             student=student,
             week_start=week_start,
             week_end=week_end,
-            total_study_minutes=stats['total_time'] or 0,
+            total_study_minutes=total_study_minutes,
             questions_attempted=stats['questions'] or 0,
             questions_correct=stats['correct'] or 0,
             accuracy=(stats['correct'] / stats['questions'] * 100) if stats['questions'] else 0,
@@ -296,6 +305,61 @@ class AnalyticsService:
             xp_earned=stats['xp'] or 0,
             weak_topics=list(map(str, weak))
         )
+        
+        return report
+    
+    @staticmethod
+    def update_weekly_report(report):
+        """
+        Update an existing weekly report with fresh data.
+        Used to ensure the report reflects the latest activity.
+        """
+        student = report.student
+        week_start = report.week_start
+        week_end = report.week_end
+        
+        # Get daily activities for the week
+        activities = DailyActivity.objects.filter(
+            student=student,
+            date__gte=week_start,
+            date__lte=week_end
+        )
+        
+        # Aggregate stats
+        stats = activities.aggregate(
+            questions=Sum('questions_attempted'),
+            correct=Sum('questions_correct'),
+            xp=Sum('xp_earned'),
+            days=Count('id'),
+            goals=Count('id', filter=Q(daily_goal_met=True))
+        )
+        
+        # Get study time from StudySession (more accurate real-time tracking)
+        study_sessions = StudySession.objects.filter(
+            student=student,
+            date__gte=week_start,
+            date__lte=week_end
+        ).aggregate(
+            total_seconds=Sum('total_seconds_today')
+        )
+        total_study_minutes = (study_sessions['total_seconds'] or 0) // 60
+        
+        # Get weak topics
+        weak = TopicMastery.objects.filter(
+            student=student,
+            mastery_level__lte=2
+        ).values_list('topic_id', flat=True)[:10]
+        
+        # Update report with fresh data
+        report.total_study_minutes = total_study_minutes
+        report.questions_attempted = stats['questions'] or 0
+        report.questions_correct = stats['correct'] or 0
+        report.accuracy = (stats['correct'] / stats['questions'] * 100) if stats['questions'] else 0
+        report.days_active = stats['days'] or 0
+        report.goals_met = stats['goals'] or 0
+        report.xp_earned = stats['xp'] or 0
+        report.weak_topics = list(map(str, weak))
+        report.save()
         
         return report
 
