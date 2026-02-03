@@ -68,6 +68,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     overall_accuracy = serializers.ReadOnlyField()
     xp_for_next_level = serializers.ReadOnlyField()
     primary_exam_name = serializers.CharField(source='primary_exam.name', read_only=True)
+    
+    # Handle nullable fields that may receive empty strings from frontend
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    target_year = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = StudentProfile
@@ -94,6 +98,15 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'total_questions_attempted', 'total_correct_answers',
             'total_study_time_minutes', 'created_at', 'updated_at'
         ]
+    
+    def to_internal_value(self, data):
+        # Convert empty strings to None for nullable fields
+        if 'date_of_birth' in data and data['date_of_birth'] == '':
+            data['date_of_birth'] = None
+        if 'target_year' in data and data['target_year'] == '':
+            data['target_year'] = None
+        return super().to_internal_value(data)
+
 
 
 class ExamEnrollmentSerializer(serializers.ModelSerializer):
