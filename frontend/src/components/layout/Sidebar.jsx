@@ -11,7 +11,8 @@ import {
   Trophy,
   MessageSquareText,
   Sparkles,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react'
 
 // Navigation items with professional icons
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/study', label: 'Study', icon: BookOpen },
   { path: '/quiz', label: 'Practice Quiz', icon: PenTool },
   { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList },
+  { path: '/community', label: 'Community', icon: Users },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/doubt-solver', label: 'AI Doubt Solver', icon: MessageSquareText },
@@ -94,8 +96,8 @@ const Sidebar = () => {
               to={item.path}
               onClick={closeMobileMenu}
               className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                  ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                  : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
+                ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
                 }`}
             >
               {isActive && (

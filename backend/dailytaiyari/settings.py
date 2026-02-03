@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'analytics.apps.AnalyticsConfig',
     'gamification.apps.GamificationConfig',
     'chatbot.apps.ChatbotConfig',
+    'community.apps.CommunityConfig',
 ]
 
 MIDDLEWARE = [

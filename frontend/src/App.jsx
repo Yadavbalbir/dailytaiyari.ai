@@ -27,30 +27,32 @@ import Profile from './pages/Profile'
 import AIDoubtSolver from './pages/AIDoubtSolver'
 import AILearning from './pages/AILearning'
 import AIQuizReview from './pages/AIQuizReview'
+import Community from './pages/Community'
+import CommunityPost from './pages/CommunityPost'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isOnboarded } = useAuthStore()
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
-  
+
   if (!isOnboarded) {
     return <Navigate to="/onboarding" replace />
   }
-  
+
   return children
 }
 
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, isOnboarded } = useAuthStore()
-  
+
   if (isAuthenticated && isOnboarded) {
     return <Navigate to="/dashboard" replace />
   }
-  
+
   return children
 }
 
@@ -59,27 +61,27 @@ function App() {
     <Routes>
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             <PublicRoute>
               <Login />
             </PublicRoute>
-          } 
+          }
         />
-        <Route 
-          path="/register" 
+        <Route
+          path="/register"
           element={
             <PublicRoute>
               <Register />
             </PublicRoute>
-          } 
+          }
         />
         <Route path="/onboarding" element={<Onboarding />} />
       </Route>
 
       {/* Main App Routes */}
-      <Route 
+      <Route
         element={
           <ProtectedRoute>
             <MainLayout />
@@ -104,6 +106,8 @@ function App() {
         <Route path="/ai-doubt-solver" element={<AIDoubtSolver />} />
         <Route path="/ai-learning" element={<AILearning />} />
         <Route path="/ai-quiz-review/:attemptId" element={<AIQuizReview />} />
+        <Route path="/community" element={<Community />} />
+        <Route path="/community/:id" element={<CommunityPost />} />
       </Route>
 
       {/* Redirects */}

@@ -21,6 +21,7 @@ openai>=1.12.0
 Pillow>=10.4.0
 django-filter>=23.5
 drf-yasg>=1.21.7
+better-profanity>=0.7.0
 
 # Testing
 pytest>=8.0.0

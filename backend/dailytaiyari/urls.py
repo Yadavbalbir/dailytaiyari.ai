@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/v1/analytics/', include('analytics.urls')),
     path('api/v1/gamification/', include('gamification.urls')),
     path('api/v1/chatbot/', include('chatbot.urls')),
+    path('api/v1/community/', include('community.urls')),
     
     # API Documentation
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

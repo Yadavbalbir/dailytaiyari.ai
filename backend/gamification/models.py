@@ -95,6 +95,7 @@ class XPTransaction(TimeStampedModel):
         ('level_up', 'Level Up Bonus'),
         ('referral', 'Referral Bonus'),
         ('challenge_win', 'Challenge Won'),
+        ('community', 'Community Activity'),
         ('manual', 'Manual Adjustment'),
     ]
 
