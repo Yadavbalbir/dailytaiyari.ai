@@ -251,7 +251,7 @@ class CommunityLeaderboardService:
     
     @classmethod
     def get_leaderboard(cls, period: str = 'weekly', limit: int = 50):
-        """Get current leaderboard."""
+        """Get current leaderboard, generating if needed."""
         today = date.today()
         
         if period == 'weekly':
@@ -261,7 +261,17 @@ class CommunityLeaderboardService:
         else:
             period_start = date(2020, 1, 1)
         
-        return CommunityLeaderboard.objects.filter(
+        entries = CommunityLeaderboard.objects.filter(
             period=period,
             period_start=period_start
         ).select_related('user__user')[:limit]
+        
+        # If no entries exist, generate the leaderboard
+        if not entries.exists():
+            cls.update_leaderboard(period)
+            entries = CommunityLeaderboard.objects.filter(
+                period=period,
+                period_start=period_start
+            ).select_related('user__user')[:limit]
+        
+        return entries
