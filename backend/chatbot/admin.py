@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import ChatSession, ChatMessage, SavedResponse, FrequentQuestion
+from .models import (
+    ChatSession, ChatMessage, SavedResponse, FrequentQuestion,
+    AIQuizAttempt, AIQuizQuestion, AILearningStats
+)
 
 
 @admin.register(ChatSession)
@@ -35,4 +38,31 @@ class FrequentQuestionAdmin(admin.ModelAdmin):
     
     def question_short(self, obj):
         return obj.question[:50] + '...' if len(obj.question) > 50 else obj.question
+
+
+@admin.register(AIQuizAttempt)
+class AIQuizAttemptAdmin(admin.ModelAdmin):
+    list_display = ['student', 'quiz_topic', 'total_questions', 'correct_answers', 'percentage', 'xp_earned', 'created_at']
+    list_filter = ['created_at', 'quiz_subject']
+    search_fields = ['student__user__email', 'quiz_topic']
+    raw_id_fields = ['student', 'session']
+    readonly_fields = ['total_questions', 'correct_answers', 'wrong_answers', 'percentage', 'xp_earned']
+
+
+@admin.register(AIQuizQuestion)
+class AIQuizQuestionAdmin(admin.ModelAdmin):
+    list_display = ['attempt', 'question_index', 'question_short', 'is_correct', 'user_answer', 'correct_option']
+    list_filter = ['is_correct']
+    raw_id_fields = ['attempt']
+    
+    def question_short(self, obj):
+        return obj.question_text[:50] + '...' if len(obj.question_text) > 50 else obj.question_text
+
+
+@admin.register(AILearningStats)
+class AILearningStatsAdmin(admin.ModelAdmin):
+    list_display = ['student', 'total_quizzes_attempted', 'total_xp_earned', 'average_accuracy', 'current_quiz_streak', 'perfect_quizzes']
+    search_fields = ['student__user__email']
+    raw_id_fields = ['student']
+    readonly_fields = ['total_quizzes_attempted', 'total_questions_attempted', 'total_correct_answers', 'total_xp_earned', 'average_accuracy']
 

@@ -4,7 +4,7 @@ Analytics service layer for complex calculations.
 from django.db.models import Sum, Avg, Count, F, Q
 from django.utils import timezone
 from datetime import timedelta
-from .models import TopicMastery, SubjectPerformance, DailyActivity, Streak, WeeklyReport
+from .models import TopicMastery, SubjectPerformance, DailyActivity, Streak, WeeklyReport, StudySession
 
 
 class AnalyticsService:
@@ -133,11 +133,28 @@ class AnalyticsService:
         streak = Streak.objects.filter(student=student, exam=exam).first()
         current_streak = streak.current_streak if streak else 0
         
-        # Today's activity
+        # Today's activity (for questions, accuracy)
         today_activity = DailyActivity.objects.filter(
             student=student,
             date=today
         ).first()
+        
+        # Today's study session (for real-time time tracking)
+        today_session = StudySession.objects.filter(
+            student=student,
+            date=today
+        ).first()
+        
+        # Calculate study time from StudySession (in minutes)
+        today_study_time = (today_session.total_seconds_today // 60) if today_session else 0
+        
+        # Calculate goal progress from StudySession
+        if today_session:
+            goal_progress = min(100, today_session.progress_percentage)
+            goal_met = today_session.goal_achieved
+        else:
+            goal_progress = 0
+            goal_met = False
         
         # Weekly stats
         weekly_activities = DailyActivity.objects.filter(
@@ -150,6 +167,15 @@ class AnalyticsService:
             total_xp=Sum('xp_earned'),
             days_active=Count('id')
         )
+        
+        # Weekly study time from StudySession (more accurate)
+        weekly_sessions = StudySession.objects.filter(
+            student=student,
+            date__gte=week_ago
+        ).aggregate(
+            total_seconds=Sum('total_seconds_today')
+        )
+        weekly_study_time = (weekly_sessions['total_seconds'] or 0) // 60
         
         # Topic mastery summary
         mastery_summary = TopicMastery.objects.filter(student=student).aggregate(
@@ -173,16 +199,15 @@ class AnalyticsService:
             'current_streak': current_streak,
             'longest_streak': streak.longest_streak if streak else 0,
             'today': {
-                'study_time': today_activity.study_time_minutes if today_activity else 0,
+                'study_time': today_study_time,
                 'questions': today_activity.questions_attempted if today_activity else 0,
                 'accuracy': (today_activity.questions_correct / today_activity.questions_attempted * 100) 
                            if today_activity and today_activity.questions_attempted > 0 else 0,
-                'goal_progress': min(100, (today_activity.study_time_minutes / student.daily_study_goal_minutes * 100))
-                               if today_activity else 0,
-                'goal_met': today_activity.daily_goal_met if today_activity else False
+                'goal_progress': goal_progress,
+                'goal_met': goal_met
             },
             'weekly': {
-                'study_time': weekly_activities['total_time'] or 0,
+                'study_time': weekly_study_time,
                 'questions': weekly_activities['total_questions'] or 0,
                 'accuracy': (weekly_activities['total_correct'] / weekly_activities['total_questions'] * 100)
                            if weekly_activities['total_questions'] else 0,

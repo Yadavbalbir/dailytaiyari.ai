@@ -164,4 +164,39 @@ export const chatService = {
     const response = await api.post(`/chatbot/faq/${faqId}/mark_helpful/`)
     return response.data
   },
+
+  // AI Quiz Tracking
+  submitAIQuiz: async (data) => {
+    const response = await api.post('/chatbot/ai-quizzes/submit/', data)
+    return response.data
+  },
+
+  getAIQuizzes: async () => {
+    const response = await api.get('/chatbot/ai-quizzes/')
+    return response.data
+  },
+
+  getAIQuizReview: async (attemptId) => {
+    const response = await api.get(`/chatbot/ai-quizzes/${attemptId}/review/`)
+    return response.data
+  },
+
+  getAILearningStats: async () => {
+    const response = await api.get('/chatbot/ai-quizzes/stats/')
+    return response.data
+  },
+
+  getAIQuizzesByTopic: async (topic) => {
+    const response = await api.get('/chatbot/ai-quizzes/by_topic/', {
+      params: { topic },
+    })
+    return response.data
+  },
+
+  getWrongQuestions: async (topic) => {
+    const response = await api.get('/chatbot/ai-quizzes/wrong_questions/', {
+      params: { topic },
+    })
+    return response.data
+  },
 }

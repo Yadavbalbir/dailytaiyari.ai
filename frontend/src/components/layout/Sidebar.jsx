@@ -12,6 +12,7 @@ const navItems = [
   { path: '/analytics', label: 'Analytics', icon: '📊' },
   { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   { path: '/doubt-solver', label: 'AI Doubt Solver', icon: '🤖' },
+  { path: '/ai-learning', label: 'AI Learning', icon: '⚡', badge: 'XP' },
 ]
 
 const Sidebar = () => {
@@ -98,6 +99,11 @@ const Sidebar = () => {
               {/* Special badges */}
               {item.path === '/doubt-solver' && (
                 <span className="ml-auto badge-primary text-[10px]">AI</span>
+              )}
+              {item.badge && item.path !== '/doubt-solver' && (
+                <span className="ml-auto px-2 py-0.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[10px] rounded-full font-semibold">
+                  {item.badge}
+                </span>
               )}
             </NavLink>
           )

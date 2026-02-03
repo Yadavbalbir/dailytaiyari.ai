@@ -1,33 +1,85 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import MathRenderer from './MathRenderer'
+import { chatService } from '../../services/chatService'
 import confetti from 'canvas-confetti'
+import toast from 'react-hot-toast'
 
 /**
  * Interactive Quiz Component for AI Chat
  * Renders quiz questions with options, feedback, and navigation
+ * Automatically saves results to backend and awards XP
  */
-const ChatQuiz = ({ quiz, onComplete }) => {
+const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
+  const queryClient = useQueryClient()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState({})
   const [showResult, setShowResult] = useState({})
   const [quizCompleted, setQuizCompleted] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [xpEarned, setXpEarned] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
+  const startTimeRef = useRef(Date.now())
+  const questionStartTimeRef = useRef(Date.now())
+  const questionTimesRef = useRef({})
+
+  // Mutation to submit quiz results
+  const submitQuizMutation = useMutation({
+    mutationFn: (data) => chatService.submitAIQuiz(data),
+    onSuccess: (response) => {
+      setXpEarned(response.xp_earned)
+      toast.success(response.message || `Quiz saved! +${response.xp_earned} XP`)
+      
+      // Invalidate relevant queries to refresh stats
+      queryClient.invalidateQueries(['dashboardStats'])
+      queryClient.invalidateQueries(['aiLearningStats'])
+      
+      onComplete?.(response)
+    },
+    onError: (error) => {
+      console.error('Failed to save quiz:', error)
+      toast.error('Quiz completed but failed to save. Your progress may not be recorded.')
+    },
+  })
 
   const questions = quiz.questions || []
   const currentQuestion = questions[currentIndex]
   const totalQuestions = questions.length
 
-  // Calculate score when quiz is completed
+  // Calculate score and save to backend when quiz is completed
   useEffect(() => {
-    if (quizCompleted) {
+    if (quizCompleted && !isSaving) {
+      setIsSaving(true)
+      
       let correct = 0
-      questions.forEach((q, idx) => {
-        if (selectedAnswers[idx] === q.correct_option) {
-          correct++
+      const questionsWithAnswers = questions.map((q, idx) => {
+        const isCorrect = selectedAnswers[idx] === q.correct_option
+        if (isCorrect) correct++
+        
+        return {
+          question_text: q.question,
+          options: q.options,
+          correct_option: q.correct_option,
+          user_answer: selectedAnswers[idx] ?? null,
+          explanation: q.explanation || '',
+          time_spent_seconds: questionTimesRef.current[idx] || 0
         }
       })
+      
       setScore({ correct, total: totalQuestions })
+      
+      // Calculate total time
+      const totalTimeSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      
+      // Submit to backend
+      submitQuizMutation.mutate({
+        session_id: sessionId || null,
+        quiz_topic: quiz.title || quiz.topic || 'AI Generated Quiz',
+        quiz_subject: quiz.subject || '',
+        questions: questionsWithAnswers,
+        time_taken_seconds: totalTimeSeconds
+      })
       
       // Celebration if good score
       if (correct / totalQuestions >= 0.7) {
@@ -42,6 +94,10 @@ const ChatQuiz = ({ quiz, onComplete }) => {
 
   const handleSelectOption = (optionIndex) => {
     if (showResult[currentIndex]) return // Already answered
+    
+    // Track time spent on this question
+    const timeSpent = Math.floor((Date.now() - questionStartTimeRef.current) / 1000)
+    questionTimesRef.current[currentIndex] = timeSpent
     
     setSelectedAnswers(prev => ({
       ...prev,
@@ -67,6 +123,7 @@ const ChatQuiz = ({ quiz, onComplete }) => {
   const handleNext = () => {
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1)
+      questionStartTimeRef.current = Date.now() // Reset timer for new question
     } else {
       setQuizCompleted(true)
     }
@@ -75,6 +132,7 @@ const ChatQuiz = ({ quiz, onComplete }) => {
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1)
+      questionStartTimeRef.current = Date.now()
     }
   }
 
@@ -84,6 +142,11 @@ const ChatQuiz = ({ quiz, onComplete }) => {
     setCurrentIndex(0)
     setQuizCompleted(false)
     setScore({ correct: 0, total: 0 })
+    setXpEarned(0)
+    setIsSaving(false)
+    startTimeRef.current = Date.now()
+    questionStartTimeRef.current = Date.now()
+    questionTimesRef.current = {}
   }
 
   const getOptionStyle = (optionIndex) => {
@@ -154,7 +217,7 @@ const ChatQuiz = ({ quiz, onComplete }) => {
 
   // Quiz Completed View
   if (quizCompleted) {
-    const percentage = Math.round((score.correct / score.total) * 100)
+    const percentage = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0
     const isGoodScore = percentage >= 70
 
     return (
@@ -185,6 +248,29 @@ const ChatQuiz = ({ quiz, onComplete }) => {
               {score.correct}/{score.total}
             </span> ({percentage}%)
           </p>
+          
+          {/* XP Earned */}
+          {xpEarned > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full font-semibold"
+            >
+              <span>⚡</span>
+              <span>+{xpEarned} XP Earned!</span>
+            </motion.div>
+          )}
+          
+          {submitQuizMutation.isPending && (
+            <p className="mt-2 text-sm text-surface-500 flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Saving your progress...
+            </p>
+          )}
         </div>
 
         {/* Score Bar */}

@@ -364,7 +364,14 @@ const AIDoubtSolver = () => {
           {quizData.remainingContent && (
             <MathRenderer content={quizData.remainingContent} />
           )}
-          <ChatQuiz quiz={quizData.quiz} />
+          <ChatQuiz 
+            quiz={quizData.quiz} 
+            sessionId={activeSession}
+            onComplete={(result) => {
+              // Refresh queries when quiz is completed
+              queryClient.invalidateQueries(['dashboardStats'])
+            }}
+          />
         </div>
       )
     }

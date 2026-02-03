@@ -25,6 +25,8 @@ import Analytics from './pages/Analytics'
 import Leaderboard from './pages/Leaderboard'
 import Profile from './pages/Profile'
 import AIDoubtSolver from './pages/AIDoubtSolver'
+import AILearning from './pages/AILearning'
+import AIQuizReview from './pages/AIQuizReview'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -99,6 +101,9 @@ function App() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/doubt-solver" element={<AIDoubtSolver />} />
+        <Route path="/ai-doubt-solver" element={<AIDoubtSolver />} />
+        <Route path="/ai-learning" element={<AILearning />} />
+        <Route path="/ai-quiz-review/:attemptId" element={<AIQuizReview />} />
       </Route>
 
       {/* Redirects */}
