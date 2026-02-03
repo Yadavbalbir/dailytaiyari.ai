@@ -72,9 +72,19 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         fields = [
-            'id', 'user', 'grade', 'school', 'target_year', 'city', 'state',
-            'primary_exam', 'primary_exam_name', 'daily_study_goal_minutes',
-            'preferred_study_time', 'total_xp', 'current_level', 
+            'id', 'user', 
+            # Personal info
+            'date_of_birth', 'bio', 'instagram_handle', 'parent_phone',
+            # Academic info
+            'grade', 'school', 'coaching', 'board', 'medium', 'target_year',
+            # Location
+            'city', 'state',
+            # Exam info
+            'primary_exam', 'primary_exam_name', 
+            # Study preferences
+            'daily_study_goal_minutes', 'preferred_study_time', 
+            # Stats
+            'total_xp', 'current_level', 
             'total_questions_attempted', 'total_correct_answers',
             'total_study_time_minutes', 'overall_accuracy', 'xp_for_next_level',
             'created_at', 'updated_at'

@@ -84,12 +84,37 @@ class StudentProfile(TimeStampedModel):
         ('graduate', 'Graduate'),
         ('other', 'Other'),
     ]
+    
+    BOARD_CHOICES = [
+        ('cbse', 'CBSE'),
+        ('icse', 'ICSE'),
+        ('state', 'State Board'),
+        ('ib', 'IB'),
+        ('igcse', 'IGCSE'),
+        ('other', 'Other'),
+    ]
+    
+    MEDIUM_CHOICES = [
+        ('english', 'English'),
+        ('hindi', 'Hindi'),
+        ('bilingual', 'Bilingual'),
+        ('other', 'Other'),
+    ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    
+    # Personal info
+    date_of_birth = models.DateField(null=True, blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    instagram_handle = models.CharField(max_length=100, blank=True)
+    parent_phone = models.CharField(max_length=15, blank=True)
     
     # Academic info
     grade = models.CharField(max_length=20, choices=GRADE_CHOICES, blank=True)
     school = models.CharField(max_length=200, blank=True)
+    coaching = models.CharField(max_length=200, blank=True)
+    board = models.CharField(max_length=20, choices=BOARD_CHOICES, blank=True)
+    medium = models.CharField(max_length=20, choices=MEDIUM_CHOICES, default='english')
     target_year = models.PositiveIntegerField(null=True, blank=True)
     
     # Location
