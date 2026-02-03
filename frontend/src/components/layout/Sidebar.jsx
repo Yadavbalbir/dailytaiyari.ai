@@ -2,17 +2,28 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
 import { useAppStore } from '../../context/appStore'
+import {
+  LayoutDashboard,
+  BookOpen,
+  PenTool,
+  ClipboardList,
+  BarChart3,
+  Trophy,
+  MessageSquareText,
+  Sparkles,
+  Settings
+} from 'lucide-react'
 
-// Icons (using emoji for simplicity, replace with actual icons)
+// Navigation items with professional icons
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { path: '/study', label: 'Study', icon: '📚' },
-  { path: '/quiz', label: 'Practice Quiz', icon: '✍️' },
-  { path: '/mock-test', label: 'Mock Tests', icon: '📝' },
-  { path: '/analytics', label: 'Analytics', icon: '📊' },
-  { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-  { path: '/doubt-solver', label: 'AI Doubt Solver', icon: '🤖' },
-  { path: '/ai-learning', label: 'AI Learning', icon: '⚡', badge: 'XP' },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/study', label: 'Study', icon: BookOpen },
+  { path: '/quiz', label: 'Practice Quiz', icon: PenTool },
+  { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { path: '/doubt-solver', label: 'AI Doubt Solver', icon: MessageSquareText },
+  { path: '/ai-learning', label: 'AI Learning', icon: Sparkles, badge: 'XP' },
 ]
 
 const Sidebar = () => {
@@ -49,7 +60,7 @@ const Sidebar = () => {
               <p className="text-xs text-surface-500">Level {profile.current_level}</p>
             </div>
           </div>
-          
+
           {/* XP Progress */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
@@ -57,10 +68,10 @@ const Sidebar = () => {
               <span className="font-medium">{(profile.total_xp || 0).toLocaleString()} XP</span>
             </div>
             <div className="progress-bar">
-              <div 
+              <div
                 className="progress-bar-fill bg-gradient-to-r from-primary-500 to-accent-500"
-                style={{ 
-                  width: profile.total_xp > 0 
+                style={{
+                  width: profile.total_xp > 0
                     ? `${Math.max(5, 100 - ((profile.xp_for_next_level || 100) / ((profile.current_level || 1) * 150) * 100))}%`
                     : '0%'
                 }}
@@ -73,19 +84,19 @@ const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
-                          (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
-          
+          const isActive = location.pathname === item.path ||
+            (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
+          const IconComponent = item.icon
+
           return (
             <NavLink
               key={item.path}
               to={item.path}
               onClick={closeMobileMenu}
-              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                isActive
+              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                   ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
                   : 'text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800'
-              }`}
+                }`}
             >
               {isActive && (
                 <motion.div
@@ -93,12 +104,18 @@ const Sidebar = () => {
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full"
                 />
               )}
-              <span className="text-lg">{item.icon}</span>
+              <IconComponent
+                size={20}
+                strokeWidth={isActive ? 2.5 : 2}
+                className={`transition-all ${isActive ? 'text-primary-500' : 'text-surface-500 group-hover:text-primary-400'}`}
+              />
               <span className="font-medium">{item.label}</span>
-              
+
               {/* Special badges */}
               {item.path === '/doubt-solver' && (
-                <span className="ml-auto badge-primary text-[10px]">AI</span>
+                <span className="ml-auto px-2 py-0.5 bg-gradient-to-r from-primary-500 to-accent-500 text-white text-[10px] rounded-full font-semibold">
+                  AI
+                </span>
               )}
               {item.badge && item.path !== '/doubt-solver' && (
                 <span className="ml-auto px-2 py-0.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[10px] rounded-full font-semibold">
@@ -115,9 +132,13 @@ const Sidebar = () => {
         <NavLink
           to="/profile"
           onClick={closeMobileMenu}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-surface-600 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors group"
         >
-          <span className="text-lg">⚙️</span>
+          <Settings
+            size={20}
+            strokeWidth={2}
+            className="text-surface-500 group-hover:text-primary-400 transition-colors"
+          />
           <span className="font-medium">Settings</span>
         </NavLink>
       </div>
@@ -126,4 +147,3 @@ const Sidebar = () => {
 }
 
 export default Sidebar
-
