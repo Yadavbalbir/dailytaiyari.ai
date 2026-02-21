@@ -28,8 +28,8 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'grade', 'primary_exam', 'total_xp', 'current_level']
-    list_filter = ['grade', 'primary_exam']
+    list_display = ['user', 'primary_exam', 'total_xp', 'current_level']
+    list_filter = ['primary_exam']
     search_fields = ['user__email', 'user__first_name']
     raw_id_fields = ['user', 'primary_exam']
 

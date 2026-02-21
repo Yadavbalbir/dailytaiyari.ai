@@ -6,20 +6,8 @@ import { examService } from '../../services/examService'
 import toast from 'react-hot-toast'
 
 const steps = [
-  { id: 1, title: 'Select Your Grade', icon: '📚' },
-  { id: 2, title: 'Choose Your Exam', icon: '🎯' },
-  { id: 3, title: 'Set Your Goals', icon: '🚀' },
-]
-
-const grades = [
-  { value: '6', label: 'Class 6' },
-  { value: '7', label: 'Class 7' },
-  { value: '8', label: 'Class 8' },
-  { value: '9', label: 'Class 9' },
-  { value: '10', label: 'Class 10' },
-  { value: '11', label: 'Class 11' },
-  { value: '12', label: 'Class 12' },
-  { value: 'graduate', label: 'Graduate' },
+  { id: 1, title: 'Choose Your Exam', icon: '🎯' },
+  { id: 2, title: 'Set Your Goals', icon: '🚀' },
 ]
 
 const studyTimes = [
@@ -32,11 +20,10 @@ const studyTimes = [
 const Onboarding = () => {
   const navigate = useNavigate()
   const { isAuthenticated, isOnboarded, completeOnboarding, isLoading } = useAuthStore()
-  
+
   const [currentStep, setCurrentStep] = useState(1)
   const [exams, setExams] = useState([])
   const [formData, setFormData] = useState({
-    grade: '',
     primary_exam_id: '',
     additional_exam_ids: [],
     target_year: new Date().getFullYear() + 1,
@@ -66,7 +53,7 @@ const Onboarding = () => {
   }
 
   const handleNext = () => {
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -78,8 +65,8 @@ const Onboarding = () => {
   }
 
   const handleSubmit = async () => {
-    if (!formData.grade || !formData.primary_exam_id) {
-      toast.error('Please complete all required fields')
+    if (!formData.primary_exam_id) {
+      toast.error('Please select your target exam')
       return
     }
 
@@ -100,21 +87,19 @@ const Onboarding = () => {
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
-                  currentStep >= step.id
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${currentStep >= step.id
                     ? 'bg-primary-500 text-white'
                     : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
-                }`}
+                  }`}
               >
                 {currentStep > step.id ? '✓' : step.icon}
               </div>
               {index < steps.length - 1 && (
                 <div
-                  className={`w-20 h-1 mx-2 rounded-full transition-colors ${
-                    currentStep > step.id
+                  className={`w-20 h-1 mx-2 rounded-full transition-colors ${currentStep > step.id
                       ? 'bg-primary-500'
                       : 'bg-surface-200 dark:bg-surface-700'
-                  }`}
+                    }`}
                 />
               )}
             </div>
@@ -133,32 +118,12 @@ const Onboarding = () => {
             {steps[currentStep - 1].title}
           </h2>
           <p className="text-surface-500 text-center mb-8">
-            {currentStep === 1 && 'Tell us about your current academic level'}
-            {currentStep === 2 && 'What exam are you preparing for?'}
-            {currentStep === 3 && 'Set your daily study goals'}
+            {currentStep === 1 && 'Which exam are you preparing for?'}
+            {currentStep === 2 && 'Set your daily study goals'}
           </p>
 
-          {/* Step 1: Grade Selection */}
+          {/* Step 1: Exam Selection */}
           {currentStep === 1 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {grades.map((grade) => (
-                <button
-                  key={grade.value}
-                  onClick={() => setFormData({ ...formData, grade: grade.value })}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    formData.grade === grade.value
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
-                  }`}
-                >
-                  <span className="font-medium">{grade.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Step 2: Exam Selection */}
-          {currentStep === 2 && (
             <div className="space-y-4">
               <p className="text-sm text-surface-500 mb-4">Select your primary exam:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -166,11 +131,10 @@ const Onboarding = () => {
                   <button
                     key={exam.id}
                     onClick={() => setFormData({ ...formData, primary_exam_id: exam.id })}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
-                      formData.primary_exam_id === exam.id
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${formData.primary_exam_id === exam.id
                         ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                         : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -181,7 +145,7 @@ const Onboarding = () => {
                       </div>
                       <div>
                         <h4 className="font-semibold">{exam.name}</h4>
-                        <p className="text-xs text-surface-500">{exam.exam_type}</p>
+                        <p className="text-xs text-surface-500">{exam.description?.slice(0, 60) || exam.exam_type}</p>
                       </div>
                     </div>
                   </button>
@@ -190,8 +154,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* Step 3: Goals */}
-          {currentStep === 3 && (
+          {/* Step 2: Goals */}
+          {currentStep === 2 && (
             <div className="space-y-6">
               {/* Daily Study Goal */}
               <div>
@@ -228,11 +192,10 @@ const Onboarding = () => {
                       onClick={() =>
                         setFormData({ ...formData, preferred_study_time: time.value })
                       }
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        formData.preferred_study_time === time.value
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${formData.preferred_study_time === time.value
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                           : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
-                      }`}
+                        }`}
                     >
                       <span className="text-xl mr-2">{time.icon}</span>
                       <span className="text-sm font-medium">{time.label}</span>
@@ -272,14 +235,11 @@ const Onboarding = () => {
             >
               Back
             </button>
-            
-            {currentStep < 3 ? (
+
+            {currentStep < 2 ? (
               <button
                 onClick={handleNext}
-                disabled={
-                  (currentStep === 1 && !formData.grade) ||
-                  (currentStep === 2 && !formData.primary_exam_id)
-                }
+                disabled={currentStep === 1 && !formData.primary_exam_id}
                 className="btn-primary"
               >
                 Continue

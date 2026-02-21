@@ -1,6 +1,6 @@
 """
 User models for DailyTaiyari platform.
-Custom User model with StudentProfile for exam-specific data.
+Custom User model with StudentProfile for IIT JEE & NEET exam preparation.
 """
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -69,8 +69,8 @@ class User(AbstractUser):
 
 class StudentProfile(TimeStampedModel):
     """
-    Extended profile for students with exam-specific information.
-    One profile per user, linked to multiple exams.
+    Extended profile for students preparing for IIT JEE & NEET.
+    One profile per user, linked to their target exam.
     """
     
     GRADE_CHOICES = [

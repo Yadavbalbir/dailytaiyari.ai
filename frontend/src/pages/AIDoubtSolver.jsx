@@ -590,7 +590,7 @@ const AIDoubtSolver = () => {
                   transition={{ delay: 0.2 }}
                   className="text-surface-500 max-w-md mb-8 text-sm"
                 >
-                  Ask about NEET, JEE, CBSE topics, or say{' '}
+                  Ask about NEET or JEE topics, or say{' '}
                   <span className="font-semibold text-violet-600">"Quiz me on..."</span> for interactive practice!
                 </motion.p>
 

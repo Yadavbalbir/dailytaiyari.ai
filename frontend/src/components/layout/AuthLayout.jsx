@@ -36,10 +36,10 @@ const AuthLayout = () => {
               Your Daily Dose of<br />
               <span className="text-white/90">Exam Success</span>
             </h2>
-            
+
             <p className="text-white/80 text-lg mb-8 max-w-md">
-              Join thousands of students preparing for NEET, IIT JEE, CBSE, NDA, 
-              and more with personalized study plans and AI-powered learning.
+              Join thousands of students preparing for NEET and IIT JEE
+              with personalized study plans and AI-powered learning.
             </p>
 
             {/* Stats */}

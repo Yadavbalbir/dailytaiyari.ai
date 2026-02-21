@@ -20,11 +20,8 @@ const Profile = () => {
     instagram_handle: profile?.instagram_handle || '',
     parent_phone: profile?.parent_phone || '',
     // Academic info
-    grade: profile?.grade || '',
     school: profile?.school || '',
     coaching: profile?.coaching || '',
-    board: profile?.board || '',
-    medium: profile?.medium || 'english',
     target_year: profile?.target_year || '',
     // Location
     city: profile?.city || '',
@@ -42,11 +39,8 @@ const Profile = () => {
         bio: profile.bio || '',
         instagram_handle: profile.instagram_handle || '',
         parent_phone: profile.parent_phone || '',
-        grade: profile.grade || '',
         school: profile.school || '',
         coaching: profile.coaching || '',
-        board: profile.board || '',
-        medium: profile.medium || 'english',
         target_year: profile.target_year || '',
         city: profile.city || '',
         state: profile.state || '',
@@ -86,11 +80,8 @@ const Profile = () => {
       bio: profile?.bio || '',
       instagram_handle: profile?.instagram_handle || '',
       parent_phone: profile?.parent_phone || '',
-      grade: profile?.grade || '',
       school: profile?.school || '',
       coaching: profile?.coaching || '',
-      board: profile?.board || '',
-      medium: profile?.medium || 'english',
       target_year: profile?.target_year || '',
       city: profile?.city || '',
       state: profile?.state || '',
@@ -113,33 +104,7 @@ const Profile = () => {
     { value: 'night', label: 'Night', icon: '🌙', desc: '10PM-6AM' },
   ]
 
-  const gradeOptions = [
-    { value: '6', label: 'Class 6' },
-    { value: '7', label: 'Class 7' },
-    { value: '8', label: 'Class 8' },
-    { value: '9', label: 'Class 9' },
-    { value: '10', label: 'Class 10' },
-    { value: '11', label: 'Class 11' },
-    { value: '12', label: 'Class 12' },
-    { value: 'graduate', label: 'Graduate' },
-    { value: 'other', label: 'Other' },
-  ]
 
-  const boardOptions = [
-    { value: 'cbse', label: 'CBSE' },
-    { value: 'icse', label: 'ICSE' },
-    { value: 'state', label: 'State Board' },
-    { value: 'ib', label: 'IB' },
-    { value: 'igcse', label: 'IGCSE' },
-    { value: 'other', label: 'Other' },
-  ]
-
-  const mediumOptions = [
-    { value: 'english', label: 'English' },
-    { value: 'hindi', label: 'Hindi' },
-    { value: 'bilingual', label: 'Bilingual' },
-    { value: 'other', label: 'Other' },
-  ]
 
   const indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -155,8 +120,8 @@ const Profile = () => {
     <button
       onClick={() => isEditing && activeSection === section ? handleSave() : startEditing(section)}
       className={`text-sm px-3 py-1.5 rounded-lg transition-all ${isEditing && activeSection === section
-          ? 'bg-primary-500 text-white'
-          : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+        ? 'bg-primary-500 text-white'
+        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
         }`}
     >
       {isEditing && activeSection === section ? 'Save' : 'Edit'}
@@ -185,9 +150,6 @@ const Profile = () => {
             <div className="flex flex-wrap items-center gap-2 mt-3">
               <span className="badge-primary">Level {profile?.current_level || 1}</span>
               <span className="badge-success">{profile?.total_xp?.toLocaleString() || 0} XP</span>
-              {profile?.grade && (
-                <span className="badge-secondary">Class {profile.grade}</span>
-              )}
               {profile?.primary_exam_name && (
                 <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
                   {profile.primary_exam_name}
@@ -347,27 +309,6 @@ const Profile = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Grade */}
-          <div>
-            <label className="block text-sm font-medium text-surface-500 mb-1">Current Grade</label>
-            {isEditing && activeSection === 'academic' ? (
-              <select
-                value={formData.grade}
-                onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                className="input"
-              >
-                <option value="">Select grade</option>
-                {gradeOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-base py-2">
-                {gradeOptions.find(o => o.value === formData.grade)?.label || '—'}
-              </p>
-            )}
-          </div>
-
           {/* Target Year */}
           <div>
             <label className="block text-sm font-medium text-surface-500 mb-1">Target Exam Year</label>
@@ -384,6 +325,16 @@ const Profile = () => {
             ) : (
               <p className="text-base py-2">{formData.target_year || '—'}</p>
             )}
+          </div>
+
+          {/* Exam */}
+          <div>
+            <label className="block text-sm font-medium text-surface-500 mb-1">Primary Exam</label>
+            <p className="text-base py-2">
+              <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+                {profile?.primary_exam_name || '—'}
+              </span>
+            </p>
           </div>
 
           {/* School */}
@@ -415,47 +366,6 @@ const Profile = () => {
               />
             ) : (
               <p className="text-base py-2">{formData.coaching || '—'}</p>
-            )}
-          </div>
-
-          {/* Board */}
-          <div>
-            <label className="block text-sm font-medium text-surface-500 mb-1">Education Board</label>
-            {isEditing && activeSection === 'academic' ? (
-              <select
-                value={formData.board}
-                onChange={(e) => setFormData({ ...formData, board: e.target.value })}
-                className="input"
-              >
-                <option value="">Select board</option>
-                {boardOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-base py-2">
-                {boardOptions.find(o => o.value === formData.board)?.label || '—'}
-              </p>
-            )}
-          </div>
-
-          {/* Medium */}
-          <div>
-            <label className="block text-sm font-medium text-surface-500 mb-1">Study Medium</label>
-            {isEditing && activeSection === 'academic' ? (
-              <select
-                value={formData.medium}
-                onChange={(e) => setFormData({ ...formData, medium: e.target.value })}
-                className="input"
-              >
-                {mediumOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-base py-2">
-                {mediumOptions.find(o => o.value === formData.medium)?.label || 'English'}
-              </p>
             )}
           </div>
         </div>
@@ -549,7 +459,7 @@ const Profile = () => {
                   </div>
                 </div>
                 <span className={`badge ${formData.daily_study_goal_minutes >= 120 ? 'badge-success' :
-                    formData.daily_study_goal_minutes >= 60 ? 'badge-primary' : 'badge-warning'
+                  formData.daily_study_goal_minutes >= 60 ? 'badge-primary' : 'badge-warning'
                   }`}>
                   {formData.daily_study_goal_minutes >= 120 ? '🔥 Intense' :
                     formData.daily_study_goal_minutes >= 60 ? '💪 Committed' : '📚 Beginner'}
@@ -580,8 +490,8 @@ const Profile = () => {
                         key={mins}
                         onClick={() => setFormData({ ...formData, daily_study_goal_minutes: mins })}
                         className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${formData.daily_study_goal_minutes === mins
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-surface-200 dark:bg-surface-700 hover:bg-primary-100 dark:hover:bg-primary-900/30'
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-surface-200 dark:bg-surface-700 hover:bg-primary-100 dark:hover:bg-primary-900/30'
                           }`}
                       >
                         {mins} min
@@ -610,8 +520,8 @@ const Profile = () => {
                   onClick={() => isEditing && activeSection === 'study' && setFormData({ ...formData, preferred_study_time: time.value })}
                   disabled={!isEditing || activeSection !== 'study'}
                   className={`p-3 rounded-xl border-2 transition-all text-center ${formData.preferred_study_time === time.value
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-surface-200 dark:border-surface-700'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-surface-200 dark:border-surface-700'
                     } ${isEditing && activeSection === 'study' ? 'cursor-pointer hover:border-primary-300' : 'cursor-default'}`}
                 >
                   <span className="text-2xl block mb-1">{time.icon}</span>

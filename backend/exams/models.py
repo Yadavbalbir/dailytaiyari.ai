@@ -1,6 +1,5 @@
 """
-Exam models - Exam-agnostic structure for all competitive exams.
-Supports NEET, IIT JEE, CBSE, NDA, SSC, Banking, UPSC, CUET etc.
+Exam models - Structure for IIT JEE and NEET competitive exams.
 """
 from django.db import models
 from core.models import TimeStampedModel, OrderedModel

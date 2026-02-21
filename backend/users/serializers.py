@@ -124,8 +124,7 @@ class ExamEnrollmentSerializer(serializers.ModelSerializer):
 
 
 class OnboardingSerializer(serializers.Serializer):
-    """Serializer for student onboarding."""
-    grade = serializers.CharField(max_length=20)
+    """Serializer for student onboarding — IIT JEE & NEET only."""
     primary_exam_id = serializers.UUIDField()
     additional_exam_ids = serializers.ListField(
         child=serializers.UUIDField(),

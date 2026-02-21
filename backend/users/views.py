@@ -75,7 +75,6 @@ class OnboardingView(APIView):
         profile = user.profile
 
         # Update profile
-        profile.grade = data['grade']
         profile.target_year = data.get('target_year')
         profile.daily_study_goal_minutes = data['daily_study_goal_minutes']
         profile.preferred_study_time = data['preferred_study_time']
