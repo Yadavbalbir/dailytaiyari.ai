@@ -301,19 +301,16 @@ class QuizAttempt(TimeStampedModel):
         self.wrong_answers = answers.filter(is_correct=False).count()
         self.skipped_questions = self.total_questions - self.attempted_questions
         
-        # Calculate marks
-        marks = 0
-        for answer in answers:
-            if answer.is_correct:
-                marks += answer.question.marks
-            else:
-                marks -= answer.question.negative_marks
-        
-        self.marks_obtained = max(0, marks)
+        # Calculate marks using answer.marks_obtained (set by check_answer)
+        # This correctly handles +marks for correct, -negative_marks for wrong
+        marks = sum(a.marks_obtained for a in answers)
+        self.marks_obtained = marks  # Can be negative in competitive exams
         self.total_marks = sum(q.marks for q in self.quiz.questions.all())
         
         if self.total_marks > 0:
-            self.percentage = (self.marks_obtained / self.total_marks) * 100
+            self.percentage = max(0, (self.marks_obtained / self.total_marks) * 100)
+        else:
+            self.percentage = 0
         
         self.save()
 

@@ -8,7 +8,7 @@ import Loading from '../components/common/Loading'
 const MockTest = () => {
   const navigate = useNavigate()
   const [showFilters, setShowFilters] = useState(false)
-  
+
   // Filter state
   const [filters, setFilters] = useState({
     exam: '',
@@ -99,7 +99,7 @@ const MockTest = () => {
           <div>
             <h3 className="font-semibold">About Mock Tests</h3>
             <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">
-              Mock tests simulate the real exam environment with accurate timing, marking scheme, 
+              Mock tests simulate the real exam environment with accurate timing, marking scheme,
               and question patterns. Complete analysis is provided after each attempt.
             </p>
           </div>
@@ -139,11 +139,10 @@ const MockTest = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('attempted', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.attempted === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.attempted === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All Tests
                     {filterOptions?.attempt_status && (
@@ -154,11 +153,10 @@ const MockTest = () => {
                   </button>
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'true' ? '' : 'true')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.attempted === 'true'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'true'
                         ? 'bg-success-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     <span>✅</span>
                     Attempted
@@ -168,11 +166,10 @@ const MockTest = () => {
                   </button>
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'false' ? '' : 'false')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.attempted === 'false'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'false'
                         ? 'bg-warning-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     <span>🆕</span>
                     Not Attempted
@@ -189,11 +186,10 @@ const MockTest = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('exam', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.exam === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All Exams
                   </button>
@@ -201,11 +197,10 @@ const MockTest = () => {
                     <button
                       key={exam.id}
                       onClick={() => updateFilter('exam', filters.exam === exam.id ? '' : exam.id)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        filters.exam === exam.id
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === exam.id
                           ? 'bg-primary-500 text-white'
                           : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                      }`}
+                        }`}
                     >
                       {exam.short_name || exam.name}
                     </button>
@@ -219,31 +214,28 @@ const MockTest = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('is_free', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.is_free === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.is_free === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => updateFilter('is_free', filters.is_free === 'true' ? '' : 'true')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.is_free === 'true'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.is_free === 'true'
                         ? 'bg-success-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     🆓 Free
                   </button>
                   <button
                     onClick={() => updateFilter('is_free', filters.is_free === 'false' ? '' : 'false')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.is_free === 'false'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.is_free === 'false'
                         ? 'bg-warning-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     ⭐ Premium
                   </button>
@@ -328,7 +320,7 @@ const MockTest = () => {
           {tests.map((test) => {
             const attemptInfo = test.user_attempt_info
             const hasAttempted = attemptInfo?.attempted
-            
+
             return (
               <motion.div
                 key={test.id}
@@ -341,10 +333,9 @@ const MockTest = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="badge-primary">{test.exam_name}</span>
                       {hasAttempted && (
-                        <span className={`badge ${
-                          attemptInfo.best_score >= 70 ? 'badge-success' :
-                          attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
-                        }`}>
+                        <span className={`badge ${attemptInfo.best_score >= 70 ? 'badge-success' :
+                            attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                          }`}>
                           Best: {Math.round(attemptInfo.best_score)}%
                         </span>
                       )}
@@ -362,7 +353,7 @@ const MockTest = () => {
 
                 <p className="text-sm text-surface-500 mb-4">{test.description}</p>
 
-                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                <div className="grid grid-cols-4 gap-3 mb-4 text-center">
                   <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
                     <p className="text-lg font-bold">{test.questions_count}</p>
                     <p className="text-xs text-surface-500">Questions</p>
@@ -374,6 +365,12 @@ const MockTest = () => {
                   <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
                     <p className="text-lg font-bold">{test.total_marks}</p>
                     <p className="text-xs text-surface-500">Marks</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800">
+                    <p className="text-lg font-bold text-error-500">
+                      {test.negative_marking ? '✓' : '✗'}
+                    </p>
+                    <p className="text-xs text-surface-500">-ve Marks</p>
                   </div>
                 </div>
 
@@ -450,10 +447,9 @@ const MockTest = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className={`font-bold ${
-                      attempt.percentage >= 70 ? 'text-success-500' :
-                      attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
-                    }`}>
+                    <p className={`font-bold ${attempt.percentage >= 70 ? 'text-success-500' :
+                        attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                      }`}>
                       {Math.round(attempt.percentage || 0)}%
                     </p>
                     <p className="text-sm text-surface-500">

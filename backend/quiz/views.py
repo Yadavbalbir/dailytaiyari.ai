@@ -33,6 +33,17 @@ class QuizSubmitThrottle(UserRateThrottle):
     rate = '60/hour'
 
 
+def _get_student_exam(request):
+    """Helper to get the student's primary exam for filtering."""
+    if not request.user.is_authenticated:
+        return None
+    try:
+        profile = request.user.profile
+        return profile.primary_exam
+    except Exception:
+        return None
+
+
 class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for questions.
@@ -48,6 +59,14 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve' and self.request.query_params.get('with_answer'):
             return QuestionWithAnswerSerializer
         return QuestionSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Auto-filter by student's primary exam
+        exam = _get_student_exam(self.request)
+        if exam:
+            queryset = queryset.filter(exams=exam)
+        return queryset
 
     @action(detail=False, methods=['get'])
     def by_topic(self, request):
@@ -84,6 +103,12 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         request = self.request
         
+        # Auto-filter by student's primary exam (unless explicit exam filter is provided)
+        if not request.query_params.get('exam'):
+            exam = _get_student_exam(request)
+            if exam:
+                queryset = queryset.filter(exam=exam)
+        
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
         if attempted_filter is not None and request.user.is_authenticated:
@@ -108,17 +133,23 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'])
     def filter_options(self, request):
-        """Get available filter options for quizzes."""
+        """Get available filter options for quizzes (scoped to student's exam)."""
         from exams.models import Subject, Topic, Exam
         
-        # Get subjects that have quizzes
+        # Scope to student's primary exam
+        exam = _get_student_exam(request)
+        quiz_qs = Quiz.objects.filter(status='published')
+        if exam:
+            quiz_qs = quiz_qs.filter(exam=exam)
+        
+        # Get subjects that have quizzes for this exam
         subjects_with_quizzes = Subject.objects.filter(
-            quizzes__status='published'
+            quizzes__in=quiz_qs
         ).distinct().values('id', 'name')
         
-        # Get topics that have quizzes
+        # Get topics that have quizzes for this exam
         topics_with_quizzes = Topic.objects.filter(
-            quizzes__status='published'
+            quizzes__in=quiz_qs
         ).distinct().values('id', 'name', 'subject_id', 'subject__name')
         
         # Get exams that have quizzes
@@ -126,22 +157,23 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
             quizzes__status='published'
         ).distinct().values('id', 'name', 'short_name')
         
-        # Get quiz type counts
-        quiz_types = Quiz.objects.filter(status='published').values('quiz_type').annotate(
+        # Get quiz type counts (scoped to exam)
+        quiz_types = quiz_qs.values('quiz_type').annotate(
             count=Count('id')
         )
         
-        # Get attempted/non-attempted counts for the user
+        # Get attempted/non-attempted counts for the user (scoped to exam)
         attempted_count = 0
         non_attempted_count = 0
         if request.user.is_authenticated:
             profile = request.user.profile
             attempted_quiz_ids = QuizAttempt.objects.filter(
                 student=profile,
-                status='completed'
+                status='completed',
+                quiz__in=quiz_qs
             ).values_list('quiz_id', flat=True).distinct()
             
-            total_quizzes = Quiz.objects.filter(status='published').count()
+            total_quizzes = quiz_qs.count()
             attempted_count = len(set(attempted_quiz_ids))
             non_attempted_count = total_quizzes - attempted_count
         
@@ -354,6 +386,55 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
         quiz.save(update_fields=['total_attempts'])
         
         return Response(QuizAttemptSerializer(attempt).data)
+    
+    @action(detail=True, methods=['get'])
+    def leaderboard(self, request, pk=None):
+        """Get leaderboard for a specific quiz."""
+        quiz = self.get_object()
+        
+        # Get best attempt per student (highest marks)
+        from django.db.models import Max, Min, F
+        
+        attempts = QuizAttempt.objects.filter(
+            quiz=quiz,
+            status='completed'
+        ).order_by('-marks_obtained', 'time_taken_seconds')
+        
+        # Deduplicate: keep best attempt per student
+        seen_students = set()
+        leaderboard = []
+        for attempt in attempts[:200]:  # Check up to 200 attempts
+            if attempt.student_id in seen_students:
+                continue
+            seen_students.add(attempt.student_id)
+            leaderboard.append({
+                'rank': len(leaderboard) + 1,
+                'student_name': attempt.student.user.full_name or attempt.student.user.username,
+                'marks_obtained': float(attempt.marks_obtained),
+                'total_marks': float(attempt.total_marks),
+                'percentage': float(attempt.percentage),
+                'correct_answers': attempt.correct_answers,
+                'wrong_answers': attempt.wrong_answers,
+                'time_taken_seconds': attempt.time_taken_seconds,
+                'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
+                'is_current_user': attempt.student == request.user.profile,
+            })
+            if len(leaderboard) >= 50:
+                break
+        
+        # Find current user's rank if not in top 50
+        user_rank = None
+        for entry in leaderboard:
+            if entry['is_current_user']:
+                user_rank = entry
+                break
+        
+        return Response({
+            'quiz_title': quiz.title,
+            'total_marks': float(quiz.total_marks),
+            'entries': leaderboard,
+            'user_rank': user_rank,
+        })
 
 
 class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
@@ -375,6 +456,12 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = super().get_queryset()
         request = self.request
         
+        # Auto-filter by student's primary exam (unless explicit exam filter is provided)
+        if not request.query_params.get('exam'):
+            exam = _get_student_exam(request)
+            if exam:
+                queryset = queryset.filter(exam=exam)
+        
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
         if attempted_filter is not None and request.user.is_authenticated:
@@ -393,25 +480,32 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'])
     def filter_options(self, request):
-        """Get available filter options for mock tests."""
+        """Get available filter options for mock tests (scoped to student's exam)."""
         from exams.models import Exam
+        
+        # Scope to student's primary exam
+        exam = _get_student_exam(request)
+        test_qs = MockTest.objects.filter(status='published')
+        if exam:
+            test_qs = test_qs.filter(exam=exam)
         
         # Get exams that have mock tests
         exams_with_tests = Exam.objects.filter(
             mock_tests__status='published'
         ).distinct().values('id', 'name', 'short_name')
         
-        # Get attempted/non-attempted counts for the user
+        # Get attempted/non-attempted counts for the user (scoped to exam)
         attempted_count = 0
         non_attempted_count = 0
         if request.user.is_authenticated:
             profile = request.user.profile
             attempted_test_ids = MockTestAttempt.objects.filter(
                 student=profile,
-                status='completed'
+                status='completed',
+                mock_test__in=test_qs
             ).values_list('mock_test_id', flat=True).distinct()
             
-            total_tests = MockTest.objects.filter(status='published').count()
+            total_tests = test_qs.count()
             attempted_count = len(set(attempted_test_ids))
             non_attempted_count = total_tests - attempted_count
         
@@ -499,19 +593,37 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
                         'time_taken_seconds': answer_data.get('time_taken_seconds', 0),
                     }
                 )
+                if not created:
+                    answer.selected_option = answer_data.get('selected_option', '')
+                    answer.time_taken_seconds = answer_data.get('time_taken_seconds', 0)
+                    answer.save()
                 answer.check_answer()
+                
+                # Update question statistics
+                question.times_attempted += 1
+                if answer.is_correct:
+                    question.times_correct += 1
+                question.save(update_fields=['times_attempted', 'times_correct'])
             except Question.DoesNotExist:
                 continue
         
         # Calculate results
         answers = attempt.answers.all()
+        attempt.total_questions = mock_test.questions.count()
         attempt.attempted_questions = answers.count()
         attempt.correct_answers = answers.filter(is_correct=True).count()
         attempt.wrong_answers = answers.filter(is_correct=False).count()
         
+        # Use marks_obtained from check_answer (handles +marks/-negative_marks)
         marks = sum(a.marks_obtained for a in answers)
-        attempt.marks_obtained = max(0, marks)
-        attempt.percentage = (attempt.marks_obtained / mock_test.total_marks) * 100
+        attempt.marks_obtained = marks  # Can be negative in competitive exams
+        
+        # Use actual total marks from questions (more accurate than mock_test.total_marks)
+        actual_total = sum(q.marks for q in mock_test.questions.all())
+        if actual_total > 0:
+            attempt.percentage = max(0, (marks / actual_total) * 100)
+        else:
+            attempt.percentage = 0
         
         attempt.status = 'completed'
         attempt.completed_at = timezone.now()
@@ -576,6 +688,51 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         mock_test.save()
         
         return Response(MockTestAttemptSerializer(attempt).data)
+    
+    @action(detail=True, methods=['get'])
+    def leaderboard(self, request, pk=None):
+        """Get leaderboard for a specific mock test."""
+        mock_test = self.get_object()
+        
+        attempts = MockTestAttempt.objects.filter(
+            mock_test=mock_test,
+            status='completed'
+        ).order_by('-marks_obtained', 'time_taken_seconds')
+        
+        # Deduplicate: keep best attempt per student
+        seen_students = set()
+        leaderboard = []
+        for attempt in attempts[:200]:
+            if attempt.student_id in seen_students:
+                continue
+            seen_students.add(attempt.student_id)
+            leaderboard.append({
+                'rank': len(leaderboard) + 1,
+                'student_name': attempt.student.user.full_name or attempt.student.user.username,
+                'marks_obtained': float(attempt.marks_obtained),
+                'total_marks': float(mock_test.total_marks),
+                'percentage': float(attempt.percentage),
+                'correct_answers': attempt.correct_answers,
+                'wrong_answers': attempt.wrong_answers,
+                'time_taken_seconds': attempt.time_taken_seconds,
+                'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
+                'is_current_user': attempt.student == request.user.profile,
+            })
+            if len(leaderboard) >= 50:
+                break
+        
+        user_rank = None
+        for entry in leaderboard:
+            if entry['is_current_user']:
+                user_rank = entry
+                break
+        
+        return Response({
+            'mock_test_title': mock_test.title,
+            'total_marks': float(mock_test.total_marks),
+            'entries': leaderboard,
+            'user_rank': user_rank,
+        })
 
 
 class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):

@@ -12,7 +12,7 @@ const MockTestAttempt = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { fetchProfile } = useAuthStore()
-  
+
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
   const [timeLeft, setTimeLeft] = useState(0)
@@ -74,7 +74,7 @@ const MockTestAttempt = () => {
         time_taken_seconds: test.duration_minutes * 60 - timeLeft,
       })
       setResult(response)
-      
+
       // Invalidate caches to refresh dashboard and analytics
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
       queryClient.invalidateQueries({ queryKey: ['topicMastery'] })
@@ -82,7 +82,7 @@ const MockTestAttempt = () => {
       queryClient.invalidateQueries({ queryKey: ['strongTopics'] })
       queryClient.invalidateQueries({ queryKey: ['chartData'] })
       queryClient.invalidateQueries({ queryKey: ['currentStreak'] })
-      
+
       // Refresh user profile to get updated XP
       fetchProfile()
     } catch (error) {
@@ -96,61 +96,124 @@ const MockTestAttempt = () => {
 
   const questions = test?.questions || []
   const question = questions[currentQuestion]
+  const markingScheme = test?.marking_scheme
+  const answeredCount = Object.keys(answers).length
 
   // Result Screen
   if (result) {
+    const totalMarks = markingScheme?.total_marks || test?.total_marks || 0
+
     return (
-      <div className="max-w-2xl mx-auto py-12">
+      <div className="max-w-2xl mx-auto py-8 px-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="card p-8 text-center"
+          className="card p-8"
         >
-          <span className="text-6xl mb-4 block">
-            {result.percentage >= 70 ? '🎉' : result.percentage >= 40 ? '💪' : '📚'}
-          </span>
-          
-          <h2 className="text-2xl font-bold mb-6">Test Completed!</h2>
+          {/* Header */}
+          <div className="text-center mb-6">
+            <span className="text-6xl mb-4 block">
+              {result.percentage >= 70 ? '🎉' : result.percentage >= 40 ? '💪' : '📚'}
+            </span>
+            <h2 className="text-2xl font-bold mb-1">Mock Test Completed!</h2>
+            <p className="text-surface-500">{test?.title}</p>
+          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-              <p className="text-3xl font-bold">{Math.round(result.percentage)}%</p>
-              <p className="text-sm text-surface-500">Score</p>
+          {/* Main Score */}
+          <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-primary-500/10 to-accent-500/10 mb-6">
+            <p className="text-5xl font-bold mb-1">
+              <span className={result.marks_obtained >= 0 ? '' : 'text-error-500'}>
+                {result.marks_obtained}
+              </span>
+              <span className="text-2xl text-surface-400">/{totalMarks}</span>
+            </p>
+            <p className="text-surface-500">Marks Scored</p>
+            <p className="text-lg font-semibold mt-1">{Math.round(result.percentage)}%</p>
+          </div>
+
+          {/* Detailed Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="p-3 rounded-xl bg-success-50 dark:bg-success-900/10 text-center">
+              <p className="text-2xl font-bold text-success-600">{result.correct_answers}</p>
+              <p className="text-xs text-success-500">Correct</p>
             </div>
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-              <p className="text-3xl font-bold text-success-500">{result.correct_answers}</p>
-              <p className="text-sm text-surface-500">Correct</p>
+            <div className="p-3 rounded-xl bg-error-50 dark:bg-error-900/10 text-center">
+              <p className="text-2xl font-bold text-error-600">{result.wrong_answers}</p>
+              <p className="text-xs text-error-500">Wrong</p>
             </div>
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-              <p className="text-3xl font-bold text-error-500">{result.wrong_answers}</p>
-              <p className="text-sm text-surface-500">Wrong</p>
+            <div className="p-3 rounded-xl bg-surface-100 dark:bg-surface-800 text-center">
+              <p className="text-2xl font-bold text-surface-600 dark:text-surface-300">
+                {(result.total_questions || questions.length) - result.attempted_questions}
+              </p>
+              <p className="text-xs text-surface-500">Unanswered</p>
             </div>
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
-              <p className="text-3xl font-bold">{result.marks_obtained}/{test.total_marks}</p>
-              <p className="text-sm text-surface-500">Marks</p>
+            <div className="p-3 rounded-xl bg-primary-50 dark:bg-primary-900/10 text-center">
+              <p className="text-2xl font-bold text-primary-600">
+                {Math.floor((result.time_taken_seconds || 0) / 60)}m
+              </p>
+              <p className="text-xs text-primary-500">Time Taken</p>
             </div>
           </div>
 
+          {/* Marking Scheme */}
+          {markingScheme && (
+            <div className="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/10 border border-primary-200 dark:border-primary-800 mb-6">
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300 mb-2">📋 Marking Scheme</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Correct Answer:</span>
+                  <span className="font-medium text-success-600">+{markingScheme.marks_per_question}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Wrong Answer:</span>
+                  <span className="font-medium text-error-600">
+                    {markingScheme.negative_marks_per_question > 0
+                      ? `-${markingScheme.negative_marks_per_question}`
+                      : 'No penalty'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Total Marks:</span>
+                  <span className="font-medium">{markingScheme.total_marks}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Duration:</span>
+                  <span className="font-medium">{markingScheme.duration_minutes} min</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rank */}
           {result.rank && (
-            <div className="mb-6 p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20">
-              <p className="text-lg">Your Rank: <span className="font-bold text-primary-600">#{result.rank}</span></p>
+            <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/10 dark:to-amber-900/10 border border-yellow-200 dark:border-yellow-800 text-center">
+              <p className="text-lg">Your Rank: <span className="font-bold text-primary-600 text-2xl">#{result.rank}</span></p>
               {result.percentile && <p className="text-sm text-surface-500">Top {result.percentile}%</p>}
             </div>
           )}
 
-          <div className="flex gap-4 justify-center">
+          {/* Actions */}
+          <div className="space-y-3">
             <button
-              onClick={() => navigate('/mock-test')}
-              className="btn-secondary"
+              onClick={() => navigate(`/mock-test/review/${result.id}`)}
+              className="btn-primary w-full"
             >
-              Back to Tests
+              📝 Review Answers
             </button>
-            <button
-              onClick={() => navigate('/analytics')}
-              className="btn-primary"
-            >
-              View Analysis
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate('/mock-test')}
+                className="btn-secondary"
+              >
+                Back to Tests
+              </button>
+              <button
+                onClick={() => navigate('/analytics')}
+                className="btn-secondary"
+              >
+                View Analytics
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -166,13 +229,20 @@ const MockTestAttempt = () => {
             <h2 className="font-semibold">{test?.title}</h2>
             <p className="text-sm text-surface-500">
               Question {currentQuestion + 1} of {questions.length}
+              <span className="ml-2 text-xs text-surface-400">
+                ({answeredCount} answered)
+              </span>
+              {markingScheme && (
+                <span className="ml-2 text-xs text-surface-400">
+                  +{markingScheme.marks_per_question} / -{markingScheme.negative_marks_per_question}
+                </span>
+              )}
             </p>
           </div>
-          <div className={`px-4 py-2 rounded-xl font-mono font-bold text-lg ${
-            timeLeft <= 300 ? 'bg-error-100 text-error-600 animate-pulse' :
-            timeLeft <= 600 ? 'bg-warning-100 text-warning-600' :
-            'bg-surface-100 dark:bg-surface-800'
-          }`}>
+          <div className={`px-4 py-2 rounded-xl font-mono font-bold text-lg ${timeLeft <= 300 ? 'bg-error-100 text-error-600 animate-pulse' :
+              timeLeft <= 600 ? 'bg-warning-100 text-warning-600' :
+                'bg-surface-100 dark:bg-surface-800'
+            }`}>
             ⏱️ {formatTime(timeLeft)}
           </div>
         </div>
@@ -184,31 +254,46 @@ const MockTestAttempt = () => {
           <span className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/30 text-primary-600 flex items-center justify-center font-bold">
             {currentQuestion + 1}
           </span>
-          <p className="text-lg font-medium leading-relaxed flex-1">
-            {question?.question_text}
-          </p>
+          <div className="flex-1">
+            <p className="text-lg font-medium leading-relaxed">
+              {question?.question_text}
+            </p>
+            {/* Per-question marks */}
+            <div className="mt-2 flex items-center gap-3 text-xs text-surface-400">
+              <span className="text-success-500">+{question?.marks || 1} marks</span>
+              {(question?.negative_marks || 0) > 0 && (
+                <span className="text-error-500">-{question.negative_marks} for wrong</span>
+              )}
+              <span className="capitalize px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800">
+                {question?.difficulty || 'medium'}
+              </span>
+              {question?.subject_name && (
+                <span className="px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800">
+                  {question.subject_name}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-3">
           {question?.options?.map((option, index) => {
             const isSelected = answers[question.id]?.selected_option === index.toString()
-            
+
             return (
               <button
                 key={option.id}
                 onClick={() => handleAnswerSelect(question.id, index)}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                  isSelected
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all ${isSelected
                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium ${
-                    isSelected
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium ${isSelected
                       ? 'bg-primary-500 text-white'
                       : 'bg-surface-100 dark:bg-surface-700'
-                  }`}>
+                    }`}>
                     {String.fromCharCode(65 + index)}
                   </span>
                   <span className="flex-1">{option.option_text}</span>
@@ -221,18 +306,28 @@ const MockTestAttempt = () => {
 
       {/* Question Navigator */}
       <div className="card p-4 mb-20">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-surface-500">Question Navigator</p>
+          <div className="flex gap-3 text-xs text-surface-500">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-success-100 dark:bg-success-900/30"></span> Answered ({answeredCount})
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-surface-100 dark:bg-surface-700"></span> Unanswered ({questions.length - answeredCount})
+            </span>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           {questions.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentQuestion(index)}
-              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                index === currentQuestion
+              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${index === currentQuestion
                   ? 'bg-primary-500 text-white'
                   : answers[questions[index]?.id]
-                  ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
-                  : 'bg-surface-100 dark:bg-surface-700'
-              }`}
+                    ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
+                    : 'bg-surface-100 dark:bg-surface-700'
+                }`}
             >
               {index + 1}
             </button>
@@ -250,7 +345,7 @@ const MockTestAttempt = () => {
           >
             Previous
           </button>
-          
+
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
@@ -273,4 +368,3 @@ const MockTestAttempt = () => {
 }
 
 export default MockTestAttempt
-

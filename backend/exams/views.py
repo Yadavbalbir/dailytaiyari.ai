@@ -65,6 +65,18 @@ class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
             return SubjectDetailSerializer
         return SubjectSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Auto-filter by student's primary exam
+        if self.request.user.is_authenticated:
+            try:
+                exam = self.request.user.profile.primary_exam
+                if exam and not self.request.query_params.get('exams'):
+                    queryset = queryset.filter(exams=exam)
+            except Exception:
+                pass
+        return queryset
+
     @action(detail=True, methods=['get'])
     def topics(self, request, pk=None):
         """Get all topics for a subject."""
@@ -96,6 +108,18 @@ class TopicViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'retrieve':
             return TopicDetailSerializer
         return TopicSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Auto-filter by student's primary exam via subject->exam relationship
+        if self.request.user.is_authenticated:
+            try:
+                exam = self.request.user.profile.primary_exam
+                if exam:
+                    queryset = queryset.filter(subject__exams=exam)
+            except Exception:
+                pass
+        return queryset
 
     @action(detail=True, methods=['get'])
     def subtopics(self, request, pk=None):

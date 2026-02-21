@@ -109,12 +109,29 @@ class QuizSerializer(serializers.ModelSerializer):
 class QuizDetailSerializer(QuizSerializer):
     """Detailed serializer with questions."""
     questions = QuestionSerializer(many=True, read_only=True)
+    marking_scheme = serializers.SerializerMethodField()
     
     class Meta(QuizSerializer.Meta):
         fields = QuizSerializer.Meta.fields + [
             'questions', 'shuffle_questions', 'shuffle_options',
-            'show_answer_after_each', 'allow_skip', 'passing_marks'
+            'show_answer_after_each', 'allow_skip', 'passing_marks',
+            'marking_scheme'
         ]
+    
+    def get_marking_scheme(self, obj):
+        """Return marking scheme from question data."""
+        questions = obj.questions.all()
+        if not questions.exists():
+            return None
+        # Get the most common marks/negative_marks from questions
+        first_q = questions.first()
+        total = sum(q.marks for q in questions)
+        return {
+            'marks_per_question': float(first_q.marks) if first_q else 1,
+            'negative_marks_per_question': float(first_q.negative_marks) if first_q else 0,
+            'total_marks': float(total),
+            'total_questions': questions.count(),
+        }
 
 
 class MockTestSerializer(serializers.ModelSerializer):
@@ -175,9 +192,26 @@ class MockTestSerializer(serializers.ModelSerializer):
 class MockTestDetailSerializer(MockTestSerializer):
     """Detailed mock test serializer."""
     questions = QuestionSerializer(many=True, read_only=True)
+    marking_scheme = serializers.SerializerMethodField()
     
     class Meta(MockTestSerializer.Meta):
-        fields = MockTestSerializer.Meta.fields + ['questions']
+        fields = MockTestSerializer.Meta.fields + ['questions', 'marking_scheme']
+    
+    def get_marking_scheme(self, obj):
+        """Return marking scheme from exam and question data."""
+        questions = obj.questions.all()
+        if not questions.exists():
+            return None
+        first_q = questions.first()
+        total = sum(q.marks for q in questions)
+        return {
+            'marks_per_question': float(first_q.marks) if first_q else 4,
+            'negative_marks_per_question': float(first_q.negative_marks) if first_q else 1,
+            'total_marks': float(total),
+            'total_questions': questions.count(),
+            'negative_marking': obj.negative_marking,
+            'duration_minutes': obj.duration_minutes,
+        }
 
 
 class AnswerSerializer(serializers.ModelSerializer):
@@ -245,6 +279,7 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
 class MockTestAttemptSummarySerializer(serializers.ModelSerializer):
     """Summary serializer for mock test attempts (without answers)."""
     mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
+    total_marks = serializers.SerializerMethodField()
     
     class Meta:
         model = MockTestAttempt
@@ -252,15 +287,19 @@ class MockTestAttemptSummarySerializer(serializers.ModelSerializer):
             'id', 'mock_test', 'mock_test_title', 'started_at',
             'completed_at', 'time_taken_seconds', 'status',
             'total_questions', 'attempted_questions', 'correct_answers',
-            'wrong_answers', 'marks_obtained', 'percentage',
+            'wrong_answers', 'marks_obtained', 'total_marks', 'percentage',
             'section_results', 'rank', 'percentile', 'xp_earned'
         ]
+    
+    def get_total_marks(self, obj):
+        return float(obj.mock_test.total_marks)
 
 
 class MockTestAttemptSerializer(serializers.ModelSerializer):
     """Serializer for mock test attempts with answers."""
     mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
     answers = AnswerSerializer(many=True, read_only=True)
+    total_marks = serializers.SerializerMethodField()
     
     class Meta:
         model = MockTestAttempt
@@ -268,9 +307,12 @@ class MockTestAttemptSerializer(serializers.ModelSerializer):
             'id', 'mock_test', 'mock_test_title', 'started_at',
             'completed_at', 'time_taken_seconds', 'status',
             'total_questions', 'attempted_questions', 'correct_answers',
-            'wrong_answers', 'marks_obtained', 'percentage',
+            'wrong_answers', 'marks_obtained', 'total_marks', 'percentage',
             'section_results', 'rank', 'percentile', 'xp_earned', 'answers'
         ]
+    
+    def get_total_marks(self, obj):
+        return float(obj.mock_test.total_marks)
 
 
 class QuizStartSerializer(serializers.Serializer):
@@ -340,6 +382,7 @@ class MockTestAttemptReviewSerializer(serializers.ModelSerializer):
     """
     mock_test_title = serializers.CharField(source='mock_test.title', read_only=True)
     all_questions = serializers.SerializerMethodField()
+    total_marks = serializers.SerializerMethodField()
     
     class Meta:
         model = MockTestAttempt
@@ -347,10 +390,13 @@ class MockTestAttemptReviewSerializer(serializers.ModelSerializer):
             'id', 'mock_test', 'mock_test_title', 'started_at',
             'completed_at', 'time_taken_seconds', 'status',
             'total_questions', 'attempted_questions', 'correct_answers',
-            'wrong_answers', 'marks_obtained', 'percentage',
+            'wrong_answers', 'marks_obtained', 'total_marks', 'percentage',
             'section_results', 'rank', 'percentile', 'xp_earned',
             'all_questions'
         ]
+    
+    def get_total_marks(self, obj):
+        return float(obj.mock_test.total_marks)
     
     def get_all_questions(self, obj):
         """Get all questions with user's answers (including unanswered)."""

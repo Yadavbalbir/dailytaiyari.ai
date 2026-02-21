@@ -139,5 +139,17 @@ export const quizService = {
     const response = await api.get('/quiz/reports/my_reports/')
     return response.data
   },
+
+  // Get quiz leaderboard
+  getQuizLeaderboard: async (quizId) => {
+    const response = await api.get(`/quiz/quizzes/${quizId}/leaderboard/`)
+    return response.data
+  },
+
+  // Get mock test leaderboard
+  getMockTestLeaderboard: async (testId) => {
+    const response = await api.get(`/quiz/mock-tests/${testId}/leaderboard/`)
+    return response.data
+  },
 }
 

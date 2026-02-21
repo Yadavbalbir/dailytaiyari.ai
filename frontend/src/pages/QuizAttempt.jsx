@@ -13,7 +13,7 @@ const QuizAttempt = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { fetchProfile } = useAuthStore()
-  
+
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
   const [timeLeft, setTimeLeft] = useState(0)
@@ -76,9 +76,9 @@ const QuizAttempt = () => {
         answers: Object.values(answers),
         time_taken_seconds: quiz.duration_minutes * 60 - timeLeft,
       })
-      
+
       setResult(response)
-      
+
       // Invalidate caches to refresh dashboard and analytics
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
       queryClient.invalidateQueries({ queryKey: ['recentAttempts'] })
@@ -87,10 +87,10 @@ const QuizAttempt = () => {
       queryClient.invalidateQueries({ queryKey: ['strongTopics'] })
       queryClient.invalidateQueries({ queryKey: ['chartData'] })
       queryClient.invalidateQueries({ queryKey: ['currentStreak'] })
-      
+
       // Refresh user profile to get updated XP
       fetchProfile()
-      
+
       if (response.percentage >= 70) {
         setShowConfetti(true)
         setTimeout(() => setShowConfetti(false), 5000)
@@ -107,19 +107,21 @@ const QuizAttempt = () => {
   const questions = quiz?.questions || []
   const question = questions[currentQuestion]
   const progress = ((currentQuestion + 1) / questions.length) * 100
+  const markingScheme = quiz?.marking_scheme
 
   // Result Screen
   if (result) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
         {showConfetti && <Confetti recycle={false} numberOfPieces={200} />}
-        
+
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="card p-8 max-w-lg w-full text-center"
+          className="card p-8 max-w-2xl w-full"
         >
-          <div className="mb-6">
+          {/* Result Header */}
+          <div className="text-center mb-6">
             {result.percentage >= 70 ? (
               <>
                 <span className="text-6xl mb-4 block">🎉</span>
@@ -138,34 +140,104 @@ const QuizAttempt = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
+          {/* Score Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800 text-center">
               <p className="text-3xl font-bold">{Math.round(result.percentage)}%</p>
               <p className="text-sm text-surface-500">Score</p>
             </div>
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
+            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800 text-center">
+              <p className="text-3xl font-bold">
+                <span className={result.marks_obtained >= 0 ? 'text-success-500' : 'text-error-500'}>
+                  {result.marks_obtained}
+                </span>
+                <span className="text-lg text-surface-400">/{result.total_marks}</span>
+              </p>
+              <p className="text-sm text-surface-500">Marks</p>
+            </div>
+            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800 text-center">
               <p className="text-3xl font-bold text-success-500">{result.correct_answers}</p>
               <p className="text-sm text-surface-500">Correct</p>
             </div>
-            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
+            <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800 text-center">
               <p className="text-3xl font-bold text-primary-500">+{result.xp_earned}</p>
               <p className="text-sm text-surface-500">XP Earned</p>
             </div>
           </div>
 
+          {/* Detailed Breakdown */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="p-3 rounded-lg bg-success-50 dark:bg-success-900/10 text-center">
+              <p className="text-lg font-bold text-success-600">{result.correct_answers}</p>
+              <p className="text-xs text-success-500">Correct</p>
+            </div>
+            <div className="p-3 rounded-lg bg-error-50 dark:bg-error-900/10 text-center">
+              <p className="text-lg font-bold text-error-600">{result.wrong_answers}</p>
+              <p className="text-xs text-error-500">Wrong</p>
+            </div>
+            <div className="p-3 rounded-lg bg-surface-100 dark:bg-surface-800 text-center">
+              <p className="text-lg font-bold text-surface-600 dark:text-surface-300">{result.skipped_questions}</p>
+              <p className="text-xs text-surface-500">Skipped</p>
+            </div>
+          </div>
+
+          {/* Marking Scheme Info */}
+          {markingScheme && (
+            <div className="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/10 border border-primary-200 dark:border-primary-800 mb-6">
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300 mb-2">📋 Marking Scheme</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Correct Answer:</span>
+                  <span className="font-medium text-success-600">+{markingScheme.marks_per_question}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Wrong Answer:</span>
+                  <span className="font-medium text-error-600">
+                    {markingScheme.negative_marks_per_question > 0
+                      ? `-${markingScheme.negative_marks_per_question}`
+                      : 'No penalty'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Total Marks:</span>
+                  <span className="font-medium">{markingScheme.total_marks}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-primary-600 dark:text-primary-400">Questions:</span>
+                  <span className="font-medium">{markingScheme.total_questions}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Time Taken */}
+          <div className="flex items-center justify-center gap-2 text-surface-500 mb-6">
+            <span>⏱️</span>
+            <span>Time Taken: {Math.floor((result.time_taken_seconds || 0) / 60)}:{String((result.time_taken_seconds || 0) % 60).padStart(2, '0')}</span>
+          </div>
+
+          {/* Actions */}
           <div className="space-y-3">
             <button
-              onClick={() => navigate('/quiz')}
+              onClick={() => navigate(`/quiz/review/${result.id}`)}
               className="btn-primary w-full"
             >
-              Back to Quizzes
+              📝 Review Answers
             </button>
-            <button
-              onClick={() => navigate('/analytics')}
-              className="btn-secondary w-full"
-            >
-              View Analytics
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate('/quiz')}
+                className="btn-secondary"
+              >
+                Back to Quizzes
+              </button>
+              <button
+                onClick={() => navigate('/analytics')}
+                className="btn-secondary"
+              >
+                View Analytics
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -181,13 +253,17 @@ const QuizAttempt = () => {
             <h2 className="font-semibold">{quiz?.title}</h2>
             <p className="text-sm text-surface-500">
               Question {currentQuestion + 1} of {questions.length}
+              {markingScheme && (
+                <span className="ml-2 text-xs text-surface-400">
+                  (+{markingScheme.marks_per_question} / -{markingScheme.negative_marks_per_question})
+                </span>
+              )}
             </p>
           </div>
-          <div className={`px-4 py-2 rounded-xl font-mono font-bold ${
-            timeLeft <= 60 ? 'bg-error-100 text-error-600 animate-pulse' : 
-            timeLeft <= 300 ? 'bg-warning-100 text-warning-600' :
-            'bg-surface-100 dark:bg-surface-800'
-          }`}>
+          <div className={`px-4 py-2 rounded-xl font-mono font-bold ${timeLeft <= 60 ? 'bg-error-100 text-error-600 animate-pulse' :
+              timeLeft <= 300 ? 'bg-warning-100 text-warning-600' :
+                'bg-surface-100 dark:bg-surface-800'
+            }`}>
             ⏱️ {formatTime(timeLeft)}
           </div>
         </div>
@@ -221,12 +297,22 @@ const QuizAttempt = () => {
                 {question?.question_text}
               </p>
               {question?.question_image && (
-                <img 
-                  src={question.question_image} 
-                  alt="Question" 
+                <img
+                  src={question.question_image}
+                  alt="Question"
                   className="mt-4 rounded-xl max-h-64 object-contain"
                 />
               )}
+              {/* Per-question marks display */}
+              <div className="mt-2 flex items-center gap-3 text-xs text-surface-400">
+                <span className="text-success-500">+{question?.marks || 1} marks</span>
+                {(question?.negative_marks || 0) > 0 && (
+                  <span className="text-error-500">-{question.negative_marks} for wrong</span>
+                )}
+                <span className="capitalize px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800">
+                  {question?.difficulty || 'medium'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -234,25 +320,23 @@ const QuizAttempt = () => {
           <div className="space-y-3">
             {question?.options?.map((option, index) => {
               const isSelected = answers[question.id]?.selected_option === index.toString()
-              
+
               return (
                 <motion.button
                   key={option.id}
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={() => handleAnswerSelect(question.id, index)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    isSelected
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${isSelected
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium ${
-                      isSelected
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium ${isSelected
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-700'
-                    }`}>
+                      }`}>
                       {String.fromCharCode(65 + index)}
                     </span>
                     <span className="flex-1">{option.option_text}</span>
@@ -284,13 +368,12 @@ const QuizAttempt = () => {
               <button
                 key={index}
                 onClick={() => setCurrentQuestion(index)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                  index === currentQuestion
+                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${index === currentQuestion
                     ? 'bg-primary-500 text-white'
                     : answers[questions[index]?.id]
-                    ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
-                    : 'bg-surface-100 dark:bg-surface-700'
-                }`}
+                      ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
+                      : 'bg-surface-100 dark:bg-surface-700'
+                  }`}
               >
                 {index + 1}
               </button>
@@ -320,4 +403,3 @@ const QuizAttempt = () => {
 }
 
 export default QuizAttempt
-

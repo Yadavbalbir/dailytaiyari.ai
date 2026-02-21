@@ -34,6 +34,18 @@ class ContentViewSet(viewsets.ReadOnlyModelViewSet):
             return ContentDetailSerializer
         return ContentSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Auto-filter by student's primary exam
+        if self.request.user.is_authenticated:
+            try:
+                exam = self.request.user.profile.primary_exam
+                if exam:
+                    queryset = queryset.filter(exams=exam)
+            except Exception:
+                pass
+        return queryset
+
     def retrieve(self, request, *args, **kwargs):
         """Increment view count on retrieve."""
         instance = self.get_object()

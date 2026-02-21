@@ -60,7 +60,7 @@ const QuizReview = () => {
       toast.error('Please describe the issue')
       return
     }
-    
+
     reportMutation.mutate({
       question: reportingQuestion.id,
       report_type: reportType,
@@ -96,7 +96,7 @@ const QuizReview = () => {
 
   // Use the new all_questions structure
   const allQuestions = attempt?.all_questions || []
-  
+
   // Filter questions based on selected filter
   const filteredQuestions = allQuestions.filter(q => {
     if (filter === 'all') return true
@@ -146,7 +146,7 @@ const QuizReview = () => {
             <p className="text-white/80">Your Score</p>
             <p className="text-4xl font-bold">{Math.round(attempt?.percentage || 0)}%</p>
             <p className="text-white/70 mt-1">
-              {attempt?.correct_answers} of {attempt?.total_questions} correct
+              {attempt?.marks_obtained || 0} / {attempt?.total_marks || 0} marks
             </p>
           </div>
           <div className="text-right">
@@ -197,18 +197,16 @@ const QuizReview = () => {
           <button
             key={tab.value}
             onClick={() => setFilter(tab.value)}
-            className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex items-center gap-2 ${
-              filter === tab.value
+            className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex items-center gap-2 ${filter === tab.value
                 ? `${tab.color} text-white`
                 : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-            }`}
+              }`}
           >
             {tab.label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-              filter === tab.value 
-                ? 'bg-white/20' 
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${filter === tab.value
+                ? 'bg-white/20'
                 : 'bg-surface-200 dark:bg-surface-700'
-            }`}>
+              }`}>
               {questionCounts[tab.value]}
             </span>
           </button>
@@ -218,7 +216,7 @@ const QuizReview = () => {
       {/* Questions Review */}
       <div className="card p-5">
         <h2 className="font-semibold text-lg mb-4">Question-wise Review</h2>
-        
+
         <div className="space-y-6">
           {filteredQuestions.map((item, index) => {
             const question = item.question
@@ -227,12 +225,12 @@ const QuizReview = () => {
             const isCorrect = questionStatus === 'correct'
             const isSkipped = questionStatus === 'skipped'
             const selectedOption = userAnswer?.selected_option
-            
+
             let borderClass = ''
             let bgClass = ''
             let statusText = ''
             let statusIcon = ''
-            
+
             if (isCorrect) {
               borderClass = 'border-success-200'
               bgClass = 'bg-success-50 dark:bg-success-900/10'
@@ -249,7 +247,7 @@ const QuizReview = () => {
               statusText = '✗ Incorrect'
               statusIcon = 'bg-error-500'
             }
-            
+
             return (
               <motion.div
                 key={question.id}
@@ -264,9 +262,8 @@ const QuizReview = () => {
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${statusIcon}`}>
                       {item.question_number}
                     </span>
-                    <span className={`text-sm font-medium ${
-                      isCorrect ? 'text-success-600' : isSkipped ? 'text-surface-500' : 'text-error-600'
-                    }`}>
+                    <span className={`text-sm font-medium ${isCorrect ? 'text-success-600' : isSkipped ? 'text-surface-500' : 'text-error-600'
+                      }`}>
                       {statusText}
                     </span>
                   </div>
@@ -298,9 +295,9 @@ const QuizReview = () => {
                     {question?.question_text || question?.question_html}
                   </p>
                   {question?.question_image && (
-                    <img 
-                      src={question.question_image} 
-                      alt="Question" 
+                    <img
+                      src={question.question_image}
+                      alt="Question"
                       className="mt-2 max-w-sm rounded-lg"
                     />
                   )}
@@ -311,7 +308,7 @@ const QuizReview = () => {
                   {(question?.options || []).map((option, optIndex) => {
                     const isSelected = selectedOption === String(optIndex) || selectedOption === option.id
                     const isCorrectOption = option.is_correct
-                    
+
                     let optionClass = 'bg-surface-100 dark:bg-surface-800'
                     if (isCorrectOption) {
                       optionClass = 'bg-success-100 dark:bg-success-900/30 border-success-500'
@@ -322,23 +319,20 @@ const QuizReview = () => {
                     return (
                       <div
                         key={option.id || optIndex}
-                        className={`p-3 rounded-lg border-2 ${optionClass} ${
-                          isSelected || isCorrectOption ? 'border-2' : 'border-transparent'
-                        }`}
+                        className={`p-3 rounded-lg border-2 ${optionClass} ${isSelected || isCorrectOption ? 'border-2' : 'border-transparent'
+                          }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                            isCorrectOption 
-                              ? 'bg-success-500 text-white' 
-                              : isSelected 
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCorrectOption
+                              ? 'bg-success-500 text-white'
+                              : isSelected
                                 ? 'bg-error-500 text-white'
                                 : 'bg-surface-300 dark:bg-surface-600 text-surface-600 dark:text-surface-300'
-                          }`}>
+                            }`}>
                             {String.fromCharCode(65 + optIndex)}
                           </span>
-                          <span className={`flex-1 ${
-                            isCorrectOption ? 'font-medium text-success-700 dark:text-success-400' : ''
-                          }`}>
+                          <span className={`flex-1 ${isCorrectOption ? 'font-medium text-success-700 dark:text-success-400' : ''
+                            }`}>
                             {option.option_text}
                           </span>
                           {isCorrectOption && (
@@ -383,7 +377,7 @@ const QuizReview = () => {
             )
           })}
         </div>
-        
+
         {filteredQuestions.length === 0 && (
           <div className="text-center py-8 text-surface-500">
             No questions match this filter
@@ -426,7 +420,7 @@ const QuizReview = () => {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Report a Problem</h3>
-                <button 
+                <button
                   onClick={() => setReportModalOpen(false)}
                   className="text-surface-400 hover:text-surface-600"
                 >
