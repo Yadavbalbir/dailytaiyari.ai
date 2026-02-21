@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.db.models import Q, Count
 
 from .models import (
-    Question, Quiz, MockTest, QuizAttempt, MockTestAttempt, Answer, QuestionReport
+    Question, Quiz, MockTest, MockTestQuestion, QuizAttempt, MockTestAttempt, Answer, QuestionReport
 )
 from .serializers import (
     QuestionSerializer, QuestionWithAnswerSerializer,
@@ -422,18 +422,19 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
             if len(leaderboard) >= 50:
                 break
         
-        # Find current user's rank if not in top 50
+        # Find current user's rank
         user_rank = None
         for entry in leaderboard:
             if entry['is_current_user']:
-                user_rank = entry
+                user_rank = entry['rank']
                 break
         
         return Response({
             'quiz_title': quiz.title,
             'total_marks': float(quiz.total_marks),
-            'entries': leaderboard,
+            'leaderboard': leaderboard,
             'user_rank': user_rank,
+            'total_participants': len(seen_students),
         })
 
 
@@ -581,6 +582,11 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Build a map of question -> MockTestQuestion for marks overrides
+        mtq_map = {}
+        for mtq in MockTestQuestion.objects.filter(mock_test=mock_test).select_related('question'):
+            mtq_map[str(mtq.question_id)] = mtq
+        
         # Process answers (similar to quiz)
         for answer_data in serializer.validated_data['answers']:
             try:
@@ -597,7 +603,16 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
                     answer.selected_option = answer_data.get('selected_option', '')
                     answer.time_taken_seconds = answer_data.get('time_taken_seconds', 0)
                     answer.save()
-                answer.check_answer()
+                
+                # Use per-mock-test marks overrides if available
+                mtq = mtq_map.get(str(question.id))
+                if mtq and (mtq.marks_override is not None or mtq.negative_marks_override is not None):
+                    answer.check_answer(
+                        marks_override=mtq.marks_override,
+                        negative_marks_override=mtq.negative_marks_override
+                    )
+                else:
+                    answer.check_answer()
                 
                 # Update question statistics
                 question.times_attempted += 1
@@ -618,10 +633,10 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         marks = sum(a.marks_obtained for a in answers)
         attempt.marks_obtained = marks  # Can be negative in competitive exams
         
-        # Use actual total marks from questions (more accurate than mock_test.total_marks)
-        actual_total = sum(q.marks for q in mock_test.questions.all())
+        # Use effective total marks from MockTestQuestion (accounts for overrides)
+        actual_total = sum(float(mtq.effective_marks) for mtq in mtq_map.values())
         if actual_total > 0:
-            attempt.percentage = max(0, (marks / actual_total) * 100)
+            attempt.percentage = max(0, (float(marks) / actual_total) * 100)
         else:
             attempt.percentage = 0
         
@@ -724,14 +739,15 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         user_rank = None
         for entry in leaderboard:
             if entry['is_current_user']:
-                user_rank = entry
+                user_rank = entry['rank']
                 break
         
         return Response({
             'mock_test_title': mock_test.title,
             'total_marks': float(mock_test.total_marks),
-            'entries': leaderboard,
+            'leaderboard': leaderboard,
             'user_rank': user_rank,
+            'total_participants': len(seen_students),
         })
 
 

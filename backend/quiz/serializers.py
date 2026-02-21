@@ -199,16 +199,24 @@ class MockTestDetailSerializer(MockTestSerializer):
     
     def get_marking_scheme(self, obj):
         """Return marking scheme from exam and question data."""
-        questions = obj.questions.all()
-        if not questions.exists():
+        from .models import MockTestQuestion
+        mtqs = MockTestQuestion.objects.filter(mock_test=obj).select_related('question')
+        if not mtqs.exists():
             return None
-        first_q = questions.first()
-        total = sum(q.marks for q in questions)
+        
+        # Calculate effective totals using overrides
+        total_marks = sum(float(mtq.effective_marks) for mtq in mtqs)
+        
+        # Get most common marks scheme (for display purposes)
+        first_mtq = mtqs.first()
+        marks = float(first_mtq.effective_marks)
+        negative = float(first_mtq.effective_negative_marks)
+        
         return {
-            'marks_per_question': float(first_q.marks) if first_q else 4,
-            'negative_marks_per_question': float(first_q.negative_marks) if first_q else 1,
-            'total_marks': float(total),
-            'total_questions': questions.count(),
+            'marks_per_question': marks,
+            'negative_marks_per_question': negative,
+            'total_marks': total_marks,
+            'total_questions': mtqs.count(),
             'negative_marking': obj.negative_marking,
             'duration_minutes': obj.duration_minutes,
         }

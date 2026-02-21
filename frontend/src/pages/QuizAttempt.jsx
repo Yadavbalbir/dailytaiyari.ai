@@ -12,7 +12,7 @@ const QuizAttempt = () => {
   const { quizId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { fetchProfile } = useAuthStore()
+  const { fetchProfile, user } = useAuthStore()
 
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -20,6 +20,13 @@ const QuizAttempt = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState(null)
   const [showConfetti, setShowConfetti] = useState(false)
+
+  // Fetch leaderboard after quiz is completed
+  const { data: leaderboard } = useQuery({
+    queryKey: ['quizLeaderboard', quizId],
+    queryFn: () => quizService.getQuizLeaderboard(quizId),
+    enabled: !!result, // Only fetch after result is available
+  })
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ['quizDetail', quizId],
@@ -216,6 +223,87 @@ const QuizAttempt = () => {
             <span>Time Taken: {Math.floor((result.time_taken_seconds || 0) / 60)}:{String((result.time_taken_seconds || 0) % 60).padStart(2, '0')}</span>
           </div>
 
+          {/* Leaderboard */}
+          {leaderboard && leaderboard.leaderboard?.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                🏆 Leaderboard
+              </h3>
+              <div className="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
+                {/* Header */}
+                <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-surface-100 dark:bg-surface-800 text-xs font-medium text-surface-500 uppercase tracking-wider">
+                  <div className="col-span-1">#</div>
+                  <div className="col-span-5">Student</div>
+                  <div className="col-span-3 text-right">Marks</div>
+                  <div className="col-span-3 text-right">Score</div>
+                </div>
+                {/* Entries */}
+                <div className="divide-y divide-surface-100 dark:divide-surface-800">
+                  {leaderboard.leaderboard.slice(0, 10).map((entry) => {
+                    const isCurrentUser = entry.student_email === user?.email || entry.is_current_user
+                    return (
+                      <div
+                        key={entry.rank}
+                        className={`grid grid-cols-12 gap-2 px-4 py-2.5 items-center transition-colors ${isCurrentUser
+                            ? 'bg-primary-50 dark:bg-primary-900/20 font-semibold'
+                            : 'hover:bg-surface-50 dark:hover:bg-surface-800/50'
+                          }`}
+                      >
+                        <div className="col-span-1">
+                          {entry.rank <= 3 ? (
+                            <span className="text-lg">{'🥇🥈🥉'[entry.rank - 1]}</span>
+                          ) : (
+                            <span className="text-surface-500 text-sm">{entry.rank}</span>
+                          )}
+                        </div>
+                        <div className="col-span-5 truncate">
+                          <span className={isCurrentUser ? 'text-primary-600 dark:text-primary-400' : ''}>
+                            {entry.student_name || 'Student'}
+                            {isCurrentUser && <span className="text-xs ml-1 opacity-70">(You)</span>}
+                          </span>
+                        </div>
+                        <div className="col-span-3 text-right text-sm">
+                          {entry.marks_obtained}/{entry.total_marks || result.total_marks}
+                        </div>
+                        <div className="col-span-3 text-right">
+                          <span className={`text-sm font-medium ${entry.percentage >= 70 ? 'text-success-500' :
+                              entry.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                            }`}>
+                            {Math.round(entry.percentage)}%
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Current user rank if not in top 10 */}
+                {leaderboard.user_rank && leaderboard.user_rank > 10 && (
+                  <div className="border-t-2 border-dashed border-surface-200 dark:border-surface-700">
+                    <div className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center bg-primary-50 dark:bg-primary-900/20 font-semibold">
+                      <div className="col-span-1 text-surface-500 text-sm">{leaderboard.user_rank}</div>
+                      <div className="col-span-5 truncate text-primary-600 dark:text-primary-400">
+                        You
+                      </div>
+                      <div className="col-span-3 text-right text-sm">
+                        {result.marks_obtained}/{result.total_marks}
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <span className={`text-sm font-medium ${result.percentage >= 70 ? 'text-success-500' :
+                            result.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                          }`}>
+                          {Math.round(result.percentage)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-surface-400 mt-2 text-center">
+                {leaderboard.total_participants} total participant{leaderboard.total_participants !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="space-y-3">
             <button
@@ -261,8 +349,8 @@ const QuizAttempt = () => {
             </p>
           </div>
           <div className={`px-4 py-2 rounded-xl font-mono font-bold ${timeLeft <= 60 ? 'bg-error-100 text-error-600 animate-pulse' :
-              timeLeft <= 300 ? 'bg-warning-100 text-warning-600' :
-                'bg-surface-100 dark:bg-surface-800'
+            timeLeft <= 300 ? 'bg-warning-100 text-warning-600' :
+              'bg-surface-100 dark:bg-surface-800'
             }`}>
             ⏱️ {formatTime(timeLeft)}
           </div>
@@ -328,14 +416,14 @@ const QuizAttempt = () => {
                   whileTap={{ scale: 0.99 }}
                   onClick={() => handleAnswerSelect(question.id, index)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${isSelected
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium ${isSelected
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-700'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-700'
                       }`}>
                       {String.fromCharCode(65 + index)}
                     </span>
@@ -369,10 +457,10 @@ const QuizAttempt = () => {
                 key={index}
                 onClick={() => setCurrentQuestion(index)}
                 className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${index === currentQuestion
-                    ? 'bg-primary-500 text-white'
-                    : answers[questions[index]?.id]
-                      ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
-                      : 'bg-surface-100 dark:bg-surface-700'
+                  ? 'bg-primary-500 text-white'
+                  : answers[questions[index]?.id]
+                    ? 'bg-success-100 dark:bg-success-900/30 text-success-600'
+                    : 'bg-surface-100 dark:bg-surface-700'
                   }`}
               >
                 {index + 1}

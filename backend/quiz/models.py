@@ -234,13 +234,33 @@ class MockTest(TimeStampedModel):
 class MockTestQuestion(OrderedModel):
     """
     Through model for MockTest-Question with section info.
+    Supports per-mock-test marks override (so different exams can use 
+    different marking schemes for the same question).
     """
     mock_test = models.ForeignKey(MockTest, on_delete=models.CASCADE)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     section = models.PositiveIntegerField(default=0)  # Section index
+    marks_override = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text='Override marks for this question in this mock test (null = use question default)'
+    )
+    negative_marks_override = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text='Override negative marks for this question in this mock test (null = use question default)'
+    )
 
     class Meta:
         unique_together = ['mock_test', 'question']
+    
+    @property
+    def effective_marks(self):
+        """Get marks for this question in this mock test context."""
+        return self.marks_override if self.marks_override is not None else self.question.marks
+    
+    @property
+    def effective_negative_marks(self):
+        """Get negative marks for this question in this mock test context."""
+        return self.negative_marks_override if self.negative_marks_override is not None else self.question.negative_marks
 
 
 class QuizAttempt(TimeStampedModel):
@@ -412,9 +432,17 @@ class Answer(TimeStampedModel):
     def __str__(self):
         return f"Answer to Q{self.question_id}"
 
-    def check_answer(self):
-        """Check if the answer is correct and calculate marks."""
+    def check_answer(self, marks_override=None, negative_marks_override=None):
+        """
+        Check if the answer is correct and calculate marks.
+        
+        Args:
+            marks_override: Override marks for correct answer (for mock test per-question schemes)
+            negative_marks_override: Override negative marks (for mock test per-question schemes)
+        """
         question = self.question
+        effective_marks = marks_override if marks_override is not None else question.marks
+        effective_negative = negative_marks_override if negative_marks_override is not None else question.negative_marks
         
         if question.question_type in ['mcq', 'true_false']:
             self.is_correct = self.selected_option == question.correct_answer
@@ -426,9 +454,9 @@ class Answer(TimeStampedModel):
             self.is_correct = self.answer_text.strip().lower() == question.correct_answer.strip().lower()
         
         if self.is_correct:
-            self.marks_obtained = question.marks
+            self.marks_obtained = effective_marks
         else:
-            self.marks_obtained = -question.negative_marks
+            self.marks_obtained = -effective_negative
         
         self.save()
         return self.is_correct
