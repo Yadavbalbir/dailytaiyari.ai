@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Trophy,
+  Zap,
+  BookOpen,
+  ClipboardList,
+  Timer,
+  Award,
+  FileText,
+  PartyPopper,
+  CheckCircle2,
+  ChevronRight,
+  ChevronLeft
+} from 'lucide-react'
 import { quizService } from '../services/quizService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
@@ -131,17 +144,23 @@ const QuizAttempt = () => {
           <div className="text-center mb-6">
             {result.percentage >= 70 ? (
               <>
-                <span className="text-6xl mb-4 block">🎉</span>
+                <div className="flex justify-center mb-4 text-success-500">
+                  <PartyPopper size={64} />
+                </div>
                 <h2 className="text-2xl font-bold text-success-500">Excellent!</h2>
               </>
             ) : result.percentage >= 40 ? (
               <>
-                <span className="text-6xl mb-4 block">💪</span>
+                <div className="flex justify-center mb-4 text-warning-500">
+                  <Zap size={64} />
+                </div>
                 <h2 className="text-2xl font-bold text-warning-500">Good Effort!</h2>
               </>
             ) : (
               <>
-                <span className="text-6xl mb-4 block">📚</span>
+                <div className="flex justify-center mb-4 text-error-500">
+                  <BookOpen size={64} />
+                </div>
                 <h2 className="text-2xl font-bold text-error-500">Keep Practicing!</h2>
               </>
             )}
@@ -191,7 +210,9 @@ const QuizAttempt = () => {
           {/* Marking Scheme Info */}
           {markingScheme && (
             <div className="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/10 border border-primary-200 dark:border-primary-800 mb-6">
-              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300 mb-2">📋 Marking Scheme</p>
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300 mb-2 flex items-center gap-2">
+                <ClipboardList size={18} /> Marking Scheme
+              </p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-primary-600 dark:text-primary-400">Correct Answer:</span>
@@ -218,8 +239,8 @@ const QuizAttempt = () => {
           )}
 
           {/* Time Taken */}
-          <div className="flex items-center justify-center gap-2 text-surface-500 mb-6">
-            <span>⏱️</span>
+          <div className="flex items-center justify-center gap-2 text-surface-500 mb-6 font-medium">
+            <Timer size={20} className="text-primary-500" />
             <span>Time Taken: {Math.floor((result.time_taken_seconds || 0) / 60)}:{String((result.time_taken_seconds || 0) % 60).padStart(2, '0')}</span>
           </div>
 
@@ -227,7 +248,7 @@ const QuizAttempt = () => {
           {leaderboard && leaderboard.leaderboard?.length > 0 && (
             <div className="mb-6">
               <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                🏆 Leaderboard
+                <Trophy size={20} className="text-warning-500" /> Leaderboard
               </h3>
               <div className="rounded-xl border border-surface-200 dark:border-surface-700 overflow-hidden">
                 {/* Header */}
@@ -245,13 +266,20 @@ const QuizAttempt = () => {
                       <div
                         key={entry.rank}
                         className={`grid grid-cols-12 gap-2 px-4 py-2.5 items-center transition-colors ${isCurrentUser
-                            ? 'bg-primary-50 dark:bg-primary-900/20 font-semibold'
-                            : 'hover:bg-surface-50 dark:hover:bg-surface-800/50'
+                          ? 'bg-primary-50 dark:bg-primary-900/20 font-semibold'
+                          : 'hover:bg-surface-50 dark:hover:bg-surface-800/50'
                           }`}
                       >
                         <div className="col-span-1">
                           {entry.rank <= 3 ? (
-                            <span className="text-lg">{'🥇🥈🥉'[entry.rank - 1]}</span>
+                            <Award
+                              size={20}
+                              className={
+                                entry.rank === 1 ? 'text-warning-500' :
+                                  entry.rank === 2 ? 'text-surface-400' :
+                                    'text-orange-400'
+                              }
+                            />
                           ) : (
                             <span className="text-surface-500 text-sm">{entry.rank}</span>
                           )}
@@ -267,7 +295,7 @@ const QuizAttempt = () => {
                         </div>
                         <div className="col-span-3 text-right">
                           <span className={`text-sm font-medium ${entry.percentage >= 70 ? 'text-success-500' :
-                              entry.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                            entry.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
                             }`}>
                             {Math.round(entry.percentage)}%
                           </span>
@@ -289,7 +317,7 @@ const QuizAttempt = () => {
                       </div>
                       <div className="col-span-3 text-right">
                         <span className={`text-sm font-medium ${result.percentage >= 70 ? 'text-success-500' :
-                            result.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                          result.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
                           }`}>
                           {Math.round(result.percentage)}%
                         </span>
@@ -308,9 +336,9 @@ const QuizAttempt = () => {
           <div className="space-y-3">
             <button
               onClick={() => navigate(`/quiz/review/${result.id}`)}
-              className="btn-primary w-full"
+              className="btn-primary w-full flex items-center justify-center gap-2"
             >
-              📝 Review Answers
+              <FileText size={20} /> Review Answers
             </button>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -348,11 +376,11 @@ const QuizAttempt = () => {
               )}
             </p>
           </div>
-          <div className={`px-4 py-2 rounded-xl font-mono font-bold ${timeLeft <= 60 ? 'bg-error-100 text-error-600 animate-pulse' :
+          <div className={`px-4 py-2 rounded-xl font-mono font-bold flex items-center gap-2 ${timeLeft <= 60 ? 'bg-error-100 text-error-600 animate-pulse' :
             timeLeft <= 300 ? 'bg-warning-100 text-warning-600' :
               'bg-surface-100 dark:bg-surface-800'
             }`}>
-            ⏱️ {formatTime(timeLeft)}
+            <Timer size={20} /> {formatTime(timeLeft)}
           </div>
         </div>
 
@@ -445,9 +473,9 @@ const QuizAttempt = () => {
           <button
             onClick={() => setCurrentQuestion(Math.max(0, currentQuestion - 1))}
             disabled={currentQuestion === 0}
-            className="btn-secondary"
+            className="btn-secondary flex items-center gap-2"
           >
-            Previous
+            <ChevronLeft size={18} /> Previous
           </button>
 
           {/* Question Navigator */}
@@ -472,16 +500,16 @@ const QuizAttempt = () => {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="btn-primary"
+              className="btn-primary flex items-center gap-2"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Quiz'}
+              {isSubmitting ? 'Submitting...' : <><CheckCircle2 size={18} /> Submit Quiz</>}
             </button>
           ) : (
             <button
               onClick={() => setCurrentQuestion(Math.min(questions.length - 1, currentQuestion + 1))}
-              className="btn-primary"
+              className="btn-primary flex items-center gap-2"
             >
-              Next
+              Next <ChevronRight size={18} />
             </button>
           )}
         </div>

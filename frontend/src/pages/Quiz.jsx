@@ -4,11 +4,27 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
+import {
+  Filter,
+  Search,
+  CheckCircle2,
+  Sparkles,
+  Target,
+  BookOpen,
+  Book,
+  Shuffle,
+  History,
+  FileText,
+  PenTool,
+  Clock,
+  Award,
+  ChevronRight
+} from 'lucide-react'
 
 const Quiz = () => {
   const navigate = useNavigate()
   const [showFilters, setShowFilters] = useState(false)
-  
+
   // Filter state
   const [filters, setFilters] = useState({
     quiz_type: '',
@@ -92,11 +108,11 @@ const Quiz = () => {
   const activeFilterCount = Object.values(filters).filter(Boolean).length
 
   const quizTypeIcons = {
-    topic: '📖',
-    subject: '📚',
-    mixed: '🎲',
-    pyq: '📜',
-    daily: '🎯',
+    topic: <Book size={18} />,
+    subject: <BookOpen size={18} />,
+    mixed: <Shuffle size={18} />,
+    pyq: <History size={18} />,
+    daily: <Target size={18} />,
   }
 
   return (
@@ -111,9 +127,7 @@ const Quiz = () => {
           onClick={() => setShowFilters(!showFilters)}
           className={`btn-secondary flex items-center gap-2 ${showFilters ? 'bg-primary-100 dark:bg-primary-900/30' : ''}`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
+          <Filter size={18} />
           Filters
           {activeFilterCount > 0 && (
             <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center">
@@ -132,16 +146,16 @@ const Quiz = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium">
-                  🎯 Daily Challenge
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium flex items-center gap-1">
+                  <Target size={12} /> Daily Challenge
                 </span>
                 <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium">
                   +{dailyChallenge.total_marks * 5} XP
                 </span>
                 {dailyChallenge.user_attempt_info?.attempted && (
-                  <span className="px-2 py-0.5 bg-white/30 rounded-full text-xs font-medium">
-                    ✅ Best: {Math.round(dailyChallenge.user_attempt_info.best_score)}%
+                  <span className="px-2 py-0.5 bg-white/30 rounded-full text-xs font-medium flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Best: {Math.round(dailyChallenge.user_attempt_info.best_score)}%
                   </span>
                 )}
               </div>
@@ -152,14 +166,14 @@ const Quiz = () => {
             </div>
             <div className="flex gap-2">
               {dailyChallenge.user_attempt_info?.attempted && (
-                <button 
+                <button
                   onClick={() => navigate(`/quiz/review/${dailyChallenge.user_attempt_info.best_attempt_id}`)}
                   className="btn bg-white/20 text-white hover:bg-white/30"
                 >
                   View Result
                 </button>
               )}
-              <button 
+              <button
                 onClick={() => handleStartQuiz(dailyChallenge.id)}
                 className="btn bg-white text-primary-600 hover:bg-white/90"
               >
@@ -184,9 +198,7 @@ const Quiz = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Search</label>
                 <div className="relative">
-                  <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                   <input
                     type="text"
                     value={filters.search}
@@ -203,11 +215,10 @@ const Quiz = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === '' ? '' : '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.attempted === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.attempted === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All Quizzes
                     {filterOptions?.attempt_status && (
@@ -218,13 +229,12 @@ const Quiz = () => {
                   </button>
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'true' ? '' : 'true')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.attempted === 'true'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'true'
                         ? 'bg-success-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
-                    <span>✅</span>
+                    <CheckCircle2 size={16} />
                     Attempted
                     {filterOptions?.attempt_status && (
                       <span className="opacity-70">({filterOptions.attempt_status.attempted})</span>
@@ -232,13 +242,12 @@ const Quiz = () => {
                   </button>
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'false' ? '' : 'false')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      filters.attempted === 'false'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'false'
                         ? 'bg-warning-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
-                    <span>🆕</span>
+                    <Sparkles size={16} />
                     Not Attempted
                     {filterOptions?.attempt_status && (
                       <span className="opacity-70">({filterOptions.attempt_status.not_attempted})</span>
@@ -253,11 +262,10 @@ const Quiz = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('quiz_type', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.quiz_type === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.quiz_type === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All Types
                   </button>
@@ -265,13 +273,12 @@ const Quiz = () => {
                     <button
                       key={type.value}
                       onClick={() => updateFilter('quiz_type', filters.quiz_type === type.value ? '' : type.value)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                        filters.quiz_type === type.value
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.quiz_type === type.value
                           ? 'bg-primary-500 text-white'
                           : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                      }`}
+                        }`}
                     >
-                      <span>{quizTypeIcons[type.value] || '📝'}</span>
+                      {quizTypeIcons[type.value] || <FileText size={16} />}
                       {type.label}
                       {type.count > 0 && <span className="opacity-70">({type.count})</span>}
                     </button>
@@ -320,43 +327,39 @@ const Quiz = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => updateFilter('difficulty', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.difficulty === ''
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.difficulty === ''
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
                     All Levels
                   </button>
                   <button
                     onClick={() => updateFilter('difficulty', filters.difficulty === 'easy' ? '' : 'easy')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.difficulty === 'easy'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.difficulty === 'easy'
                         ? 'bg-success-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
-                    🟢 Easy
+                    <div className="w-2 h-2 rounded-full bg-success-500" /> Easy
                   </button>
                   <button
                     onClick={() => updateFilter('difficulty', filters.difficulty === 'medium' ? '' : 'medium')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.difficulty === 'medium'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.difficulty === 'medium'
                         ? 'bg-warning-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
-                    🟡 Medium
+                    <div className="w-2 h-2 rounded-full bg-warning-500" /> Medium
                   </button>
                   <button
                     onClick={() => updateFilter('difficulty', filters.difficulty === 'hard' ? '' : 'hard')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      filters.difficulty === 'hard'
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.difficulty === 'hard'
                         ? 'bg-error-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                    }`}
+                      }`}
                   >
-                    🔴 Hard
+                    <div className="w-2 h-2 rounded-full bg-error-500" /> Hard
                   </button>
                 </div>
               </div>
@@ -383,13 +386,13 @@ const Quiz = () => {
           <span className="text-sm text-surface-500">Active filters:</span>
           {filters.attempted === 'true' && (
             <span className="badge badge-success flex items-center gap-1">
-              ✅ Attempted
+              <CheckCircle2 size={12} /> Attempted
               <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.attempted === 'false' && (
             <span className="badge badge-warning flex items-center gap-1">
-              🆕 Not Attempted
+              <Sparkles size={12} /> Not Attempted
               <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
@@ -401,28 +404,29 @@ const Quiz = () => {
           )}
           {filters.subject && (
             <span className="badge bg-surface-200 dark:bg-surface-700 flex items-center gap-1">
-              📚 {filterOptions?.subjects?.find(s => s.id === filters.subject)?.name}
+              <BookOpen size={12} /> {filterOptions?.subjects?.find(s => s.id === filters.subject)?.name}
               <button onClick={() => updateFilter('subject', '')} className="ml-1 hover:opacity-70">×</button>
             </span>
           )}
           {filters.topic && (
             <span className="badge bg-surface-200 dark:bg-surface-700 flex items-center gap-1">
-              📖 {filterOptions?.topics?.find(t => t.id === filters.topic)?.name}
+              <Book size={12} /> {filterOptions?.topics?.find(t => t.id === filters.topic)?.name}
               <button onClick={() => updateFilter('topic', '')} className="ml-1 hover:opacity-70">×</button>
             </span>
           )}
           {filters.difficulty && (
-            <span className={`badge flex items-center gap-1 ${
-              filters.difficulty === 'easy' ? 'badge-success' :
-              filters.difficulty === 'medium' ? 'badge-warning' : 'badge-error'
-            }`}>
-              {filters.difficulty === 'easy' ? '🟢' : filters.difficulty === 'medium' ? '🟡' : '🔴'} {filters.difficulty}
+            <span className={`badge flex items-center gap-1 ${filters.difficulty === 'easy' ? 'badge-success' :
+                filters.difficulty === 'medium' ? 'badge-warning' : 'badge-error'
+              }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${filters.difficulty === 'easy' ? 'bg-white' :
+                  filters.difficulty === 'medium' ? 'bg-white' : 'bg-white'
+                }`} /> {filters.difficulty}
               <button onClick={() => updateFilter('difficulty', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.search && (
             <span className="badge bg-surface-200 dark:bg-surface-700 flex items-center gap-1">
-              🔍 "{filters.search}"
+              <Search size={12} /> "{filters.search}"
               <button onClick={() => updateFilter('search', '')} className="ml-1 hover:opacity-70">×</button>
             </span>
           )}
@@ -448,7 +452,7 @@ const Quiz = () => {
           {(quizzes?.results || quizzes || []).map((quiz) => {
             const attemptInfo = quiz.user_attempt_info
             const hasAttempted = attemptInfo?.attempted
-            
+
             return (
               <motion.div
                 key={quiz.id}
@@ -459,22 +463,20 @@ const Quiz = () => {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">
-                      {quizTypeIcons[quiz.quiz_type] || '✍️'}
-                    </span>
-                    <span className={`badge ${
-                      quiz.quiz_type === 'daily' ? 'badge-primary' :
-                      quiz.quiz_type === 'pyq' ? 'badge-warning' : 'badge-success'
-                    }`}>
+                    <div className="p-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-primary-500">
+                      {quizTypeIcons[quiz.quiz_type] || <PenTool size={20} />}
+                    </div>
+                    <span className={`badge ${quiz.quiz_type === 'daily' ? 'badge-primary' :
+                        quiz.quiz_type === 'pyq' ? 'badge-warning' : 'badge-success'
+                      }`}>
                       {quiz.quiz_type}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {hasAttempted && (
-                      <span className={`badge ${
-                        attemptInfo.best_score >= 70 ? 'badge-success' :
-                        attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
-                      }`}>
+                      <span className={`badge ${attemptInfo.best_score >= 70 ? 'badge-success' :
+                          attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                        }`}>
                         Best: {Math.round(attemptInfo.best_score)}%
                       </span>
                     )}
@@ -485,7 +487,7 @@ const Quiz = () => {
                 </div>
 
                 <h3 className="font-semibold mb-2 line-clamp-2">{quiz.title}</h3>
-                
+
                 <div className="flex items-center gap-4 text-sm text-surface-500 mb-4">
                   <span>{quiz.questions_count} Qs</span>
                   <span>•</span>
@@ -515,7 +517,7 @@ const Quiz = () => {
 
                 {hasAttempted ? (
                   <div className="flex items-center justify-between gap-2">
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation()
                         navigate(`/quiz/review/${attemptInfo.best_attempt_id}`)
@@ -524,7 +526,7 @@ const Quiz = () => {
                     >
                       View Result
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation()
                         handleStartQuiz(quiz.id)
@@ -540,7 +542,7 @@ const Quiz = () => {
                       <span className="text-surface-500">Avg Score: </span>
                       <span className="font-medium">{Math.round(quiz.average_score || 0)}%</span>
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleStartQuiz(quiz.id)}
                       className="btn-primary text-sm px-4 py-2"
                     >
@@ -557,7 +559,9 @@ const Quiz = () => {
       {/* Empty State */}
       {!isLoading && (quizzes?.results || quizzes || []).length === 0 && (
         <div className="text-center py-12">
-          <span className="text-4xl mb-4 block">🔍</span>
+          <div className="flex justify-center mb-4 text-surface-300">
+            <Search size={64} />
+          </div>
           <p className="text-surface-500">No quizzes found matching your filters</p>
           <button onClick={clearFilters} className="btn-primary mt-4">
             Clear Filters
@@ -583,10 +587,9 @@ const Quiz = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className={`font-bold ${
-                      attempt.percentage >= 70 ? 'text-success-500' :
-                      attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
-                    }`}>
+                    <p className={`font-bold ${attempt.percentage >= 70 ? 'text-success-500' :
+                        attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                      }`}>
                       {Math.round(attempt.percentage)}%
                     </p>
                     <p className="text-sm text-surface-500">

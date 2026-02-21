@@ -4,6 +4,26 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { chatService } from '../services/chatService'
 import Loading from '../components/common/Loading'
+import {
+  Bot,
+  MessageSquare,
+  Zap,
+  FileText,
+  Target,
+  Flame,
+  BarChart3,
+  BookOpen,
+  RefreshCw,
+  TrendingUp,
+  Book,
+  PartyPopper,
+  ThumbsUp,
+  Trophy,
+  CheckCircle2,
+  XCircle,
+  Lightbulb,
+  ChevronRight
+} from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
 
 const AILearning = () => {
@@ -51,7 +71,7 @@ const AILearning = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold flex items-center gap-3">
-            <span className="text-3xl">🤖</span>
+            <Bot size={28} className="text-primary-500" />
             AI Learning Progress
           </h1>
           <p className="text-surface-500 mt-1">Track your AI-assisted learning journey</p>
@@ -60,7 +80,7 @@ const AILearning = () => {
           onClick={() => navigate('/ai-doubt-solver')}
           className="btn-primary flex items-center gap-2"
         >
-          <span>💬</span>
+          <MessageSquare size={18} />
           Start AI Quiz
         </button>
       </div>
@@ -74,7 +94,9 @@ const AILearning = () => {
         >
           <div className="text-3xl font-bold text-primary-600">{stats?.total_xp_earned || 0}</div>
           <div className="text-sm text-surface-500 mt-1">AI XP Earned</div>
-          <div className="text-xs text-primary-500 mt-1">⚡ From AI quizzes</div>
+          <div className="text-xs text-primary-500 mt-1 flex items-center justify-center gap-1">
+            <Zap size={12} /> From AI quizzes
+          </div>
         </motion.div>
 
         <motion.div
@@ -85,7 +107,9 @@ const AILearning = () => {
         >
           <div className="text-3xl font-bold text-success-600">{stats?.total_quizzes_attempted || 0}</div>
           <div className="text-sm text-surface-500 mt-1">Quizzes Taken</div>
-          <div className="text-xs text-success-500 mt-1">📝 AI-generated</div>
+          <div className="text-xs text-success-500 mt-1 flex items-center justify-center gap-1">
+            <FileText size={12} /> AI-generated
+          </div>
         </motion.div>
 
         <motion.div
@@ -96,7 +120,9 @@ const AILearning = () => {
         >
           <div className="text-3xl font-bold text-warning-600">{Math.round(stats?.average_accuracy || 0)}%</div>
           <div className="text-sm text-surface-500 mt-1">Avg Accuracy</div>
-          <div className="text-xs text-warning-500 mt-1">🎯 Overall</div>
+          <div className="text-xs text-warning-500 mt-1 flex items-center justify-center gap-1">
+            <Target size={12} /> Overall
+          </div>
         </motion.div>
 
         <motion.div
@@ -107,26 +133,27 @@ const AILearning = () => {
         >
           <div className="text-3xl font-bold text-violet-600">{stats?.current_quiz_streak || 0}</div>
           <div className="text-sm text-surface-500 mt-1">Day Streak</div>
-          <div className="text-xs text-violet-500 mt-1">🔥 Best: {stats?.longest_quiz_streak || 0}</div>
+          <div className="text-xs text-violet-500 mt-1 flex items-center justify-center gap-1">
+            <Flame size={12} /> Best: {stats?.longest_quiz_streak || 0}
+          </div>
         </motion.div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-surface-200 dark:border-surface-700">
         {[
-          { id: 'overview', label: 'Overview', icon: '📊' },
-          { id: 'history', label: 'Quiz History', icon: '📝' },
-          { id: 'topics', label: 'Topics', icon: '📚' },
-          { id: 'revision', label: 'Revision', icon: '🔄' },
+          { id: 'overview', label: 'Overview', icon: <BarChart3 size={18} /> },
+          { id: 'history', label: 'Quiz History', icon: <FileText size={18} /> },
+          { id: 'topics', label: 'Topics', icon: <BookOpen size={18} /> },
+          { id: 'revision', label: 'Revision', icon: <RefreshCw size={18} /> },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === tab.id
+            className={`px-4 py-3 text-sm font-medium transition-colors relative ${activeTab === tab.id
                 ? 'text-primary-600'
                 : 'text-surface-500 hover:text-surface-900'
-            }`}
+              }`}
           >
             <span className="flex items-center gap-2">
               <span>{tab.icon}</span>
@@ -188,7 +215,9 @@ const AILearning = () => {
                 </div>
               ) : (
                 <div className="text-center py-8 text-surface-500">
-                  <span className="text-4xl block mb-2">📝</span>
+                  <div className="flex justify-center mb-2 text-surface-300">
+                    <FileText size={48} />
+                  </div>
                   <p>No quizzes taken yet</p>
                   <p className="text-sm mt-1">Ask the AI for a quiz to get started!</p>
                 </div>
@@ -201,7 +230,9 @@ const AILearning = () => {
               <div className="space-y-4">
                 {stats?.strong_topics?.length > 0 && (
                   <div>
-                    <h4 className="text-sm text-success-600 font-medium mb-2">💪 Strong Topics</h4>
+                    <h4 className="text-sm text-success-600 font-medium mb-2 flex items-center gap-1.5">
+                      <TrendingUp size={16} /> Strong Topics
+                    </h4>
                     <div className="space-y-2">
                       {stats.strong_topics.slice(0, 3).map((t) => (
                         <div key={t.topic} className="flex items-center justify-between p-2 bg-success-50 dark:bg-success-900/20 rounded-lg">
@@ -215,7 +246,9 @@ const AILearning = () => {
 
                 {stats?.weak_topics?.length > 0 && (
                   <div>
-                    <h4 className="text-sm text-error-600 font-medium mb-2">📖 Need Practice</h4>
+                    <h4 className="text-sm text-error-600 font-medium mb-2 flex items-center gap-1.5">
+                      <Book size={16} /> Need Practice
+                    </h4>
                     <div className="space-y-2">
                       {stats.weak_topics.slice(0, 3).map((t) => (
                         <div key={t.topic} className="flex items-center justify-between p-2 bg-error-50 dark:bg-error-900/20 rounded-lg">
@@ -246,12 +279,11 @@ const AILearning = () => {
                       className="flex items-center justify-between p-3 bg-surface-50 dark:bg-surface-800 rounded-xl"
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          quiz.percentage >= 80 ? 'bg-success-100 text-success-600' :
-                          quiz.percentage >= 60 ? 'bg-warning-100 text-warning-600' :
-                          'bg-error-100 text-error-600'
-                        }`}>
-                          {quiz.percentage >= 80 ? '🎉' : quiz.percentage >= 60 ? '👍' : '📚'}
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${quiz.percentage >= 80 ? 'bg-success-100 text-success-600' :
+                            quiz.percentage >= 60 ? 'bg-warning-100 text-warning-600' :
+                              'bg-error-100 text-error-600'
+                          }`}>
+                          {quiz.percentage >= 80 ? <PartyPopper size={20} /> : quiz.percentage >= 60 ? <ThumbsUp size={20} /> : <BookOpen size={20} />}
                         </div>
                         <div>
                           <p className="font-medium text-sm">{quiz.quiz_topic || 'General Quiz'}</p>
@@ -261,11 +293,10 @@ const AILearning = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`font-bold ${
-                          quiz.percentage >= 80 ? 'text-success-600' :
-                          quiz.percentage >= 60 ? 'text-warning-600' :
-                          'text-error-600'
-                        }`}>
+                        <p className={`font-bold ${quiz.percentage >= 80 ? 'text-success-600' :
+                            quiz.percentage >= 60 ? 'text-warning-600' :
+                              'text-error-600'
+                          }`}>
                           {Math.round(quiz.percentage)}%
                         </p>
                         <p className="text-xs text-violet-600">+{quiz.xp_earned} XP</p>
@@ -301,14 +332,11 @@ const AILearning = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        quiz.percentage >= 80 ? 'bg-success-100 text-success-600' :
-                        quiz.percentage >= 60 ? 'bg-warning-100 text-warning-600' :
-                        'bg-error-100 text-error-600'
-                      }`}>
-                        <span className="text-xl">
-                          {quiz.percentage >= 80 ? '🏆' : quiz.percentage >= 60 ? '✓' : '📖'}
-                        </span>
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${quiz.percentage >= 80 ? 'bg-success-100 text-success-600' :
+                          quiz.percentage >= 60 ? 'bg-warning-100 text-warning-600' :
+                            'bg-error-100 text-error-600'
+                        }`}>
+                        {quiz.percentage >= 80 ? <Trophy size={24} /> : quiz.percentage >= 60 ? <CheckCircle2 size={24} /> : <Book size={24} />}
                       </div>
                       <div>
                         <h3 className="font-semibold">{quiz.quiz_topic || 'AI Quiz'}</h3>
@@ -322,11 +350,10 @@ const AILearning = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-2xl font-bold ${
-                        quiz.percentage >= 80 ? 'text-success-600' :
-                        quiz.percentage >= 60 ? 'text-warning-600' :
-                        'text-error-600'
-                      }`}>
+                      <p className={`text-2xl font-bold ${quiz.percentage >= 80 ? 'text-success-600' :
+                          quiz.percentage >= 60 ? 'text-warning-600' :
+                            'text-error-600'
+                        }`}>
                         {Math.round(quiz.percentage)}%
                       </p>
                       <p className="text-sm text-surface-500">
@@ -339,7 +366,9 @@ const AILearning = () => {
               ))
             ) : (
               <div className="text-center py-12">
-                <span className="text-6xl block mb-4">📝</span>
+                <div className="flex justify-center mb-4 text-surface-300">
+                  <FileText size={64} />
+                </div>
                 <h3 className="text-xl font-semibold mb-2">No AI Quizzes Yet</h3>
                 <p className="text-surface-500 mb-4">
                   Ask the AI doubt solver to "quiz me on [topic]" to get started!
@@ -372,22 +401,20 @@ const AILearning = () => {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold">{topic.topic}</h3>
-                      <span className={`text-lg font-bold ${
-                        topic.accuracy >= 80 ? 'text-success-600' :
-                        topic.accuracy >= 60 ? 'text-warning-600' :
-                        'text-error-600'
-                      }`}>
+                      <span className={`text-lg font-bold ${topic.accuracy >= 80 ? 'text-success-600' :
+                          topic.accuracy >= 60 ? 'text-warning-600' :
+                            'text-error-600'
+                        }`}>
                         {topic.accuracy}%
                       </span>
                     </div>
                     <div className="space-y-2">
                       <div className="h-2 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            topic.accuracy >= 80 ? 'bg-success-500' :
-                            topic.accuracy >= 60 ? 'bg-warning-500' :
-                            'bg-error-500'
-                          }`}
+                          className={`h-full rounded-full ${topic.accuracy >= 80 ? 'bg-success-500' :
+                              topic.accuracy >= 60 ? 'bg-warning-500' :
+                                'bg-error-500'
+                            }`}
                           style={{ width: `${topic.accuracy}%` }}
                         />
                       </div>
@@ -401,7 +428,9 @@ const AILearning = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <span className="text-6xl block mb-4">📚</span>
+                <div className="flex justify-center mb-4 text-surface-300">
+                  <BookOpen size={64} />
+                </div>
                 <h3 className="text-xl font-semibold mb-2">No Topics Yet</h3>
                 <p className="text-surface-500">
                   Complete AI quizzes on different topics to see your progress here.
@@ -420,7 +449,9 @@ const AILearning = () => {
             className="space-y-4"
           >
             <div className="card p-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white">
-              <h3 className="font-semibold mb-2">🔄 Smart Revision</h3>
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <RefreshCw size={20} /> Smart Revision
+              </h3>
               <p className="text-sm text-white/80">
                 Review questions you got wrong. Practice makes perfect!
               </p>
@@ -445,31 +476,35 @@ const AILearning = () => {
                       {q.options.map((opt, optIdx) => (
                         <div
                           key={optIdx}
-                          className={`p-2 rounded-lg text-sm ${
-                            optIdx === q.correct_option
+                          className={`p-2 rounded-lg text-sm ${optIdx === q.correct_option
                               ? 'bg-success-100 border border-success-300 text-success-800'
                               : optIdx === q.user_answer
-                              ? 'bg-error-100 border border-error-300 text-error-800'
-                              : 'bg-surface-50 dark:bg-surface-800'
-                          }`}
+                                ? 'bg-error-100 border border-error-300 text-error-800'
+                                : 'bg-surface-50 dark:bg-surface-800'
+                            }`}
                         >
                           <span className="font-semibold mr-2">
                             {String.fromCharCode(65 + optIdx)}.
                           </span>
                           {opt}
                           {optIdx === q.correct_option && (
-                            <span className="ml-2 text-success-600">✓ Correct</span>
+                            <span className="ml-2 text-success-600 flex items-center gap-1 inline-flex">
+                              <CheckCircle2 size={14} /> Correct
+                            </span>
                           )}
                           {optIdx === q.user_answer && optIdx !== q.correct_option && (
-                            <span className="ml-2 text-error-600">✗ Your answer</span>
+                            <span className="ml-2 text-error-600 flex items-center gap-1 inline-flex">
+                              <XCircle size={14} /> Your answer
+                            </span>
                           )}
                         </div>
                       ))}
                     </div>
                     {q.explanation && (
                       <div className="mt-3 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                        <p className="text-sm text-primary-800 dark:text-primary-200">
-                          <span className="font-semibold">💡 Explanation:</span> {q.explanation}
+                        <p className="text-sm text-primary-800 dark:text-primary-200 flex items-start gap-2">
+                          <Lightbulb size={16} className="mt-0.5 shrink-0" />
+                          <span><span className="font-semibold">Explanation:</span> {q.explanation}</span>
                         </p>
                       </div>
                     )}
@@ -478,7 +513,9 @@ const AILearning = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <span className="text-6xl block mb-4">🎉</span>
+                <div className="flex justify-center mb-4 text-success-400">
+                  <PartyPopper size={64} />
+                </div>
                 <h3 className="text-xl font-semibold mb-2">All Caught Up!</h3>
                 <p className="text-surface-500">
                   No wrong answers to revise. Keep up the great work!

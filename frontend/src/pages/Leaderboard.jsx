@@ -5,6 +5,13 @@ import { gamificationService } from '../services/gamificationService'
 import { useAuthStore } from '../context/authStore'
 import LeaderboardRow from '../components/common/LeaderboardRow'
 import Loading from '../components/common/Loading'
+import {
+  Trophy,
+  Award,
+  Medal,
+  ChevronUp,
+  ChevronDown
+} from 'lucide-react'
 
 const Leaderboard = () => {
   const [period, setPeriod] = useState('daily')
@@ -35,7 +42,9 @@ const Leaderboard = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">Leaderboard 🏆</h1>
+          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+            Leaderboard <Trophy className="text-warning-500" />
+          </h1>
           <p className="text-surface-500 mt-1">Compete with other students</p>
         </div>
       </div>
@@ -53,12 +62,11 @@ const Leaderboard = () => {
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-4xl font-bold">#{userRank.rank}</span>
                 {userRank.rank_change !== 0 && (
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${
-                    userRank.rank_change > 0 
-                      ? 'bg-success-500/30 text-white' 
+                  <span className={`text-sm px-2 py-0.5 rounded-full flex items-center gap-1 ${userRank.rank_change > 0
+                      ? 'bg-success-500/30 text-white'
                       : 'bg-error-500/30 text-white'
-                  }`}>
-                    {userRank.rank_change > 0 ? '↑' : '↓'} {Math.abs(userRank.rank_change)}
+                    }`}>
+                    {userRank.rank_change > 0 ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {Math.abs(userRank.rank_change)}
                   </span>
                 )}
               </div>
@@ -77,11 +85,10 @@ const Leaderboard = () => {
           <button
             key={p.value}
             onClick={() => setPeriod(p.value)}
-            className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${
-              period === p.value
+            className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${period === p.value
                 ? 'bg-primary-500 text-white'
                 : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200'
-            }`}
+              }`}
           >
             {p.label}
           </button>
@@ -107,7 +114,9 @@ const Leaderboard = () => {
               </div>
             ) : (
               <div className="text-center py-12 text-surface-500">
-                <span className="text-4xl mb-4 block">🏆</span>
+                <div className="flex justify-center mb-4 text-surface-300">
+                  <Trophy size={64} />
+                </div>
                 <p>No rankings yet for this period</p>
                 <p className="text-sm mt-1">Start studying to get on the board!</p>
               </div>
@@ -128,12 +137,12 @@ const Leaderboard = () => {
                     {entries[1].student_name?.charAt(0)}
                   </div>
                   <p className="text-xs font-medium truncate w-16">{entries[1].student_name?.split(' ')[0]}</p>
-                  <div className="h-16 w-16 bg-gray-200 dark:bg-surface-700 rounded-t-lg mt-2 flex items-center justify-center">
-                    <span className="text-2xl">🥈</span>
+                  <div className="h-16 w-16 bg-gray-200 dark:bg-surface-700 rounded-t-lg mt-2 flex items-center justify-center text-surface-400">
+                    <Award size={32} />
                   </div>
                 </div>
               )}
-              
+
               {/* 1st Place */}
               {entries[0] && (
                 <div className="text-center -mb-4">
@@ -141,12 +150,12 @@ const Leaderboard = () => {
                     {entries[0].student_name?.charAt(0)}
                   </div>
                   <p className="text-sm font-medium truncate w-20">{entries[0].student_name?.split(' ')[0]}</p>
-                  <div className="h-24 w-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-t-lg mt-2 flex items-center justify-center mx-auto">
-                    <span className="text-3xl">🥇</span>
+                  <div className="h-24 w-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-t-lg mt-2 flex items-center justify-center mx-auto text-warning-500">
+                    <Award size={40} />
                   </div>
                 </div>
               )}
-              
+
               {/* 3rd Place */}
               {entries[2] && (
                 <div className="text-center">
@@ -154,8 +163,8 @@ const Leaderboard = () => {
                     {entries[2].student_name?.charAt(0)}
                   </div>
                   <p className="text-xs font-medium truncate w-16">{entries[2].student_name?.split(' ')[0]}</p>
-                  <div className="h-12 w-16 bg-amber-100 dark:bg-amber-900/30 rounded-t-lg mt-2 flex items-center justify-center">
-                    <span className="text-2xl">🥉</span>
+                  <div className="h-12 w-16 bg-amber-100 dark:bg-amber-900/30 rounded-t-lg mt-2 flex items-center justify-center text-orange-400">
+                    <Award size={28} />
                   </div>
                 </div>
               )}
@@ -170,10 +179,10 @@ const Leaderboard = () => {
                 {badges.slice(0, 8).map((badge) => (
                   <div
                     key={badge.id}
-                    className="aspect-square rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center text-2xl"
+                    className="aspect-square rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center text-primary-500"
                     title={badge.badge?.name}
                   >
-                    {badge.badge?.icon || '🏅'}
+                    <Award size={24} />
                   </div>
                 ))}
               </div>

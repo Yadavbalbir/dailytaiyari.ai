@@ -5,6 +5,24 @@ import { useAuthStore } from '../context/authStore'
 import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
+import {
+  Camera,
+  User,
+  BookOpen,
+  MapPin,
+  Clock,
+  Timer,
+  Flame,
+  Zap,
+  Settings,
+  Lock,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+  ChevronRight,
+  LogOut
+} from 'lucide-react'
 
 const Profile = () => {
   const { user, profile, updateProfile, logout } = useAuthStore()
@@ -98,10 +116,10 @@ const Profile = () => {
   }
 
   const studyTimes = [
-    { value: 'morning', label: 'Morning', icon: '🌅', desc: '6AM-12PM' },
-    { value: 'afternoon', label: 'Afternoon', icon: '☀️', desc: '12PM-6PM' },
-    { value: 'evening', label: 'Evening', icon: '🌆', desc: '6PM-10PM' },
-    { value: 'night', label: 'Night', icon: '🌙', desc: '10PM-6AM' },
+    { value: 'morning', label: 'Morning', icon: <Sunrise size={24} />, desc: '6AM-12PM' },
+    { value: 'afternoon', label: 'Afternoon', icon: <Sun size={24} />, desc: '12PM-6PM' },
+    { value: 'evening', label: 'Evening', icon: <Sunset size={24} />, desc: '6PM-10PM' },
+    { value: 'night', label: 'Night', icon: <Moon size={24} />, desc: '10PM-6AM' },
   ]
 
 
@@ -139,7 +157,7 @@ const Profile = () => {
               {user?.first_name?.charAt(0) || 'U'}
             </div>
             <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-surface-100 dark:bg-surface-800 border-2 border-white dark:border-surface-900 rounded-full flex items-center justify-center hover:bg-surface-200 transition-colors">
-              <span className="text-sm">📷</span>
+              <Camera size={14} className="text-surface-600" />
             </button>
           </div>
 
@@ -183,7 +201,7 @@ const Profile = () => {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-xl">👤</span>
+            <User size={20} className="text-primary-500" />
             <h2 className="text-lg font-semibold">Personal Information</h2>
           </div>
           <div className="flex gap-2">
@@ -295,7 +313,7 @@ const Profile = () => {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📚</span>
+            <BookOpen size={20} className="text-primary-500" />
             <h2 className="text-lg font-semibold">Academic Information</h2>
           </div>
           <div className="flex gap-2">
@@ -375,7 +393,7 @@ const Profile = () => {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📍</span>
+            <MapPin size={20} className="text-primary-500" />
             <h2 className="text-lg font-semibold">Location</h2>
           </div>
           <div className="flex gap-2">
@@ -430,7 +448,7 @@ const Profile = () => {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-xl">⏰</span>
+            <Clock size={20} className="text-primary-500" />
             <h2 className="text-lg font-semibold">Study Preferences</h2>
           </div>
           <div className="flex gap-2">
@@ -450,7 +468,7 @@ const Profile = () => {
             <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">⏱️</span>
+                  <Timer size={32} className="text-primary-500" />
                   <div>
                     <p className="text-2xl font-bold">{formData.daily_study_goal_minutes} min</p>
                     <p className="text-sm text-surface-500">
@@ -458,11 +476,11 @@ const Profile = () => {
                     </p>
                   </div>
                 </div>
-                <span className={`badge ${formData.daily_study_goal_minutes >= 120 ? 'badge-success' :
+                <span className={`badge flex items-center gap-1 ${formData.daily_study_goal_minutes >= 120 ? 'badge-success' :
                   formData.daily_study_goal_minutes >= 60 ? 'badge-primary' : 'badge-warning'
                   }`}>
-                  {formData.daily_study_goal_minutes >= 120 ? '🔥 Intense' :
-                    formData.daily_study_goal_minutes >= 60 ? '💪 Committed' : '📚 Beginner'}
+                  {formData.daily_study_goal_minutes >= 120 ? <><Flame size={12} /> Intense</> :
+                    formData.daily_study_goal_minutes >= 60 ? <><Zap size={12} /> Committed</> : <><BookOpen size={12} /> Beginner</>}
                 </span>
               </div>
 
@@ -524,7 +542,9 @@ const Profile = () => {
                     : 'border-surface-200 dark:border-surface-700'
                     } ${isEditing && activeSection === 'study' ? 'cursor-pointer hover:border-primary-300' : 'cursor-default'}`}
                 >
-                  <span className="text-2xl block mb-1">{time.icon}</span>
+                  <div className="flex justify-center mb-1 text-primary-500">
+                    {time.icon}
+                  </div>
                   <span className="font-medium block">{time.label}</span>
                   <span className="text-xs text-surface-500">{time.desc}</span>
                 </button>
@@ -537,7 +557,7 @@ const Profile = () => {
       {/* App Settings */}
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <span className="text-xl">⚙️</span>
+          <Settings size={20} className="text-primary-500" />
           <h2 className="text-lg font-semibold">App Settings</h2>
         </div>
 
@@ -574,7 +594,7 @@ const Profile = () => {
       {/* Account Actions */}
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <span className="text-xl">🔐</span>
+          <Lock size={20} className="text-primary-500" />
           <h2 className="text-lg font-semibold">Account</h2>
         </div>
 
@@ -594,10 +614,13 @@ const Profile = () => {
               logout()
               window.location.href = '/login'
             }}
-            className="w-full text-left p-4 rounded-xl border border-error-200 dark:border-error-800 hover:bg-error-50 dark:hover:bg-error-900/20 text-error-600 transition-colors"
+            className="w-full text-left p-4 rounded-xl border border-error-200 dark:border-error-800 hover:bg-error-50 dark:hover:bg-error-900/20 text-error-600 transition-colors flex items-center justify-between group"
           >
-            <p className="font-medium">Sign Out</p>
-            <p className="text-sm text-error-400">Log out of your account</p>
+            <div>
+              <p className="font-medium">Sign Out</p>
+              <p className="text-sm text-error-400">Log out of your account</p>
+            </div>
+            <LogOut size={20} className="text-error-400 group-hover:text-error-600 transition-colors" />
           </button>
         </div>
       </div>

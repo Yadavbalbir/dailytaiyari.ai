@@ -3,18 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
 import { examService } from '../../services/examService'
+import Loading from '../../components/common/Loading'
 import toast from 'react-hot-toast'
+import {
+  Target,
+  Rocket,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+  ChevronRight,
+  Check
+} from 'lucide-react'
 
 const steps = [
-  { id: 1, title: 'Choose Your Exam', icon: '🎯' },
-  { id: 2, title: 'Set Your Goals', icon: '🚀' },
+  { id: 1, title: 'Choose Your Exam', icon: <Target size={20} /> },
+  { id: 2, title: 'Set Your Goals', icon: <Rocket size={20} /> },
 ]
 
 const studyTimes = [
-  { value: 'morning', label: 'Morning (6AM-12PM)', icon: '🌅' },
-  { value: 'afternoon', label: 'Afternoon (12PM-6PM)', icon: '☀️' },
-  { value: 'evening', label: 'Evening (6PM-10PM)', icon: '🌆' },
-  { value: 'night', label: 'Night (10PM-6AM)', icon: '🌙' },
+  { value: 'morning', label: 'Morning (6AM-12PM)', icon: <Sunrise size={20} /> },
+  { value: 'afternoon', label: 'Afternoon (12PM-6PM)', icon: <Sun size={20} /> },
+  { value: 'evening', label: 'Evening (6PM-10PM)', icon: <Sunset size={20} /> },
+  { value: 'night', label: 'Night (10PM-6AM)', icon: <Moon size={20} /> },
 ]
 
 const Onboarding = () => {
@@ -88,17 +99,17 @@ const Onboarding = () => {
             <div key={step.id} className="flex items-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${currentStep >= step.id
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
                   }`}
               >
-                {currentStep > step.id ? '✓' : step.icon}
+                {currentStep > step.id ? <Check size={20} /> : step.icon}
               </div>
               {index < steps.length - 1 && (
                 <div
                   className={`w-20 h-1 mx-2 rounded-full transition-colors ${currentStep > step.id
-                      ? 'bg-primary-500'
-                      : 'bg-surface-200 dark:bg-surface-700'
+                    ? 'bg-primary-500'
+                    : 'bg-surface-200 dark:bg-surface-700'
                     }`}
                 />
               )}
@@ -132,8 +143,8 @@ const Onboarding = () => {
                     key={exam.id}
                     onClick={() => setFormData({ ...formData, primary_exam_id: exam.id })}
                     className={`p-4 rounded-xl border-2 text-left transition-all ${formData.primary_exam_id === exam.id
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                        : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -192,12 +203,14 @@ const Onboarding = () => {
                       onClick={() =>
                         setFormData({ ...formData, preferred_study_time: time.value })
                       }
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${formData.preferred_study_time === time.value
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
+                      className={`p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${formData.preferred_study_time === time.value
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                        : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
                         }`}
                     >
-                      <span className="text-xl mr-2">{time.icon}</span>
+                      <span className={`${formData.preferred_study_time === time.value ? 'text-primary-500' : 'text-surface-400'}`}>
+                        {time.icon}
+                      </span>
                       <span className="text-sm font-medium">{time.label}</span>
                     </button>
                   ))}
@@ -248,9 +261,9 @@ const Onboarding = () => {
               <button
                 onClick={handleSubmit}
                 disabled={isLoading}
-                className="btn-primary"
+                className="btn-primary flex items-center gap-2"
               >
-                {isLoading ? 'Setting up...' : 'Start Learning 🚀'}
+                {isLoading ? 'Setting up...' : <>{'Start Learning'} <ChevronRight size={18} /></>}
               </button>
             )}
           </div>

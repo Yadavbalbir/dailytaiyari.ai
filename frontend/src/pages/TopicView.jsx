@@ -4,6 +4,20 @@ import { useQuery } from '@tanstack/react-query'
 import { examService } from '../services/examService'
 import { contentService } from '../services/contentService'
 import Loading from '../components/common/Loading'
+import {
+  BookOpen,
+  HelpCircle,
+  Timer,
+  PenTool,
+  Bot,
+  FileText,
+  BarChart3,
+  PlayCircle,
+  RefreshCw,
+  Triangle,
+  ChevronRight,
+  Book
+} from 'lucide-react'
 
 const TopicView = () => {
   const { topicId } = useParams()
@@ -22,11 +36,11 @@ const TopicView = () => {
   if (topicLoading) return <Loading fullScreen />
 
   const contentTypes = {
-    notes: { icon: '📝', label: 'Notes', color: 'bg-blue-100 text-blue-700' },
-    video: { icon: '🎬', label: 'Video', color: 'bg-red-100 text-red-700' },
-    pdf: { icon: '📄', label: 'PDF', color: 'bg-green-100 text-green-700' },
-    revision: { icon: '🔄', label: 'Revision', color: 'bg-purple-100 text-purple-700' },
-    formula: { icon: '📐', label: 'Formula Sheet', color: 'bg-yellow-100 text-yellow-700' },
+    notes: { icon: <FileText size={20} />, label: 'Notes', color: 'bg-blue-100 text-blue-700' },
+    video: { icon: <PlayCircle size={20} />, label: 'Video', color: 'bg-red-100 text-red-700' },
+    pdf: { icon: <FileText size={20} />, label: 'PDF', color: 'bg-green-100 text-green-700' },
+    revision: { icon: <RefreshCw size={20} />, label: 'Revision', color: 'bg-purple-100 text-purple-700' },
+    formula: { icon: <Triangle size={20} />, label: 'Formula Sheet', color: 'bg-yellow-100 text-yellow-700' },
   }
 
   return (
@@ -49,44 +63,51 @@ const TopicView = () => {
             <h1 className="text-2xl font-display font-bold">{topic?.name}</h1>
             <p className="text-surface-500 mt-1">{topic?.description || 'Master this topic through videos and practice'}</p>
           </div>
-          <span className={`badge ${
-            topic?.difficulty === 'easy' ? 'badge-success' :
-            topic?.difficulty === 'hard' ? 'badge-error' : 'badge-warning'
-          }`}>
+          <span className={`badge ${topic?.difficulty === 'easy' ? 'badge-success' :
+              topic?.difficulty === 'hard' ? 'badge-error' : 'badge-warning'
+            }`}>
             {topic?.difficulty}
           </span>
         </div>
-        
-        <div className="flex items-center gap-6 mt-4 text-sm text-surface-500">
-          <span>📚 {topic?.total_content || contents?.length || 0} materials</span>
-          <span>❓ {topic?.total_questions || 0} questions</span>
-          <span>⏱️ Est. {topic?.estimated_study_hours || 2}h study time</span>
+
+        <div className="flex flex-wrap items-center gap-6 mt-4 text-sm text-surface-500">
+          <span className="flex items-center gap-1.5"><BookOpen size={16} className="text-primary-500" /> {topic?.total_content || contents?.length || 0} materials</span>
+          <span className="flex items-center gap-1.5"><HelpCircle size={16} className="text-accent-500" /> {topic?.total_questions || 0} questions</span>
+          <span className="flex items-center gap-1.5"><Timer size={16} className="text-warning-500" /> Est. {topic?.estimated_study_hours || 2}h study time</span>
         </div>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <button 
+        <button
           onClick={() => navigate(`/quiz?topic=${topicId}`)}
           className="card p-4 text-center hover:border-primary-300 transition-colors"
         >
-          <span className="text-2xl">✍️</span>
-          <p className="font-medium mt-2">Practice Quiz</p>
+          <div className="flex justify-center mb-2 text-primary-500">
+            <PenTool size={24} />
+          </div>
+          <p className="font-medium">Practice Quiz</p>
         </button>
-        <button 
+        <button
           onClick={() => navigate('/doubt-solver')}
           className="card p-4 text-center hover:border-primary-300 transition-colors"
         >
-          <span className="text-2xl">🤖</span>
-          <p className="font-medium mt-2">Ask AI Doubt</p>
+          <div className="flex justify-center mb-2 text-accent-500">
+            <Bot size={24} />
+          </div>
+          <p className="font-medium">Ask AI Doubt</p>
         </button>
         <button className="card p-4 text-center hover:border-primary-300 transition-colors">
-          <span className="text-2xl">📑</span>
-          <p className="font-medium mt-2">Flashcards</p>
+          <div className="flex justify-center mb-2 text-warning-500">
+            <Book size={24} />
+          </div>
+          <p className="font-medium">Flashcards</p>
         </button>
         <button className="card p-4 text-center hover:border-primary-300 transition-colors">
-          <span className="text-2xl">📊</span>
-          <p className="font-medium mt-2">My Progress</p>
+          <div className="flex justify-center mb-2 text-success-500">
+            <BarChart3 size={24} />
+          </div>
+          <p className="font-medium">My Progress</p>
         </button>
       </div>
 
@@ -99,7 +120,7 @@ const TopicView = () => {
           <div className="space-y-3">
             {contents.map((content, index) => {
               const typeConfig = contentTypes[content.content_type] || contentTypes.notes
-              
+
               return (
                 <motion.div
                   key={content.id}
@@ -132,9 +153,11 @@ const TopicView = () => {
           </div>
         ) : (
           <div className="text-center py-12 text-surface-500">
-            <span className="text-4xl mb-4 block">📚</span>
+            <div className="flex justify-center mb-4 text-surface-300">
+              <BookOpen size={64} />
+            </div>
             <p>No content available for this topic yet</p>
-            <button 
+            <button
               onClick={() => navigate('/doubt-solver')}
               className="btn-primary mt-4"
             >

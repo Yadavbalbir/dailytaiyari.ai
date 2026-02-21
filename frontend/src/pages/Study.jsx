@@ -7,6 +7,7 @@ import { contentService } from '../services/contentService'
 import { analyticsService } from '../services/analyticsService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
+import { Calendar, BookOpen, CheckCircle2 } from 'lucide-react'
 
 const Study = () => {
   const navigate = useNavigate()
@@ -44,13 +45,13 @@ const Study = () => {
   const topicsWithProgress = useMemo(() => {
     if (!topics) return []
     const masteryMap = new Map()
-    ;(topicMastery || []).forEach(m => {
-      masteryMap.set(m.topic, {
-        level: m.mastery_level,
-        score: m.mastery_score,
-        accuracy: m.accuracy_percentage,
+      ; (topicMastery || []).forEach(m => {
+        masteryMap.set(m.topic, {
+          level: m.mastery_level,
+          score: m.mastery_score,
+          accuracy: m.accuracy_percentage,
+        })
       })
-    })
     return topics.map(topic => ({
       ...topic,
       progress: masteryMap.get(topic.id) || null,
@@ -71,16 +72,18 @@ const Study = () => {
       {studyPlan?.items?.length > 0 && (
         <div className="card p-5 bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">📅 Today's Study Plan</h3>
+            <h3 className="font-semibold flex items-center gap-2">
+              <Calendar size={18} className="text-primary-500" /> Today's Study Plan
+            </h3>
             <span className="text-sm text-surface-500">
               {studyPlan.items.filter(i => i.status === 'completed').length}/{studyPlan.items.length} completed
             </span>
           </div>
           <div className="progress-bar h-2 mb-4">
-            <div 
+            <div
               className="progress-bar-fill bg-gradient-to-r from-primary-500 to-accent-500"
-              style={{ 
-                width: `${(studyPlan.items.filter(i => i.status === 'completed').length / studyPlan.items.length) * 100}%` 
+              style={{
+                width: `${(studyPlan.items.filter(i => i.status === 'completed').length / studyPlan.items.length) * 100}%`
               }}
             />
           </div>
@@ -88,13 +91,12 @@ const Study = () => {
             {studyPlan.items.slice(0, 4).map((item) => (
               <div
                 key={item.id}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm ${
-                  item.status === 'completed'
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm flex items-center gap-1.5 ${item.status === 'completed'
                     ? 'bg-success-100 dark:bg-success-900/30 text-success-700'
                     : 'bg-white dark:bg-surface-800'
-                }`}
+                  }`}
               >
-                {item.status === 'completed' ? '✓ ' : ''}{item.title}
+                {item.status === 'completed' && <CheckCircle2 size={14} />}{item.title}
               </div>
             ))}
           </div>
@@ -111,17 +113,16 @@ const Study = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedSubject(subject.id)}
-              className={`card p-5 cursor-pointer transition-all ${
-                selectedSubject === subject.id
+              className={`card p-5 cursor-pointer transition-all ${selectedSubject === subject.id
                   ? 'border-2 border-primary-500 shadow-lg'
                   : 'hover:border-primary-200'
-              }`}
+                }`}
             >
-              <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-3"
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-primary-500 mb-3"
                 style={{ backgroundColor: `${subject.color}20` }}
               >
-                {subject.icon || '📚'}
+                <BookOpen size={24} />
               </div>
               <h3 className="font-semibold">{subject.name}</h3>
               <p className="text-sm text-surface-500 mt-1">
@@ -143,7 +144,7 @@ const Study = () => {
               {topicsWithProgress.map((topic) => {
                 const progressPercent = topic.progress ? Math.round(topic.progress.score) : 0
                 const masteryLevel = topic.progress?.level || 0
-                
+
                 return (
                   <motion.div
                     key={topic.id}
@@ -159,24 +160,22 @@ const Study = () => {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className={`badge ${
-                          topic.difficulty === 'easy' ? 'badge-success' :
-                          topic.difficulty === 'hard' ? 'badge-error' : 'badge-warning'
-                        }`}>
+                        <span className={`badge ${topic.difficulty === 'easy' ? 'badge-success' :
+                            topic.difficulty === 'hard' ? 'badge-error' : 'badge-warning'
+                          }`}>
                           {topic.difficulty}
                         </span>
                         {masteryLevel > 0 && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            masteryLevel >= 4 ? 'bg-success-100 text-success-700' :
-                            masteryLevel >= 3 ? 'bg-primary-100 text-primary-700' :
-                            'bg-warning-100 text-warning-700'
-                          }`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${masteryLevel >= 4 ? 'bg-success-100 text-success-700' :
+                              masteryLevel >= 3 ? 'bg-primary-100 text-primary-700' :
+                                'bg-warning-100 text-warning-700'
+                            }`}>
                             Level {masteryLevel}
                           </span>
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Progress */}
                     <div className="mt-3">
                       <div className="flex justify-between text-xs mb-1">
@@ -184,13 +183,12 @@ const Study = () => {
                         <span className="font-medium">{progressPercent}%</span>
                       </div>
                       <div className="progress-bar h-1.5">
-                        <div 
-                          className={`progress-bar-fill ${
-                            progressPercent >= 75 ? 'bg-success-500' :
-                            progressPercent >= 50 ? 'bg-primary-500' :
-                            progressPercent >= 25 ? 'bg-warning-500' : 'bg-surface-300'
-                          }`} 
-                          style={{ width: `${progressPercent}%` }} 
+                        <div
+                          className={`progress-bar-fill ${progressPercent >= 75 ? 'bg-success-500' :
+                              progressPercent >= 50 ? 'bg-primary-500' :
+                                progressPercent >= 25 ? 'bg-warning-500' : 'bg-surface-300'
+                            }`}
+                          style={{ width: `${progressPercent}%` }}
                         />
                       </div>
                     </div>

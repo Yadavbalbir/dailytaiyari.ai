@@ -4,6 +4,16 @@ import ReactMarkdown from 'react-markdown'
 import { contentService } from '../services/contentService'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
+import {
+  Bookmark,
+  Timer,
+  Eye,
+  PenTool,
+  FileText,
+  Bot,
+  CheckCircle2,
+  ChevronLeft
+} from 'lucide-react'
 
 const ContentViewer = () => {
   const { contentId } = useParams()
@@ -35,8 +45,8 @@ const ContentViewer = () => {
     <div className="max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm mb-6">
-        <button onClick={() => navigate('/study')} className="text-surface-500 hover:text-primary-600">
-          Study
+        <button onClick={() => navigate('/study')} className="text-surface-500 hover:text-primary-600 flex items-center gap-1">
+          <ChevronLeft size={16} /> Study
         </button>
         <span className="text-surface-400">/</span>
         <button onClick={() => navigate(`/topic/${content?.topic}`)} className="text-surface-500 hover:text-primary-600">
@@ -50,23 +60,26 @@ const ContentViewer = () => {
       <div className="card p-6 mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <span className={`badge mb-3 ${
-              content?.content_type === 'video' ? 'bg-red-100 text-red-700' :
-              content?.content_type === 'notes' ? 'bg-blue-100 text-blue-700' :
-              'bg-surface-100 text-surface-700'
-            }`}>
+            <span className={`badge mb-3 ${content?.content_type === 'video' ? 'bg-red-100 text-red-700' :
+                content?.content_type === 'notes' ? 'bg-blue-100 text-blue-700' :
+                  'bg-surface-100 text-surface-700'
+              }`}>
               {content?.content_type?.toUpperCase()}
             </span>
             <h1 className="text-2xl font-display font-bold">{content?.title}</h1>
             <p className="text-surface-500 mt-2">{content?.description}</p>
           </div>
-          <button className="btn-icon text-xl">🔖</button>
+          <button className="btn-icon">
+            <Bookmark size={20} />
+          </button>
         </div>
-        
+
         <div className="flex items-center gap-4 mt-4 text-sm text-surface-500">
-          <span>⏱️ {content?.estimated_time_minutes} min read</span>
-          <span>👁️ {content?.views_count} views</span>
-          {content?.author_name && <span>✍️ {content.author_name}</span>}
+          <span className="flex items-center gap-1.5"><Timer size={16} /> {content?.estimated_time_minutes} min read</span>
+          <span className="flex items-center gap-1.5"><Eye size={16} /> {content?.views_count} views</span>
+          {content?.author_name && (
+            <span className="flex items-center gap-1.5"><PenTool size={16} /> {content.author_name}</span>
+          )}
         </div>
       </div>
 
@@ -96,13 +109,13 @@ const ContentViewer = () => {
       {/* PDF Viewer */}
       {content?.content_type === 'pdf' && content?.pdf_file && (
         <div className="card p-4 mb-6">
-          <a 
-            href={content.pdf_file} 
-            target="_blank" 
+          <a
+            href={content.pdf_file}
+            target="_blank"
             rel="noopener noreferrer"
-            className="btn-primary"
+            className="btn-primary inline-flex items-center gap-2"
           >
-            📄 Open PDF
+            <FileText size={18} /> Open PDF
           </a>
         </div>
       )}
@@ -111,24 +124,26 @@ const ContentViewer = () => {
       <div className="card p-4 sticky bottom-4 flex items-center justify-between bg-white/95 dark:bg-surface-900/95 backdrop-blur-sm">
         <button
           onClick={() => navigate(-1)}
-          className="btn-secondary"
+          className="btn-secondary flex items-center gap-2"
         >
-          ← Back
+          <ChevronLeft size={18} /> Back
         </button>
-        
+
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => navigate('/doubt-solver')}
-            className="btn-secondary"
+            className="btn-secondary flex items-center gap-2"
           >
-            🤖 Ask Doubt
+            <Bot size={18} /> Ask Doubt
           </button>
           <button
             onClick={() => markCompleteMutation.mutate()}
             disabled={markCompleteMutation.isPending}
-            className="btn-primary"
+            className="btn-primary flex items-center gap-2"
           >
-            {markCompleteMutation.isPending ? 'Saving...' : '✓ Mark Complete'}
+            {markCompleteMutation.isPending ? 'Saving...' : (
+              <><CheckCircle2 size={18} /> Mark Complete</>
+            )}
           </button>
         </div>
       </div>

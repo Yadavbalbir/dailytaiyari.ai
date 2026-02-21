@@ -14,6 +14,25 @@ import StatCard from '../components/common/StatCard'
 import QuickActionButton from '../components/common/QuickActionButton'
 import TopicMasteryChip from '../components/common/TopicMasteryChip'
 import Loading from '../components/common/Loading'
+import {
+  Trophy,
+  Target,
+  Zap,
+  BookOpen,
+  Timer,
+  Crown,
+  PenTool,
+  Flame,
+  Star,
+  Sparkles,
+  Bot,
+  FileText,
+  Book,
+  PartyPopper,
+  Sparkle,
+  ChevronRight,
+  Hand
+} from 'lucide-react'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -62,8 +81,8 @@ const Dashboard = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold">
-            {greeting()}, {profile?.user?.first_name || 'Student'}! 👋
+          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+            {greeting()}, {profile?.user?.first_name || 'Student'}! <Hand className="text-yellow-400 animate-hand-wave" />
           </h1>
           <p className="text-surface-500 mt-1">
             Ready to crush your goals today?
@@ -87,8 +106,8 @@ const Dashboard = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className={`card overflow-hidden relative ${stats.today.goal_met
-            ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500'
-            : 'bg-gradient-to-br from-primary-500 via-primary-600 to-accent-600'
+          ? 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500'
+          : 'bg-gradient-to-br from-primary-500 via-primary-600 to-accent-600'
           } text-white`}
       >
         {/* Animated Background for Goal Achieved */}
@@ -131,7 +150,7 @@ const Dashboard = () => {
                   bottom: 0
                 }}
               >
-                {['✨', '⭐', '🎉', '🌟', '💫', '🔥'][i % 6]}
+                {[Sparkles, Star, PartyPopper, Sparkle, Star, Flame][i % 6]({ size: 24 })}
               </motion.div>
             ))}
 
@@ -157,16 +176,16 @@ const Dashboard = () => {
                     animate={{ scale: 1 }}
                     className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/25 backdrop-blur-sm rounded-full mb-3"
                   >
-                    <span className="text-lg">🏆</span>
+                    <Trophy size={18} className="text-yellow-300" />
                     <span className="font-bold text-sm">GOAL ACHIEVED!</span>
                   </motion.div>
 
                   <motion.h2
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="text-2xl font-bold mb-1"
+                    className="text-2xl font-bold mb-1 flex items-center gap-2"
                   >
-                    Incredible Work! 🎉
+                    Incredible Work! <PartyPopper size={24} />
                   </motion.h2>
 
                   <motion.p
@@ -191,8 +210,8 @@ const Dashboard = () => {
                     transition={{ duration: 2, repeat: Infinity }}
                     className="absolute inset-0 bg-yellow-300/50 rounded-full blur-xl"
                   />
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30">
-                    <span className="text-4xl">🏆</span>
+                  <div className="relative w-20 h-20 bg-gradient-to-br from-yellow-300 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30 text-white">
+                    <Trophy size={40} />
                   </div>
                   <motion.div
                     initial={{ scale: 0 }}
@@ -214,7 +233,7 @@ const Dashboard = () => {
                   className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/10"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">⏱️</span>
+                    <Timer size={18} className="text-white/70" />
                     <p className="text-white/70 text-sm">Study Time</p>
                   </div>
                   <p className="text-2xl font-bold">{stats.today.study_time}m</p>
@@ -226,7 +245,7 @@ const Dashboard = () => {
                   className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/10"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">✍️</span>
+                    <PenTool size={18} className="text-white/70" />
                     <p className="text-white/70 text-sm">Questions</p>
                   </div>
                   <p className="text-2xl font-bold">{stats.today.questions}</p>
@@ -238,7 +257,7 @@ const Dashboard = () => {
                   className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/10"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">🎯</span>
+                    <Target size={18} className="text-white/70" />
                     <p className="text-white/70 text-sm">Accuracy</p>
                   </div>
                   <p className="text-2xl font-bold">{Math.round(stats.today.accuracy || 0)}%</p>
@@ -294,7 +313,7 @@ const Dashboard = () => {
             subtitle={dailyChallenge
               ? `${dailyChallenge.questions_count} questions • +${dailyChallenge.total_marks * 5} XP`
               : 'Take today\'s challenge'}
-            icon="🎯"
+            icon={<Target className="text-primary-500" />}
             to="/quiz"
             variant="primary"
             badge={dailyChallenge ? "NEW" : null}
@@ -302,13 +321,13 @@ const Dashboard = () => {
           <QuickActionButton
             title="Resume Study"
             subtitle={studyPlan?.items?.[0]?.title || 'Start learning'}
-            icon="📚"
+            icon={<BookOpen className="text-primary-500" />}
             to="/study"
           />
           <QuickActionButton
             title="Mock Test"
             subtitle="Practice with full tests"
-            icon="📝"
+            icon={<FileText className="text-primary-500" />}
             to="/mock-test"
           />
         </div>
@@ -319,26 +338,26 @@ const Dashboard = () => {
         <StatCard
           title="Weekly XP"
           value={stats.weekly.xp_earned?.toLocaleString() || 0}
-          icon="⚡"
+          icon={<Zap className="text-yellow-500" />}
           subtitle={`${stats.weekly.days_active || 0} active days`}
         />
         <StatCard
           title="Questions Done"
           value={stats.weekly.questions || 0}
-          icon="✍️"
+          icon={<PenTool className="text-primary-500" />}
           subtitle="This week"
         />
         <StatCard
           title="Accuracy"
           value={`${Math.round(stats.weekly.accuracy || 0)}%`}
-          icon="🎯"
+          icon={<Target className="text-success-500" />}
           subtitle="Weekly average"
           variant={stats.weekly.accuracy >= 70 ? 'success' : stats.weekly.accuracy >= 50 ? 'warning' : 'default'}
         />
         <StatCard
           title="Topics Mastered"
           value={stats.mastery.mastered || 0}
-          icon="👑"
+          icon={<Crown className="text-warning-500" />}
           subtitle={`of ${stats.mastery.total_topics || 0} topics`}
         />
       </div>
@@ -367,9 +386,11 @@ const Dashboard = () => {
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${item.is_completed ? 'bg-success-100 dark:bg-success-900/30' : 'bg-primary-100 dark:bg-primary-900/30'
                     }`}>
-                    <span className="text-lg">
-                      {item.is_completed ? '✓' : item.icon || '📖'}
-                    </span>
+                    {item.is_completed ? (
+                      <CheckCircle2 size={18} className="text-success-600" />
+                    ) : (
+                      <BookOpen size={18} className="text-primary-600" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`font-medium truncate ${item.is_completed ? 'line-through text-surface-400' : ''}`}>
@@ -430,7 +451,9 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-surface-500">
-              <span className="text-4xl mb-2 block">🎉</span>
+              <div className="flex justify-center mb-2 text-success-500">
+                <PartyPopper size={40} />
+              </div>
               <p>All topics are in good shape!</p>
               <p className="text-sm mt-1">Keep up the great work</p>
             </div>
@@ -446,7 +469,7 @@ const Dashboard = () => {
       >
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-            <span className="text-3xl">🤖</span>
+            <Bot size={40} />
           </div>
           <div className="flex-1">
             <h3 className="text-xl font-semibold">AI Doubt Solver</h3>
@@ -454,9 +477,7 @@ const Dashboard = () => {
               Stuck on a problem? Ask our AI tutor for instant help!
             </p>
           </div>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight size={24} />
         </div>
       </motion.div>
     </div>

@@ -5,17 +5,34 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
+import {
+  XCircle,
+  HelpCircle,
+  FileText,
+  Settings,
+  Edit3,
+  BookOpen,
+  RefreshCw,
+  Calendar,
+  MessageSquare,
+  AlertTriangle,
+  Lightbulb,
+  CheckCircle2,
+  X,
+  ChevronLeft,
+  RotateCcw
+} from 'lucide-react'
 
 const REPORT_TYPES = [
-  { value: 'wrong_answer', label: '❌ Wrong Answer/Solution' },
-  { value: 'unclear_question', label: '❓ Unclear Question' },
-  { value: 'wrong_options', label: '📝 Wrong/Missing Options' },
-  { value: 'formatting_issue', label: '🔧 Formatting Issue' },
-  { value: 'typo', label: '✏️ Typo/Spelling Error' },
-  { value: 'wrong_topic', label: '📚 Wrong Topic/Subject' },
-  { value: 'duplicate', label: '🔄 Duplicate Question' },
-  { value: 'outdated', label: '📅 Outdated Information' },
-  { value: 'other', label: '💭 Other' },
+  { value: 'wrong_answer', label: 'Wrong Answer/Solution', icon: XCircle },
+  { value: 'unclear_question', label: 'Unclear Question', icon: HelpCircle },
+  { value: 'wrong_options', label: 'Wrong/Missing Options', icon: FileText },
+  { value: 'formatting_issue', label: 'Formatting Issue', icon: Settings },
+  { value: 'typo', label: 'Typo/Spelling Error', icon: Edit3 },
+  { value: 'wrong_topic', label: 'Wrong Topic/Subject', icon: BookOpen },
+  { value: 'duplicate', label: 'Duplicate Question', icon: RefreshCw },
+  { value: 'outdated', label: 'Outdated Information', icon: Calendar },
+  { value: 'other', label: 'Other', icon: MessageSquare },
 ]
 
 const QuizReview = () => {
@@ -73,7 +90,9 @@ const QuizReview = () => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <span className="text-4xl mb-4 block">❌</span>
+        <div className="flex justify-center mb-4 text-error-500">
+          <XCircle size={48} />
+        </div>
         <p className="text-surface-500">Failed to load attempt details</p>
         <button onClick={() => navigate('/quiz')} className="btn-primary mt-4">
           Back to Quizzes
@@ -117,11 +136,9 @@ const QuizReview = () => {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-surface-500 hover:text-surface-700 mb-2"
+            className="flex items-center gap-1 text-surface-500 hover:text-surface-700 mb-2"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft size={18} />
             Back
           </button>
           <h1 className="text-2xl font-display font-bold">Quiz Review</h1>
@@ -198,14 +215,14 @@ const QuizReview = () => {
             key={tab.value}
             onClick={() => setFilter(tab.value)}
             className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex items-center gap-2 ${filter === tab.value
-                ? `${tab.color} text-white`
-                : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+              ? `${tab.color} text-white`
+              : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
               }`}
           >
             {tab.label}
             <span className={`text-xs px-1.5 py-0.5 rounded-full ${filter === tab.value
-                ? 'bg-white/20'
-                : 'bg-surface-200 dark:bg-surface-700'
+              ? 'bg-white/20'
+              : 'bg-surface-200 dark:bg-surface-700'
               }`}>
               {questionCounts[tab.value]}
             </span>
@@ -282,9 +299,7 @@ const QuizReview = () => {
                       className="text-surface-400 hover:text-error-500 transition-colors p-1"
                       title="Report a problem"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
+                      <AlertTriangle size={18} />
                     </button>
                   </div>
                 </div>
@@ -324,10 +339,10 @@ const QuizReview = () => {
                       >
                         <div className="flex items-center gap-3">
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCorrectOption
-                              ? 'bg-success-500 text-white'
-                              : isSelected
-                                ? 'bg-error-500 text-white'
-                                : 'bg-surface-300 dark:bg-surface-600 text-surface-600 dark:text-surface-300'
+                            ? 'bg-success-500 text-white'
+                            : isSelected
+                              ? 'bg-error-500 text-white'
+                              : 'bg-surface-300 dark:bg-surface-600 text-surface-600 dark:text-surface-300'
                             }`}>
                             {String.fromCharCode(65 + optIndex)}
                           </span>
@@ -336,7 +351,9 @@ const QuizReview = () => {
                             {option.option_text}
                           </span>
                           {isCorrectOption && (
-                            <span className="text-success-500 text-sm">✓ Correct Answer</span>
+                            <span className="text-success-500 text-sm flex items-center gap-1">
+                              <CheckCircle2 size={14} /> Correct Answer
+                            </span>
                           )}
                           {isSelected && !isCorrectOption && (
                             <span className="text-error-500 text-sm">Your Answer</span>
@@ -350,8 +367,8 @@ const QuizReview = () => {
                 {/* Explanation */}
                 {question?.explanation && (
                   <div className="mt-4 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-                    <p className="text-sm font-medium text-primary-700 dark:text-primary-300 mb-1">
-                      💡 Explanation
+                    <p className="text-sm font-medium text-primary-700 dark:text-primary-300 mb-1 flex items-center gap-1.5">
+                      <Lightbulb size={16} /> Explanation
                     </p>
                     <p className="text-sm text-primary-600 dark:text-primary-400">
                       {question.explanation}
@@ -424,9 +441,7 @@ const QuizReview = () => {
                   onClick={() => setReportModalOpen(false)}
                   className="text-surface-400 hover:text-surface-600"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X size={20} />
                 </button>
               </div>
 

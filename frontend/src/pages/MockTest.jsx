@@ -4,6 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
+import {
+  Filter,
+  Search,
+  CheckCircle2,
+  Sparkles,
+  BadgePercent,
+  Star,
+  BookOpen,
+  ClipboardList,
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  Award
+} from 'lucide-react'
 
 const MockTest = () => {
   const navigate = useNavigate()
@@ -80,9 +94,7 @@ const MockTest = () => {
           onClick={() => setShowFilters(!showFilters)}
           className={`btn-secondary flex items-center gap-2 ${showFilters ? 'bg-primary-100 dark:bg-primary-900/30' : ''}`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
+          <Filter size={18} />
           Filters
           {activeFilterCount > 0 && (
             <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center">
@@ -95,7 +107,9 @@ const MockTest = () => {
       {/* Info Banner */}
       <div className="card p-5 bg-gradient-to-r from-accent-50 to-primary-50 dark:from-accent-900/20 dark:to-primary-900/20">
         <div className="flex items-start gap-4">
-          <span className="text-3xl">📋</span>
+          <div className="w-12 h-12 rounded-xl bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center text-accent-600">
+            <ClipboardList size={28} />
+          </div>
           <div>
             <h3 className="font-semibold">About Mock Tests</h3>
             <p className="text-sm text-surface-600 dark:text-surface-400 mt-1">
@@ -120,9 +134,7 @@ const MockTest = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Search</label>
                 <div className="relative">
-                  <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
                   <input
                     type="text"
                     value={filters.search}
@@ -140,8 +152,8 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('attempted', '')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.attempted === ''
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
                     All Tests
@@ -154,11 +166,11 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'true' ? '' : 'true')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'true'
-                        ? 'bg-success-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-success-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
-                    <span>✅</span>
+                    <CheckCircle2 size={16} />
                     Attempted
                     {filterOptions?.attempt_status && (
                       <span className="opacity-70">({filterOptions.attempt_status.attempted})</span>
@@ -167,11 +179,11 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('attempted', filters.attempted === 'false' ? '' : 'false')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.attempted === 'false'
-                        ? 'bg-warning-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-warning-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
-                    <span>🆕</span>
+                    <Sparkles size={16} />
                     Not Attempted
                     {filterOptions?.attempt_status && (
                       <span className="opacity-70">({filterOptions.attempt_status.not_attempted})</span>
@@ -187,8 +199,8 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('exam', '')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === ''
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
                     All Exams
@@ -198,8 +210,8 @@ const MockTest = () => {
                       key={exam.id}
                       onClick={() => updateFilter('exam', filters.exam === exam.id ? '' : exam.id)}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === exam.id
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                         }`}
                     >
                       {exam.short_name || exam.name}
@@ -215,8 +227,8 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('is_free', '')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.is_free === ''
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
                     All
@@ -224,20 +236,20 @@ const MockTest = () => {
                   <button
                     onClick={() => updateFilter('is_free', filters.is_free === 'true' ? '' : 'true')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.is_free === 'true'
-                        ? 'bg-success-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-success-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
-                    🆓 Free
+                    <BadgePercent size={16} /> Free
                   </button>
                   <button
                     onClick={() => updateFilter('is_free', filters.is_free === 'false' ? '' : 'false')}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${filters.is_free === 'false'
-                        ? 'bg-warning-500 text-white'
-                        : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      ? 'bg-warning-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                       }`}
                   >
-                    ⭐ Premium
+                    <Star size={16} /> Premium
                   </button>
                 </div>
               </div>
@@ -264,37 +276,37 @@ const MockTest = () => {
           <span className="text-sm text-surface-500">Active filters:</span>
           {filters.attempted === 'true' && (
             <span className="badge badge-success flex items-center gap-1">
-              ✅ Attempted
+              <CheckCircle2 size={12} /> Attempted
               <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.attempted === 'false' && (
             <span className="badge badge-warning flex items-center gap-1">
-              🆕 Not Attempted
+              <Sparkles size={12} /> Not Attempted
               <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.exam && (
             <span className="badge badge-primary flex items-center gap-1">
-              📚 {filterOptions?.exams?.find(e => e.id === filters.exam)?.name}
+              <BookOpen size={12} /> {filterOptions?.exams?.find(e => e.id === filters.exam)?.name}
               <button onClick={() => updateFilter('exam', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.is_free === 'true' && (
             <span className="badge badge-success flex items-center gap-1">
-              🆓 Free
+              <BadgePercent size={12} /> Free
               <button onClick={() => updateFilter('is_free', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.is_free === 'false' && (
             <span className="badge badge-warning flex items-center gap-1">
-              ⭐ Premium
+              <Star size={12} /> Premium
               <button onClick={() => updateFilter('is_free', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.search && (
             <span className="badge bg-surface-200 dark:bg-surface-700 flex items-center gap-1">
-              🔍 "{filters.search}"
+              <Search size={12} /> "{filters.search}"
               <button onClick={() => updateFilter('search', '')} className="ml-1 hover:opacity-70">×</button>
             </span>
           )}
@@ -334,7 +346,7 @@ const MockTest = () => {
                       <span className="badge-primary">{test.exam_name}</span>
                       {hasAttempted && (
                         <span className={`badge ${attemptInfo.best_score >= 70 ? 'badge-success' :
-                            attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
+                          attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
                           }`}>
                           Best: {Math.round(attemptInfo.best_score)}%
                         </span>
@@ -421,7 +433,9 @@ const MockTest = () => {
       {/* Empty State */}
       {!isLoading && tests.length === 0 && (
         <div className="text-center py-12">
-          <span className="text-4xl mb-4 block">🔍</span>
+          <div className="flex justify-center mb-4 text-surface-300">
+            <Search size={64} />
+          </div>
           <p className="text-surface-500">No mock tests found matching your filters</p>
           <button onClick={clearFilters} className="btn-primary mt-4">
             Clear Filters
@@ -448,7 +462,7 @@ const MockTest = () => {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className={`font-bold ${attempt.percentage >= 70 ? 'text-success-500' :
-                        attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
+                      attempt.percentage >= 40 ? 'text-warning-500' : 'text-error-500'
                       }`}>
                       {Math.round(attempt.percentage || 0)}%
                     </p>

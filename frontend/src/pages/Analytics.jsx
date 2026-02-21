@@ -6,6 +6,14 @@ import { analyticsService } from '../services/analyticsService'
 import ProgressRing from '../components/common/ProgressRing'
 import StatCard from '../components/common/StatCard'
 import Loading from '../components/common/Loading'
+import {
+  Target,
+  PenTool,
+  Timer,
+  Crown,
+  PartyPopper,
+  BarChart3
+} from 'lucide-react'
 
 const Analytics = () => {
   const [timeRange, setTimeRange] = useState(7)
@@ -57,18 +65,17 @@ const Analytics = () => {
           <h1 className="text-2xl font-display font-bold">Performance Analytics</h1>
           <p className="text-surface-500 mt-1">Track your progress and identify areas to improve</p>
         </div>
-        
+
         {/* Time Range Selector */}
         <div className="flex gap-2">
           {[7, 14, 30].map((days) => (
             <button
               key={days}
               onClick={() => setTimeRange(days)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                timeRange === days
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${timeRange === days
                   ? 'bg-primary-500 text-white'
                   : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200'
-              }`}
+                }`}
             >
               {days} Days
             </button>
@@ -81,24 +88,24 @@ const Analytics = () => {
         <StatCard
           title="Overall Accuracy"
           value={`${Math.round(stats?.profile?.overall_accuracy || 0)}%`}
-          icon="🎯"
+          icon={<Target className="text-success-500" />}
           variant={stats?.profile?.overall_accuracy >= 70 ? 'success' : 'default'}
         />
         <StatCard
           title="Questions Attempted"
           value={(stats?.profile?.total_questions || 0).toLocaleString()}
-          icon="✍️"
+          icon={<PenTool className="text-primary-500" />}
         />
         <StatCard
           title="Study Time"
           value={`${Math.round((stats?.weekly?.study_time || 0) / 60)}h`}
-          icon="⏱️"
+          icon={<Timer className="text-warning-500" />}
           subtitle="This week"
         />
         <StatCard
           title="Topics Mastered"
           value={`${stats?.mastery?.mastered || 0}/${stats?.mastery?.total_topics || 0}`}
-          icon="👑"
+          icon={<Crown className="text-orange-500" />}
         />
       </div>
 
@@ -120,27 +127,27 @@ const Analytics = () => {
               }>
                 <defs>
                   <linearGradient id="colorAccuracy" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    border: 'none', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: 'none',
                     borderRadius: '12px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="accuracy" 
-                  stroke="#f97316" 
+                <Area
+                  type="monotone"
+                  dataKey="accuracy"
+                  stroke="#f97316"
                   strokeWidth={3}
-                  fill="url(#colorAccuracy)" 
+                  fill="url(#colorAccuracy)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -161,17 +168,17 @@ const Analytics = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    border: 'none', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: 'none',
                     borderRadius: '12px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 />
-                <Bar 
-                  dataKey="questions" 
-                  fill="#d946ef" 
+                <Bar
+                  dataKey="questions"
+                  fill="#d946ef"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -233,7 +240,12 @@ const Analytics = () => {
               </div>
             ))}
             {(!weakTopics || weakTopics.length === 0) && (
-              <p className="text-center text-surface-500 py-4">🎉 No weak topics!</p>
+              <div className="text-center py-4">
+                <div className="flex justify-center mb-2 text-success-500">
+                  <PartyPopper size={32} />
+                </div>
+                <p className="text-surface-500">No weak topics!</p>
+              </div>
             )}
           </div>
         </div>
@@ -265,7 +277,9 @@ const Analytics = () => {
       {/* Weekly Report */}
       {weeklyReport && (
         <div className="card p-6 bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20">
-          <h3 className="font-semibold mb-4">📊 Weekly Summary</h3>
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 size={20} className="text-primary-500" /> Weekly Summary
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-surface-500">Study Time</p>

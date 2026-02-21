@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
+import { Award } from 'lucide-react'
 
 const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
   const getRankStyle = (rank) => {
-    if (rank === 1) return { bg: 'bg-gradient-to-r from-yellow-400 to-yellow-500', text: '🥇' }
-    if (rank === 2) return { bg: 'bg-gradient-to-r from-gray-300 to-gray-400', text: '🥈' }
-    if (rank === 3) return { bg: 'bg-gradient-to-r from-amber-600 to-amber-700', text: '🥉' }
+    if (rank === 1) return { bg: 'bg-gradient-to-r from-yellow-400 to-yellow-500', icon: <Award size={20} /> }
+    if (rank === 2) return { bg: 'bg-gradient-to-r from-gray-300 to-gray-400', icon: <Award size={20} /> }
+    if (rank === 3) return { bg: 'bg-gradient-to-r from-amber-600 to-amber-700', icon: <Award size={20} /> }
     return { bg: 'bg-surface-200 dark:bg-surface-700', text: rank }
   }
 
@@ -15,19 +16,15 @@ const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: rank * 0.05 }}
-      className={`flex items-center gap-4 p-3 rounded-xl transition-colors ${
-        isCurrentUser 
-          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800' 
+      className={`flex items-center gap-4 p-3 rounded-xl transition-colors ${isCurrentUser
+          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
           : 'hover:bg-surface-50 dark:hover:bg-surface-800'
-      }`}
+        }`}
     >
       {/* Rank */}
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-        rank <= 3 ? 'text-white' : 'text-surface-600 dark:text-surface-400'
-      } ${rankStyle.bg}`}>
-        {typeof rankStyle.text === 'string' && rankStyle.text.length > 2 
-          ? rankStyle.text 
-          : rankStyle.text}
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${rank <= 3 ? 'text-white' : 'text-surface-600 dark:text-surface-400'
+        } ${rankStyle.bg}`}>
+        {rankStyle.icon || rankStyle.text}
       </div>
 
       {/* Avatar */}

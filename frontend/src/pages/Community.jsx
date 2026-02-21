@@ -167,8 +167,8 @@ const Community = () => {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
-                                            ? 'bg-primary-500 text-white'
-                                            : 'text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800'
+                                        ? 'bg-primary-500 text-white'
+                                        : 'text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800'
                                         }`}
                                 >
                                     <tab.icon size={16} />
@@ -187,8 +187,8 @@ const Community = () => {
                                 key={option.id}
                                 onClick={() => setSortBy(option.id)}
                                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${sortBy === option.id
-                                        ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
-                                        : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
+                                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
+                                    : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
                                     }`}
                             >
                                 <option.icon size={14} />
@@ -222,7 +222,7 @@ const Community = () => {
                                     animate={{ opacity: 1 }}
                                     className="card p-12 text-center"
                                 >
-                                    <div className="text-4xl mb-4">🤔</div>
+                                    <MessageSquare size={48} className="text-surface-400 mb-4 mx-auto" />
                                     <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
                                     <p className="text-surface-500 mb-4">
                                         Be the first to start a discussion!

@@ -6,6 +6,25 @@ import Loading from '../components/common/Loading'
 import MathRenderer from '../components/chat/MathRenderer'
 import ChatQuiz from '../components/chat/ChatQuiz'
 import toast from 'react-hot-toast'
+import {
+  Bot,
+  MessageSquare,
+  Send,
+  Plus,
+  X,
+  Maximize2,
+  Minimize2,
+  Menu,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  User,
+  GraduationCap,
+  Lightbulb,
+  FileText,
+  Search,
+  ChevronLeft
+} from 'lucide-react'
 
 /**
  * Detects if the message contains a quiz format and extracts it
@@ -340,7 +359,7 @@ const AIDoubtSolver = () => {
             </div>
             <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
               <div className="flex items-center gap-3 text-sm text-violet-700 dark:text-violet-300">
-                <span className="text-2xl">📝</span>
+                <FileText size={24} />
                 <div>
                   <p className="font-medium">Interactive quiz loading</p>
                   <p className="text-xs opacity-70">Questions will appear shortly...</p>
@@ -411,9 +430,7 @@ const AIDoubtSolver = () => {
           onClick={() => setShowSidebar(!showSidebar)}
           className="lg:hidden fixed left-4 top-20 z-50 btn-secondary p-2"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <Menu size={20} />
         </button>
       )}
 
@@ -432,9 +449,7 @@ const AIDoubtSolver = () => {
                   onClick={handleNewChat}
                   className="btn-primary w-full flex items-center justify-center gap-2"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <Plus size={18} />
                   New Chat
                 </button>
               </div>
@@ -464,7 +479,7 @@ const AIDoubtSolver = () => {
                           }`}
                       >
                         <div className="flex items-start gap-2">
-                          <span className="text-lg mt-0.5">💬</span>
+                          <MessageSquare size={18} className="mt-1" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{session.title || 'New Chat'}</p>
                             <p className="text-xs text-surface-500 truncate mt-0.5">
@@ -482,9 +497,7 @@ const AIDoubtSolver = () => {
                 onClick={() => setShowSidebar(false)}
                 className="lg:hidden absolute top-4 right-4 p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X size={20} />
               </button>
             </div>
           </motion.div>
@@ -508,14 +521,12 @@ const AIDoubtSolver = () => {
               onClick={() => setShowSidebar(!showSidebar)}
               className="btn-icon mr-2"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu size={20} />
             </button>
           )}
 
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 flex-shrink-0">
-            <span className="text-xl">🤖</span>
+            <Bot size={24} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="font-bold text-base truncate">AI Doubt Solver</h2>
@@ -531,9 +542,7 @@ const AIDoubtSolver = () => {
                 onClick={handleNewChat}
                 className="btn-secondary text-sm hidden sm:flex items-center gap-1"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus size={16} />
                 New
               </button>
             )}
@@ -544,15 +553,7 @@ const AIDoubtSolver = () => {
               className="btn-icon"
               title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
             >
-              {isFullscreen ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
-              )}
+              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </button>
           </div>
         </div>
@@ -572,7 +573,7 @@ const AIDoubtSolver = () => {
                   animate={{ scale: 1, opacity: 1 }}
                   className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-6 shadow-xl shadow-violet-500/30"
                 >
-                  <span className="text-4xl">🎓</span>
+                  <GraduationCap size={40} className="text-white" />
                 </motion.div>
 
                 <motion.h3
@@ -612,8 +613,8 @@ const AIDoubtSolver = () => {
                         className="p-3 text-left text-sm rounded-xl border border-surface-200 dark:border-surface-700 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all"
                       >
                         <span className="flex items-start gap-2">
-                          <span className="text-violet-500 flex-shrink-0">
-                            {faq.question.toLowerCase().includes('quiz') || faq.question.toLowerCase().includes('practice') ? '📝' : '💡'}
+                          <span className="text-violet-500 mt-1 flex-shrink-0">
+                            {faq.question.toLowerCase().includes('quiz') || faq.question.toLowerCase().includes('practice') ? <FileText size={16} /> : <Lightbulb size={16} />}
                           </span>
                           <span className="line-clamp-2">{faq.question}</span>
                         </span>
@@ -632,7 +633,7 @@ const AIDoubtSolver = () => {
                   >
                     {message.role === 'assistant' && (
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                        <span className="text-sm">🤖</span>
+                        <Bot size={18} className="text-white" />
                       </div>
                     )}
 
@@ -650,19 +651,19 @@ const AIDoubtSolver = () => {
                               onClick={() => handleMarkHelpful(message.id, true)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-success-500 transition-colors"
                             >
-                              👍 Helpful
+                              <ThumbsUp size={14} /> Helpful
                             </button>
                             <button
                               onClick={() => handleMarkHelpful(message.id, false)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-error-500 transition-colors"
                             >
-                              👎
+                              <ThumbsDown size={14} />
                             </button>
                             <button
                               onClick={() => handleCopyMessage(message.content)}
                               className="flex items-center gap-1 text-xs text-surface-500 hover:text-primary-500 transition-colors"
                             >
-                              📋 Copy
+                              <Copy size={14} /> Copy
                             </button>
                           </div>
                         </>
@@ -673,7 +674,7 @@ const AIDoubtSolver = () => {
 
                     {message.role === 'user' && (
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                        <span className="text-sm">👤</span>
+                        <User size={18} className="text-white" />
                       </div>
                     )}
                   </div>
@@ -686,7 +687,7 @@ const AIDoubtSolver = () => {
                       <p className="whitespace-pre-wrap text-sm">{pendingUserMessage.content}</p>
                     </div>
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-sm">👤</span>
+                      <User size={18} className="text-white" />
                     </div>
                   </div>
                 )}
@@ -695,7 +696,7 @@ const AIDoubtSolver = () => {
                 {isStreaming && (
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-sm">🤖</span>
+                      <Bot size={18} className="text-white" />
                     </div>
                     <div className="max-w-[85%] lg:max-w-[75%] bg-surface-100 dark:bg-surface-800 rounded-2xl px-4 py-3">
                       {streamingContent ? (
@@ -746,19 +747,14 @@ const AIDoubtSolver = () => {
               className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-violet-500/25 transition-all"
             >
               {isStreaming ? (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
+                <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
+                <Send size={16} />
               )}
             </button>
           </div>
           <div className="flex items-center justify-between mt-1.5 text-xs text-surface-400">
-            <p>💡 "Quiz me on [topic]" for practice</p>
+            <p className="flex items-center gap-1"><Lightbulb size={12} /> "Quiz me on [topic]" for practice</p>
             <p className="hidden sm:block">Enter to send • Shift+Enter for new line</p>
           </div>
         </div>
@@ -787,9 +783,7 @@ const AIDoubtSolver = () => {
                   onClick={() => setShowSidebar(false)}
                   className="btn-icon"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X size={20} />
                 </button>
               </div>
 
@@ -798,9 +792,7 @@ const AIDoubtSolver = () => {
                   onClick={() => { handleNewChat(); setShowSidebar(false); }}
                   className="btn-primary w-full flex items-center justify-center gap-2"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <Plus size={18} />
                   New Chat
                 </button>
               </div>
