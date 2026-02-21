@@ -31,7 +31,8 @@ import {
   PartyPopper,
   Sparkle,
   ChevronRight,
-  Hand
+  Hand,
+  CheckCircle2
 } from 'lucide-react'
 
 const Dashboard = () => {
@@ -124,35 +125,38 @@ const Dashboard = () => {
             />
 
             {/* Floating particles */}
-            {[...Array(12)].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{
-                  y: 100,
-                  x: Math.random() * 100,
-                  opacity: 0,
-                  scale: 0
-                }}
-                animate={{
-                  y: -20,
-                  opacity: [0, 1, 1, 0],
-                  scale: [0, 1, 1, 0.5]
-                }}
-                transition={{
-                  duration: 2 + Math.random() * 2,
-                  delay: i * 0.2,
-                  repeat: Infinity,
-                  repeatDelay: Math.random() * 2
-                }}
-                className="absolute text-xl"
-                style={{
-                  left: `${5 + (i * 8)}%`,
-                  bottom: 0
-                }}
-              >
-                {[Sparkles, Star, PartyPopper, Sparkle, Star, Flame][i % 6]({ size: 24 })}
-              </motion.div>
-            ))}
+            {[...Array(12)].map((_, i) => {
+              const IconComponent = [Sparkles, Star, PartyPopper, Sparkle, Star, Flame][i % 6]
+              return (
+                <motion.div
+                  key={i}
+                  initial={{
+                    y: 100,
+                    x: Math.random() * 100,
+                    opacity: 0,
+                    scale: 0
+                  }}
+                  animate={{
+                    y: -20,
+                    opacity: [0, 1, 1, 0],
+                    scale: [0, 1, 1, 0.5]
+                  }}
+                  transition={{
+                    duration: 2 + Math.random() * 2,
+                    delay: i * 0.2,
+                    repeat: Infinity,
+                    repeatDelay: Math.random() * 2
+                  }}
+                  className="absolute text-xl"
+                  style={{
+                    left: `${5 + (i * 8)}%`,
+                    bottom: 0
+                  }}
+                >
+                  <IconComponent size={24} />
+                </motion.div>
+              )
+            })}
 
             {/* Glow effects */}
             <div className="absolute top-0 left-1/4 w-32 h-32 bg-yellow-300/40 rounded-full blur-3xl" />
