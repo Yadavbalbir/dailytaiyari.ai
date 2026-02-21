@@ -29,8 +29,8 @@ from gamification.services import GamificationService
 
 
 class QuizSubmitThrottle(UserRateThrottle):
-    """Throttle for quiz submissions."""
-    rate = '60/hour'
+    """Throttle for quiz/mock test submissions."""
+    rate = '3000/hour'
 
 
 def _get_student_exam(request):
