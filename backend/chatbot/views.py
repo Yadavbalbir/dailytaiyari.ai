@@ -22,9 +22,10 @@ from .serializers import (
     SubmitAIQuizSerializer, AILearningStatsSerializer
 )
 from .services import ChatService, AIDoubtSolver
+from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
-class ChatSessionViewSet(viewsets.ModelViewSet):
+class ChatSessionViewSet(TenantAwareViewSet):
     """
     ViewSet for chat sessions.
     """
@@ -142,7 +143,7 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
         return Response(ChatSessionSerializer(session).data)
 
 
-class ChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
+class ChatMessageViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for chat messages.
     """
@@ -182,7 +183,7 @@ class ChatMessageViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
-class SavedResponseViewSet(viewsets.ModelViewSet):
+class SavedResponseViewSet(TenantAwareViewSet):
     """
     ViewSet for saved responses.
     """
@@ -198,7 +199,7 @@ class SavedResponseViewSet(viewsets.ModelViewSet):
         ).select_related('message', 'topic')
 
 
-class FrequentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
+class FrequentQuestionViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for FAQs.
     """
@@ -239,7 +240,7 @@ class FrequentQuestionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(FrequentQuestionSerializer(faqs, many=True).data)
 
 
-class AIQuizAttemptViewSet(viewsets.ModelViewSet):
+class AIQuizAttemptViewSet(TenantAwareViewSet):
     """
     ViewSet for AI Quiz attempts.
     """

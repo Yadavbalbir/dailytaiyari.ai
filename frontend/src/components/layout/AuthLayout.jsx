@@ -1,7 +1,12 @@
 import { Outlet } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useTenantStore } from '../../context/tenantStore'
 
 const AuthLayout = () => {
+  const { tenant } = useTenantStore()
+  const tenantName = tenant?.name || 'DailyTaiyari'
+  const tenantInitials = tenantName.substring(0, 2).toLowerCase()
+
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
@@ -22,11 +27,19 @@ const AuthLayout = () => {
           >
             {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                <span className="text-2xl font-bold">dt</span>
-              </div>
+              {tenant?.logo ? (
+                <img
+                  src={tenant.logo}
+                  alt={`${tenantName} Logo`}
+                  className="w-14 h-14 rounded-2xl object-contain bg-white/20 backdrop-blur-sm p-1"
+                />
+              ) : (
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <span className="text-2xl font-bold">{tenantInitials}</span>
+                </div>
+              )}
               <div>
-                <h1 className="text-2xl font-display font-bold">DailyTaiyari</h1>
+                <h1 className="text-2xl font-display font-bold">{tenantName}</h1>
                 <p className="text-white/70 text-sm">Ace Your Exams</p>
               </div>
             </div>

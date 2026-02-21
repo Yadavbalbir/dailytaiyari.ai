@@ -34,9 +34,15 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
 
     def create(self, request, *args, **kwargs):
+        if not hasattr(request, 'tenant') or not request.tenant:
+            return Response(
+                {'error': 'A valid Tenant is required to register.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        user = serializer.save(tenant=request.tenant)
         
         return Response({
             'message': 'Registration successful',

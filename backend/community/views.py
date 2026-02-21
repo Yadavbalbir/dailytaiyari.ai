@@ -19,9 +19,10 @@ from .serializers import (
     QuizAttemptSerializer
 )
 from .services import CommunityXPService, CommunityLeaderboardService
+from core.views import TenantAwareViewSet
 
 
-class PostViewSet(viewsets.ModelViewSet):
+class PostViewSet(TenantAwareViewSet):
     """
     ViewSet for community posts (questions, polls, quizzes).
     """
@@ -224,7 +225,7 @@ class PostViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class CommentViewSet(viewsets.ModelViewSet):
+class CommentViewSet(TenantAwareViewSet):
     """
     ViewSet for comments/answers.
     """

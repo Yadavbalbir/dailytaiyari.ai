@@ -16,9 +16,10 @@ from .serializers import (
     StudyPlanItemSerializer, DailyStudyPlanSerializer
 )
 from .services import StudyPlanService
+from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
-class ContentViewSet(viewsets.ReadOnlyModelViewSet):
+class ContentViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for content operations.
     """
@@ -87,7 +88,7 @@ class ContentViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class ContentProgressViewSet(viewsets.ModelViewSet):
+class ContentProgressViewSet(TenantAwareViewSet):
     """
     ViewSet for content progress tracking.
     """
@@ -98,7 +99,7 @@ class ContentProgressViewSet(viewsets.ModelViewSet):
         return ContentProgress.objects.filter(student=self.request.user.profile)
 
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user.profile)
+        serializer.save(student=self.request.user.profile, tenant=self.request.tenant)
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -172,7 +173,7 @@ class ContentProgressViewSet(viewsets.ModelViewSet):
         return Response(ContentProgressSerializer(progress).data)
 
 
-class StudyPlanViewSet(viewsets.ModelViewSet):
+class StudyPlanViewSet(TenantAwareViewSet):
     """
     ViewSet for study plan operations.
     """
@@ -234,7 +235,7 @@ class StudyPlanViewSet(viewsets.ModelViewSet):
         return Response(StudyPlanSerializer(plan).data)
 
 
-class StudyPlanItemViewSet(viewsets.ModelViewSet):
+class StudyPlanItemViewSet(TenantAwareViewSet):
     """
     ViewSet for individual study plan items.
     """

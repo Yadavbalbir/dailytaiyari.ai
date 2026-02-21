@@ -16,6 +16,7 @@ from .serializers import (
 )
 from .services import AnalyticsService
 from gamification.services import GamificationService
+from core.views import TenantAwareReadOnlyViewSet
 
 
 class DashboardView(APIView):
@@ -34,7 +35,7 @@ class DashboardView(APIView):
         return Response(serializer.data)
 
 
-class TopicMasteryViewSet(viewsets.ReadOnlyModelViewSet):
+class TopicMasteryViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for topic mastery data.
     """
@@ -81,7 +82,7 @@ class TopicMasteryViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(TopicMasterySerializer(topics, many=True).data)
 
 
-class SubjectPerformanceViewSet(viewsets.ReadOnlyModelViewSet):
+class SubjectPerformanceViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for subject performance data.
     """
@@ -107,7 +108,7 @@ class SubjectPerformanceViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(SubjectPerformanceSerializer(performances, many=True).data)
 
 
-class DailyActivityViewSet(viewsets.ReadOnlyModelViewSet):
+class DailyActivityViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for daily activity data.
     """
@@ -177,7 +178,7 @@ class DailyActivityViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class StreakViewSet(viewsets.ReadOnlyModelViewSet):
+class StreakViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for streak data.
     """
@@ -205,7 +206,7 @@ class StreakViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(StreakSerializer(streak).data)
 
 
-class WeeklyReportViewSet(viewsets.ReadOnlyModelViewSet):
+class WeeklyReportViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for weekly reports.
     """

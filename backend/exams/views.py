@@ -12,9 +12,10 @@ from .serializers import (
     TopicSerializer, TopicDetailSerializer,
     ChapterSerializer, ChapterDetailSerializer
 )
+from core.views import TenantAwareReadOnlyViewSet
 
 
-class ExamViewSet(viewsets.ReadOnlyModelViewSet):
+class ExamViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for exam operations.
     
@@ -50,7 +51,7 @@ class ExamViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
+class SubjectViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for subject operations.
     """
@@ -94,7 +95,7 @@ class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class TopicViewSet(viewsets.ReadOnlyModelViewSet):
+class TopicViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for topic operations.
     """
@@ -130,7 +131,7 @@ class TopicViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
+class ChapterViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for chapter operations.
     """
