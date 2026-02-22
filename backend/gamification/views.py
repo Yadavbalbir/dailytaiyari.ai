@@ -14,9 +14,10 @@ from .serializers import (
     LeaderboardResponseSerializer
 )
 from .services import GamificationService
+from core.views import TenantAwareReadOnlyViewSet
 
 
-class BadgeViewSet(viewsets.ReadOnlyModelViewSet):
+class BadgeViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for badges.
     """
@@ -38,7 +39,7 @@ class BadgeViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
-class StudentBadgeViewSet(viewsets.ReadOnlyModelViewSet):
+class StudentBadgeViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for student's earned badges.
     """
@@ -63,7 +64,7 @@ class StudentBadgeViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class XPTransactionViewSet(viewsets.ReadOnlyModelViewSet):
+class XPTransactionViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for XP transaction history.
     """
@@ -124,7 +125,7 @@ class LeaderboardView(APIView):
         })
 
 
-class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
+class ChallengeViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for challenges.
     """
@@ -167,7 +168,7 @@ class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(ChallengeParticipationSerializer(participation).data)
 
 
-class ChallengeParticipationViewSet(viewsets.ReadOnlyModelViewSet):
+class ChallengeParticipationViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for user's challenge participations.
     """

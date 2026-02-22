@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAuthStore } from './context/authStore'
+import { useTenantStore } from './context/tenantStore'
 
 // Layouts
 import MainLayout from './components/layout/MainLayout'
@@ -57,6 +59,20 @@ const PublicRoute = ({ children }) => {
 }
 
 function App() {
+  const { fetchTenantConfig, isLoading } = useTenantStore()
+
+  useEffect(() => {
+    fetchTenantConfig()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    )
+  }
+
   return (
     <Routes>
       {/* Auth Routes */}

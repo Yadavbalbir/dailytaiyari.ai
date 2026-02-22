@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
+import { useTenantStore } from '../../context/tenantStore'
 import toast from 'react-hot-toast'
 
 const Register = () => {
@@ -15,6 +16,7 @@ const Register = () => {
   })
   const [showPassword, setShowPassword] = useState(false)
   const { register, isLoading, error, clearError } = useAuthStore()
+  const { tenant } = useTenantStore()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -53,11 +55,23 @@ const Register = () => {
     >
       {/* Mobile Logo */}
       <div className="flex items-center gap-3 mb-6 lg:hidden">
-        <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
-          <span className="text-white text-xl font-bold">dt</span>
-        </div>
+        {tenant?.logo ? (
+          <img
+            src={tenant.logo}
+            alt={`${tenant.name} Logo`}
+            className="w-12 h-12 rounded-xl object-contain bg-white dark:bg-surface-800 p-1"
+          />
+        ) : (
+          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
+            <span className="text-white text-xl font-bold">
+              {tenant?.name ? tenant.name.substring(0, 2).toLowerCase() : 'dt'}
+            </span>
+          </div>
+        )}
         <div>
-          <h1 className="font-display font-bold text-xl gradient-text">DailyTaiyari</h1>
+          <h1 className="font-display font-bold text-xl gradient-text">
+            {tenant?.name || 'DailyTaiyari'}
+          </h1>
           <p className="text-xs text-surface-500">Ace Your Exams</p>
         </div>
       </div>

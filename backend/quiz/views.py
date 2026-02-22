@@ -26,6 +26,7 @@ from .serializers import (
 from core.utils import calculate_xp_for_quiz
 from analytics.services import AnalyticsService
 from gamification.services import GamificationService
+from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
 class QuizSubmitThrottle(UserRateThrottle):
@@ -44,7 +45,7 @@ def _get_student_exam(request):
         return None
 
 
-class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
+class QuestionViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for questions.
     """
@@ -84,7 +85,7 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class QuizViewSet(viewsets.ReadOnlyModelViewSet):
+class QuizViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for quiz operations.
     """
@@ -438,7 +439,7 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
+class MockTestViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for mock test operations.
     """
@@ -751,7 +752,7 @@ class MockTestViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
+class QuizAttemptViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for viewing quiz attempts.
     """
@@ -794,7 +795,7 @@ class QuizAttemptViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(QuizAttemptReviewSerializer(attempt).data)
 
 
-class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
+class MockTestAttemptViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for viewing mock test attempts.
     """
@@ -837,7 +838,7 @@ class MockTestAttemptViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(MockTestAttemptReviewSerializer(attempt).data)
 
 
-class QuestionReportViewSet(viewsets.ModelViewSet):
+class QuestionReportViewSet(TenantAwareViewSet):
     """
     ViewSet for reporting problems with questions.
     """

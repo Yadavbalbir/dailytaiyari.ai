@@ -1,8 +1,17 @@
 import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+const TENANT_ID = import.meta.env.VITE_TENANT_ID
 
 const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    ...(TENANT_ID ? { 'X-Tenant-ID': TENANT_ID } : {})
+  },
+})
+
+export const tenantApi = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -45,7 +54,7 @@ api.interceptors.response.use(
             )
 
             const newAccess = response.data.access
-            
+
             // Update stored tokens
             const newState = {
               ...state,

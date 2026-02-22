@@ -31,6 +31,7 @@ class User(AbstractUser):
     Custom User model with email as the primary identifier.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey('core.Tenant', on_delete=models.CASCADE, related_name='users')
     username = None  # Remove username field
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
