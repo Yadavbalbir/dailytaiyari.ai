@@ -31,6 +31,7 @@ import AILearning from './pages/AILearning'
 import AIQuizReview from './pages/AIQuizReview'
 import Community from './pages/Community'
 import CommunityPost from './pages/CommunityPost'
+import PreviousYearPapers from './pages/PreviousYearPapers'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -115,6 +116,7 @@ function App() {
         <Route path="/mock-test" element={<MockTest />} />
         <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
         <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
+        <Route path="/pyp" element={<PreviousYearPapers />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/profile" element={<Profile />} />

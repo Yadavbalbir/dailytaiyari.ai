@@ -214,6 +214,13 @@ class MockTest(TimeStampedModel):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     is_free = models.BooleanField(default=False)
     
+    # Previous Year Paper fields
+    is_pyp = models.BooleanField(default=False, help_text='Is this a Previous Year Paper?')
+    pyp_year = models.PositiveIntegerField(null=True, blank=True, help_text='e.g., 2024')
+    pyp_shift = models.CharField(max_length=50, blank=True, help_text='e.g., Shift 1, Shift 2')
+    pyp_session = models.CharField(max_length=100, blank=True, help_text='e.g., January, April')
+    pyp_date = models.DateField(null=True, blank=True, help_text='Actual exam date')
+    
     # Scheduling
     available_from = models.DateTimeField(null=True, blank=True)
     available_until = models.DateTimeField(null=True, blank=True)

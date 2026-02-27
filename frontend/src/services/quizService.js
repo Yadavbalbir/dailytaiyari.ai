@@ -151,5 +151,32 @@ export const quizService = {
     const response = await api.get(`/quiz/mock-tests/${testId}/leaderboard/`)
     return response.data
   },
+
+  // ─── Previous Year Papers ─────────────────────────────────────────
+
+  getPYPByYear: async (params = {}) => {
+    const response = await api.get('/quiz/pyp/by_year/', { params })
+    return response.data
+  },
+
+  getPYPFilterOptions: async () => {
+    const response = await api.get('/quiz/pyp/filter_options/')
+    return response.data
+  },
+
+  startPYP: async (testId) => {
+    const response = await api.post(`/quiz/pyp/${testId}/start/`)
+    return response.data
+  },
+
+  submitPYP: async (testId, data) => {
+    const response = await api.post(`/quiz/pyp/${testId}/submit/`, data)
+    return response.data
+  },
+
+  getPYPLeaderboard: async (testId) => {
+    const response = await api.get(`/quiz/pyp/${testId}/leaderboard/`)
+    return response.data
+  },
 }
 
