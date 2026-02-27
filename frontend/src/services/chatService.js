@@ -2,11 +2,10 @@ import api from './api'
 
 // For streaming endpoints that need direct fetch instead of axios
 const getStreamingBaseUrl = () => {
-  // In development, use localhost. In production, use relative path
-  if (import.meta.env.DEV) {
-    return 'http://localhost:8000/api/v1'
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
   }
-  return '/api/v1'
+  return import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '/api/v1'
 }
 
 export const chatService = {
