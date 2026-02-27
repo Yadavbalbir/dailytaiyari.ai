@@ -36,11 +36,17 @@ RUN pip install --no-cache /wheels/*
 # Copy project files
 COPY . $APP_HOME
 
+# Make entrypoint executable
+RUN chmod +x $APP_HOME/entrypoint.sh
+
+# Create directories for static/media so collectstatic works
+RUN mkdir -p $APP_HOME/staticfiles $APP_HOME/media
+
 # Set ownership
 RUN chown -R django:django $APP_HOME
 
 # Switch to non-root user
 USER django
 
-# Run gunicorn
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "dailytaiyari.wsgi:application"]
