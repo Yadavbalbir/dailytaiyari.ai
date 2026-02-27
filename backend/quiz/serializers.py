@@ -222,6 +222,24 @@ class MockTestDetailSerializer(MockTestSerializer):
         }
 
 
+class PreviousYearPaperSerializer(MockTestSerializer):
+    """Serializer for Previous Year Paper listings."""
+    
+    class Meta(MockTestSerializer.Meta):
+        fields = MockTestSerializer.Meta.fields + [
+            'is_pyp', 'pyp_year', 'pyp_shift', 'pyp_session', 'pyp_date'
+        ]
+
+
+class PreviousYearPaperDetailSerializer(MockTestDetailSerializer):
+    """Detailed PYP serializer with questions."""
+    
+    class Meta(MockTestDetailSerializer.Meta):
+        fields = MockTestDetailSerializer.Meta.fields + [
+            'is_pyp', 'pyp_year', 'pyp_shift', 'pyp_session', 'pyp_date'
+        ]
+
+
 class AnswerSerializer(serializers.ModelSerializer):
     """Serializer for answers."""
     question_data = QuestionWithAnswerSerializer(source='question', read_only=True)

@@ -17,6 +17,7 @@ from .serializers import (
     QuestionSerializer, QuestionWithAnswerSerializer,
     QuizSerializer, QuizDetailSerializer,
     MockTestSerializer, MockTestDetailSerializer,
+    PreviousYearPaperSerializer, PreviousYearPaperDetailSerializer,
     QuizAttemptSerializer, QuizAttemptSummarySerializer,
     MockTestAttemptSerializer, MockTestAttemptSummarySerializer,
     AnswerSubmitSerializer, QuizStartSerializer, QuizSubmitSerializer,
@@ -443,7 +444,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for mock test operations.
     """
-    queryset = MockTest.objects.filter(status='published')
+    queryset = MockTest.objects.filter(status='published', is_pyp=False)
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['exam', 'is_free']
@@ -750,6 +751,83 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             'user_rank': user_rank,
             'total_participants': len(seen_students),
         })
+
+
+class PreviousYearPaperViewSet(MockTestViewSet):
+    """
+    ViewSet for Previous Year Papers.
+    Extends MockTestViewSet (inherits start, submit, review, leaderboard)
+    but filters to only PYP papers.
+    """
+    queryset = MockTest.objects.filter(status='published', is_pyp=True)
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return PreviousYearPaperDetailSerializer
+        return PreviousYearPaperSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by year
+        year = self.request.query_params.get('year')
+        if year:
+            queryset = queryset.filter(pyp_year=year)
+        
+        # Filter by session
+        session = self.request.query_params.get('session')
+        if session:
+            queryset = queryset.filter(pyp_session__icontains=session)
+        
+        return queryset.order_by('-pyp_year', 'pyp_session', 'pyp_shift')
+
+    @action(detail=False, methods=['get'])
+    def by_year(self, request):
+        """
+        Get PYPs grouped by year for the listing page.
+        Returns: {years: [{year, papers: [{...}]}]}
+        """
+        queryset = self.get_queryset()
+        
+        # Get distinct years
+        years = queryset.values_list('pyp_year', flat=True).distinct().order_by('-pyp_year')
+        
+        result = []
+        for year in years:
+            if year is None:
+                continue
+            papers = queryset.filter(pyp_year=year)
+            serializer = PreviousYearPaperSerializer(
+                papers, many=True, context={'request': request}
+            )
+            result.append({
+                'year': year,
+                'count': papers.count(),
+                'papers': serializer.data,
+            })
+        
+        return Response({'years': result})
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Get filter options for PYPs."""
+        queryset = self.get_queryset()
+        
+        years = list(
+            queryset.values_list('pyp_year', flat=True)
+            .distinct().order_by('-pyp_year')
+        )
+        sessions = list(
+            queryset.exclude(pyp_session='')
+            .values_list('pyp_session', flat=True)
+            .distinct().order_by('pyp_session')
+        )
+        
+        return Response({
+            'years': [y for y in years if y is not None],
+            'sessions': sessions,
+        })
+
 
 
 class QuizAttemptViewSet(TenantAwareReadOnlyViewSet):
