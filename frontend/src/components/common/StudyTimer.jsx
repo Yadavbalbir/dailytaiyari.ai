@@ -12,16 +12,16 @@ const StudyTimer = () => {
   const queryClient = useQueryClient()
   const dragControls = useDragControls()
   const constraintsRef = useRef(null)
-  
+
   // Load saved preferences
   const getSavedPrefs = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) return JSON.parse(saved)
-    } catch (e) {}
+    } catch (e) { }
     return { mode: 'compact', position: { x: 0, y: 0 } }
   }
-  
+
   const [viewMode, setViewMode] = useState(() => getSavedPrefs().mode)
   const [position, setPosition] = useState(() => getSavedPrefs().position)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -30,12 +30,12 @@ const StudyTimer = () => {
   const timerRef = useRef(null)
   const isVisibleRef = useRef(true)
   const accumulatedTimeRef = useRef(0)
-  
+
   // Save preferences when they change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ mode: viewMode, position }))
   }, [viewMode, position])
-  
+
   // Fetch initial timer state
   const { data: timerData, isLoading } = useQuery({
     queryKey: ['studyTimer'],
@@ -70,7 +70,7 @@ const StudyTimer = () => {
     const hours = Math.floor(absSeconds / 3600)
     const minutes = Math.floor((absSeconds % 3600) / 60)
     const seconds = absSeconds % 60
-    
+
     if (hours > 0) {
       return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     }
@@ -144,7 +144,7 @@ const StudyTimer = () => {
         startMutation.mutate()
       }
     })
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
@@ -166,7 +166,7 @@ const StudyTimer = () => {
 
     timerRef.current = setInterval(() => {
       if (!isVisibleRef.current) return
-      
+
       setLocalElapsed(prev => {
         accumulatedTimeRef.current += 1
         if (accumulatedTimeRef.current >= 30) {
@@ -214,7 +214,7 @@ const StudyTimer = () => {
   }
 
   const status = getStatus()
-  
+
   const handleDragEnd = (event, info) => {
     setPosition({ x: info.point.x, y: info.point.y })
   }
@@ -247,7 +247,7 @@ const StudyTimer = () => {
     <>
       {/* Drag constraints container (full screen) */}
       <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-30" />
-      
+
       {/* Timer Widget */}
       <motion.div
         drag
@@ -257,7 +257,7 @@ const StudyTimer = () => {
         onDragEnd={handleDragEnd}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="fixed bottom-6 right-6 z-40 cursor-grab active:cursor-grabbing"
+        className="fixed bottom-6 right-6 z-40 cursor-grab active:cursor-grabbing hidden lg:block"
         style={{ touchAction: 'none' }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -278,7 +278,7 @@ const StudyTimer = () => {
               >
                 {status.emoji}
               </button>
-              
+
               {/* Progress ring */}
               <svg className="absolute inset-0 w-10 h-10 -rotate-90 pointer-events-none" viewBox="0 0 40 40">
                 <circle
@@ -329,11 +329,11 @@ const StudyTimer = () => {
                     exit={{ opacity: 0, y: 5 }}
                     className="absolute bottom-full left-1/2 mb-2 px-2 py-1 bg-surface-900 text-white text-xs rounded-lg whitespace-nowrap shadow-lg"
                   >
-                    {exceededGoal 
-                      ? `+${formatTimeShort(overageSeconds)} extra!` 
-                      : timerData.goal_achieved 
-                      ? `${formatTimeShort(localElapsed)} studied`
-                      : `${formatTimeShort(remainingSeconds)} left`
+                    {exceededGoal
+                      ? `+${formatTimeShort(overageSeconds)} extra!`
+                      : timerData.goal_achieved
+                        ? `${formatTimeShort(localElapsed)} studied`
+                        : `${formatTimeShort(remainingSeconds)} left`
                     }
                     <span className="ml-1 opacity-60">• Click to expand</span>
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-surface-900" />
@@ -360,29 +360,29 @@ const StudyTimer = () => {
               >
                 {status.emoji}
               </button>
-              
+
               {/* Time - click to expand */}
               <button
                 onClick={() => setViewMode('expanded')}
                 className={`font-mono font-semibold text-sm ${colors.textDark} hover:underline`}
                 title="Click to expand"
               >
-                {exceededGoal 
+                {exceededGoal
                   ? `+${formatTimeShort(overageSeconds)}`
-                  : timerData.goal_achieved 
-                  ? formatTimeShort(localElapsed)
-                  : formatTimeShort(remainingSeconds)
+                  : timerData.goal_achieved
+                    ? formatTimeShort(localElapsed)
+                    : formatTimeShort(remainingSeconds)
                 }
               </button>
-              
+
               {/* Tiny progress bar */}
               <div className="w-8 h-1.5 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
-                <div 
+                <div
                   className={`h-full rounded-full transition-all ${exceededGoal || timerData.goal_achieved ? 'bg-success-500' : 'bg-primary-500'}`}
                   style={{ width: `${Math.min(progressPercent, 100)}%` }}
                 />
               </div>
-              
+
               {/* Expand button */}
               <button
                 onClick={() => setViewMode('expanded')}
@@ -406,7 +406,7 @@ const StudyTimer = () => {
               className="w-64 bg-white dark:bg-surface-900 rounded-2xl shadow-2xl border border-surface-200 dark:border-surface-700 overflow-hidden"
             >
               {/* Header */}
-              <div 
+              <div
                 className={`px-4 py-3 ${exceededGoal ? 'bg-success-500' : timerData.goal_achieved ? 'bg-success-100 dark:bg-success-900/50' : 'bg-primary-50 dark:bg-primary-900/20'} flex items-center justify-between`}
               >
                 <div className="flex items-center gap-2">
@@ -417,7 +417,7 @@ const StudyTimer = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   {/* Compact button */}
-                  <button 
+                  <button
                     onClick={() => setViewMode('compact')}
                     className={`p-1.5 rounded hover:bg-black/10 transition-colors ${exceededGoal ? 'text-white' : 'text-surface-600'}`}
                     title="Compact view"
@@ -427,7 +427,7 @@ const StudyTimer = () => {
                     </svg>
                   </button>
                   {/* Minimize button */}
-                  <button 
+                  <button
                     onClick={() => setViewMode('minimal')}
                     className={`p-1.5 rounded hover:bg-black/10 transition-colors ${exceededGoal ? 'text-white' : 'text-surface-600'}`}
                     title="Minimize to dot"
@@ -446,14 +446,13 @@ const StudyTimer = () => {
                   <div className="text-xs text-surface-500 mb-1">
                     {exceededGoal ? 'Beyond goal' : timerData.goal_achieved ? 'Total studied' : 'Remaining'}
                   </div>
-                  <div className={`text-2xl font-bold font-mono ${
-                    exceededGoal || timerData.goal_achieved ? 'text-success-600' : ''
-                  }`}>
-                    {exceededGoal 
+                  <div className={`text-2xl font-bold font-mono ${exceededGoal || timerData.goal_achieved ? 'text-success-600' : ''
+                    }`}>
+                    {exceededGoal
                       ? `+${formatTime(overageSeconds)}`
-                      : timerData.goal_achieved 
-                      ? formatTime(localElapsed)
-                      : formatTime(Math.max(0, remainingSeconds))
+                      : timerData.goal_achieved
+                        ? formatTime(localElapsed)
+                        : formatTime(Math.max(0, remainingSeconds))
                     }
                   </div>
                 </div>
@@ -466,9 +465,8 @@ const StudyTimer = () => {
                   </div>
                   <div className="h-2 bg-surface-200 dark:bg-surface-700 rounded-full overflow-hidden">
                     <motion.div
-                      className={`h-full rounded-full ${
-                        exceededGoal || timerData.goal_achieved ? 'bg-success-500' : 'bg-primary-500'
-                      }`}
+                      className={`h-full rounded-full ${exceededGoal || timerData.goal_achieved ? 'bg-success-500' : 'bg-primary-500'
+                        }`}
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(progressPercent, 100)}%` }}
                     />

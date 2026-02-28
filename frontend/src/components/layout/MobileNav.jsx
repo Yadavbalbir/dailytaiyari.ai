@@ -2,13 +2,20 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../context/appStore'
 import Sidebar from './Sidebar'
+import {
+  Home,
+  BookOpen,
+  PenTool,
+  BarChart3,
+  Bot
+} from 'lucide-react'
 
 const navItems = [
-  { path: '/dashboard', label: 'Home', icon: '🏠' },
-  { path: '/study', label: 'Study', icon: '📚' },
-  { path: '/quiz', label: 'Quiz', icon: '✍️' },
-  { path: '/analytics', label: 'Stats', icon: '📊' },
-  { path: '/doubt-solver', label: 'AI', icon: '🤖' },
+  { path: '/dashboard', label: 'Home', icon: Home },
+  { path: '/study', label: 'Study', icon: BookOpen },
+  { path: '/quiz', label: 'Quiz', icon: PenTool },
+  { path: '/analytics', label: 'Stats', icon: BarChart3 },
+  { path: '/doubt-solver', label: 'AI', icon: Bot },
 ]
 
 const MobileNav = () => {
@@ -36,20 +43,20 @@ const MobileNav = () => {
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 lg:hidden">
         <div className="flex items-center justify-around h-16 px-2">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path || 
-                            (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
+            const isActive = location.pathname === item.path ||
+              (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
+            const IconComponent = item.icon
 
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-colors ${
-                  isActive
+                className={`flex flex-col items-center justify-center flex-1 py-2 rounded-lg transition-colors ${isActive
                     ? 'text-primary-600 dark:text-primary-400'
                     : 'text-surface-500 dark:text-surface-400'
-                }`}
+                  }`}
               >
-                <span className="text-xl mb-0.5">{item.icon}</span>
+                <span className="mb-0.5"><IconComponent size={20} /></span>
                 <span className="text-[10px] font-medium">{item.label}</span>
                 {isActive && (
                   <motion.div
