@@ -518,6 +518,7 @@ class StudyLeaderboardView(APIView):
             entries.append({
                 'rank': rank,
                 'student_name': p.user.full_name,
+                'role': p.user.role,
                 'avatar': p.user.avatar.url if p.user.avatar else None,
                 'total_xp': stats['total_xp'],
                 'accuracy': round(float(stats['avg_accuracy'] or 0), 1),

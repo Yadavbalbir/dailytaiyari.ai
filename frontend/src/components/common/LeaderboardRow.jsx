@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Award } from 'lucide-react'
+import { Award, BadgeCheck } from 'lucide-react'
 
 const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
   const getRankStyle = (rank) => {
@@ -17,8 +17,8 @@ const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: rank * 0.05 }}
       className={`flex items-center gap-4 p-3 rounded-xl transition-colors ${isCurrentUser
-          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
-          : 'hover:bg-surface-50 dark:hover:bg-surface-800'
+        ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
+        : 'hover:bg-surface-50 dark:hover:bg-surface-800'
         }`}
     >
       {/* Rank */}
@@ -35,8 +35,11 @@ const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className={`font-medium truncate ${isCurrentUser ? 'text-primary-600 dark:text-primary-400' : ''}`}>
+          <span className={`font-medium truncate flex items-center gap-1 ${isCurrentUser ? 'text-primary-600 dark:text-primary-400' : ''}`}>
             {entry.student_name}
+            {(entry.role === 'admin' || entry.role === 'instructor') && (
+              <BadgeCheck size={14} className="text-blue-500 fill-blue-500/10" title="Verified" />
+            )}
           </span>
           {isCurrentUser && (
             <span className="text-xs bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded-full">

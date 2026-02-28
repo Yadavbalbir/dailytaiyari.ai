@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
     MessageCircle, ThumbsUp, Eye, CheckCircle,
-    BarChart3, Zap, Clock, User
+    BarChart3, Zap, Clock, User, BadgeCheck
 } from 'lucide-react'
 
 const PostCard = ({ post, onLike, onClick }) => {
@@ -55,8 +55,11 @@ const PostCard = ({ post, onLike, onClick }) => {
                         {post.author?.first_name?.[0] || post.author?.full_name?.[0] || 'U'}
                     </div>
                     <div>
-                        <p className="font-medium text-sm">
+                        <p className="font-medium text-sm flex items-center gap-1">
                             {post.author?.full_name || post.author?.first_name || 'Anonymous'}
+                            {(post.author?.role === 'admin' || post.author?.role === 'instructor') && (
+                                <BadgeCheck size={14} className="text-blue-500 fill-blue-500/10" title="Verified" />
+                            )}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-surface-500">
                             <Clock size={12} />
@@ -144,8 +147,8 @@ const PostCard = ({ post, onLike, onClick }) => {
                         onLike?.()
                     }}
                     className={`flex items-center gap-1.5 text-sm transition-colors ${post.is_liked
-                            ? 'text-primary-500'
-                            : 'text-surface-500 hover:text-primary-500'
+                        ? 'text-primary-500'
+                        : 'text-surface-500 hover:text-primary-500'
                         }`}
                 >
                     <ThumbsUp size={16} fill={post.is_liked ? 'currentColor' : 'none'} />

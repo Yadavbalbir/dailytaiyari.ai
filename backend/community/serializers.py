@@ -15,6 +15,7 @@ class AuthorSerializer(serializers.Serializer):
     id = serializers.UUIDField(source='user.id')
     full_name = serializers.CharField(source='user.full_name')
     first_name = serializers.CharField(source='user.first_name')
+    role = serializers.CharField(source='user.role', read_only=True)
     current_level = serializers.IntegerField()
     total_xp = serializers.IntegerField()
 

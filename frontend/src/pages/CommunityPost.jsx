@@ -4,7 +4,8 @@ import { motion } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     ArrowLeft, ThumbsUp, MessageCircle, Eye, Share2,
-    CheckCircle, Clock, BarChart3, Zap, Trophy, Send
+    CheckCircle, Clock, BarChart3, Zap, Trophy, Send,
+    BadgeCheck
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import { useAuthStore } from '../context/authStore'
@@ -185,8 +186,11 @@ const CommunityPost = () => {
                         {post.author?.first_name?.[0] || 'U'}
                     </div>
                     <div>
-                        <p className="font-medium">
+                        <p className="font-medium flex items-center gap-1">
                             {post.author?.full_name || post.author?.first_name || 'Anonymous'}
+                            {(post.author?.role === 'admin' || post.author?.role === 'instructor') && (
+                                <BadgeCheck size={16} className="text-blue-500 fill-blue-500/10" title="Verified" />
+                            )}
                         </p>
                         <div className="flex items-center gap-2 text-sm text-surface-500">
                             <Clock size={14} />

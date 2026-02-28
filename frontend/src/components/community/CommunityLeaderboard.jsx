@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Trophy, Medal, Award, TrendingUp } from 'lucide-react'
+import { Trophy, Medal, Award, TrendingUp, BadgeCheck } from 'lucide-react'
 import { communityService } from '../../services/communityService'
 
 const CommunityLeaderboard = () => {
@@ -60,8 +60,8 @@ const CommunityLeaderboard = () => {
                         key={p.id}
                         onClick={() => setPeriod(p.id)}
                         className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-all ${period === p.id
-                                ? 'bg-white dark:bg-surface-700 shadow-sm text-primary-600'
-                                : 'text-surface-500 hover:text-surface-700'
+                            ? 'bg-white dark:bg-surface-700 shadow-sm text-primary-600'
+                            : 'text-surface-500 hover:text-surface-700'
                             }`}
                     >
                         {p.label}
@@ -98,8 +98,11 @@ const CommunityLeaderboard = () => {
 
                             {/* Info */}
                             <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">
+                                <p className="font-medium text-sm truncate flex items-center gap-1">
                                     {entry.user?.full_name || entry.user?.first_name || 'Anonymous'}
+                                    {(entry.user?.role === 'admin' || entry.user?.role === 'instructor') && (
+                                        <BadgeCheck size={14} className="text-blue-500 fill-blue-500/10" title="Verified" />
+                                    )}
                                 </p>
                                 <p className="text-xs text-surface-500">
                                     {entry.answers_count} answers • {entry.best_answers_count} best

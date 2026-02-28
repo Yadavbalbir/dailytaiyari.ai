@@ -384,6 +384,7 @@ class GamificationService:
                     'id': str(student.id),
                     'student': student,
                     'student_name': student.user.full_name,
+                    'role': student.user.role,
                     'student_level': student.current_level,
                     'xp_earned': xp,
                     'questions_answered': questions,

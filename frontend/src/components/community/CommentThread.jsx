@@ -1,7 +1,7 @@
 import { useState, memo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ThumbsUp, Reply, Trophy, Clock, ChevronDown, ChevronUp } from 'lucide-react'
+import { ThumbsUp, Reply, Trophy, Clock, ChevronDown, ChevronUp, BadgeCheck } from 'lucide-react'
 import { communityService } from '../../services/communityService'
 import toast from 'react-hot-toast'
 
@@ -85,8 +85,11 @@ const CommentItem = memo(({
                             {comment.author?.first_name?.[0] || 'U'}
                         </div>
                         <div>
-                            <p className="font-medium text-sm">
+                            <p className="font-medium text-sm flex items-center gap-1">
                                 {comment.author?.full_name || comment.author?.first_name || 'Anonymous'}
+                                {(comment.author?.role === 'admin' || comment.author?.role === 'instructor') && (
+                                    <BadgeCheck size={14} className="text-blue-500 fill-blue-500/10" title="Verified" />
+                                )}
                             </p>
                             <div className="flex items-center gap-1 text-xs text-surface-500">
                                 <Clock size={10} />
