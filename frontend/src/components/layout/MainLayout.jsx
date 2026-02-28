@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from './Sidebar'
@@ -5,9 +6,15 @@ import Header from './Header'
 import MobileNav from './MobileNav'
 import StudyTimer from '../common/StudyTimer'
 import { useAppStore } from '../../context/appStore'
+import { useAuthStore } from '../../context/authStore'
 
 const MainLayout = () => {
   const { sidebarOpen, mobileMenuOpen } = useAppStore()
+  const { fetchProfile } = useAuthStore()
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
@@ -31,9 +38,8 @@ const MainLayout = () => {
 
       {/* Main Content */}
       <div
-        className={`min-h-screen transition-all duration-300 ${
-          sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
-        }`}
+        className={`min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
+          }`}
       >
         {/* Header */}
         <Header />
