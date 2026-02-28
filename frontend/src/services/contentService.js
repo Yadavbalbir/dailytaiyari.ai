@@ -27,6 +27,12 @@ export const contentService = {
     return response.data
   },
 
+  // Get content progress
+  getProgress: async (params = {}) => {
+    const response = await api.get('/content/progress/', { params })
+    return response.data
+  },
+
   // Update content progress
   updateProgress: async (contentId, data) => {
     const response = await api.post(`/content/progress/`, {
@@ -37,8 +43,8 @@ export const contentService = {
   },
 
   // Mark content complete
-  markComplete: async (progressId) => {
-    const response = await api.post(`/content/progress/${progressId}/complete/`)
+  markComplete: async (progressId, data = {}) => {
+    const response = await api.post(`/content/progress/${progressId}/complete/`, data)
     return response.data
   },
 

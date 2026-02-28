@@ -23,6 +23,7 @@ class ContentViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for content operations.
     """
+    lookup_value_regex = '[0-9a-f-]{36}'
     queryset = Content.objects.filter(status='published')
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -94,12 +95,41 @@ class ContentProgressViewSet(TenantAwareViewSet):
     """
     serializer_class = ContentProgressSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['content', 'is_completed', 'is_bookmarked']
 
     def get_queryset(self):
         return ContentProgress.objects.filter(student=self.request.user.profile)
 
+    def create(self, request, *args, **kwargs):
+        content_id = request.data.get('content')
+        if not content_id:
+            return Response(
+                {'content': ['This field is required.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        student = request.user.profile
+        progress, created = ContentProgress.objects.get_or_create(
+            student=student,
+            content_id=content_id,
+            defaults={
+                'tenant': getattr(request, 'tenant', None),
+                'progress_percentage': request.data.get('progress_percentage', 0),
+            },
+        )
+        if not created:
+            for field in ('progress_percentage', 'video_position_seconds', 'time_spent_minutes'):
+                if field in request.data:
+                    setattr(progress, field, request.data[field])
+            progress.save()
+        serializer = self.get_serializer(progress)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user.profile, tenant=self.request.tenant)
+        serializer.save(student=self.request.user.profile, tenant=getattr(self.request, 'tenant', None))
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -117,6 +147,8 @@ class ContentProgressViewSet(TenantAwareViewSet):
         progress.is_completed = True
         progress.completed_at = timezone.now()
         progress.progress_percentage = 100
+        if request.data.get('time_spent_minutes'):
+            progress.time_spent_minutes = int(request.data['time_spent_minutes'])
         progress.save()
         
         # Calculate XP based on content type
