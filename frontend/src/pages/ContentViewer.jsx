@@ -13,11 +13,13 @@ import {
   Bookmark, BookmarkCheck, Timer, Eye, PenTool, FileText, Bot,
   CheckCircle2, ChevronLeft, PlayCircle, Clock
 } from 'lucide-react'
+import { useAuthStore } from '../context/authStore'
 
 const ContentViewer = () => {
   const { contentId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { fetchProfile } = useAuthStore()
   const startTime = useRef(Date.now())
   const [isCompleted, setIsCompleted] = useState(false)
 
@@ -79,6 +81,7 @@ const ContentViewer = () => {
       queryClient.invalidateQueries({ queryKey: ['studyChapters'] })
       queryClient.invalidateQueries({ queryKey: ['studySubjects'] })
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] })
+      fetchProfile()
     },
     onError: () => {
       toast.error('Failed to mark complete. Please try again.')
@@ -121,12 +124,11 @@ const ContentViewer = () => {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className={`badge ${
-                content?.content_type === 'video' ? 'bg-red-100 text-red-700' :
-                content?.content_type === 'notes' ? 'bg-blue-100 text-blue-700' :
-                content?.content_type === 'pdf' ? 'bg-green-100 text-green-700' :
-                'bg-surface-100 text-surface-700'
-              }`}>
+              <span className={`badge ${content?.content_type === 'video' ? 'bg-red-100 text-red-700' :
+                  content?.content_type === 'notes' ? 'bg-blue-100 text-blue-700' :
+                    content?.content_type === 'pdf' ? 'bg-green-100 text-green-700' :
+                      'bg-surface-100 text-surface-700'
+                }`}>
                 {content?.content_type === 'video' ? <PlayCircle size={12} className="mr-1" /> : <FileText size={12} className="mr-1" />}
                 {content?.content_type?.toUpperCase()}
               </span>
