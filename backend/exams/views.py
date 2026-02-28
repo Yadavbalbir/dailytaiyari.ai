@@ -435,65 +435,97 @@ class StudyLeaderboardView(APIView):
 
         if scope == 'subject' and scope_id:
             topic_ids = Topic.objects.filter(subject_id=scope_id).values_list('id', flat=True)
-            from quiz.models import QuizAttempt
-            leaderboard_qs = (
-                QuizAttempt.objects.filter(
-                    quiz__topic_id__in=topic_ids,
-                    status='completed',
-                )
-                .values('student')
-                .annotate(
-                    total_xp=Sum('xp_earned'),
-                    total_correct=Sum('correct_answers'),
-                    total_attempted=Sum('total_questions'),
-                    avg_accuracy=Avg('percentage'),
-                )
-                .order_by('-total_xp')[:20]
-            )
         elif scope == 'chapter' and scope_id:
             try:
                 ch = Chapter.objects.get(pk=scope_id)
             except Chapter.DoesNotExist:
                 return Response([])
             topic_ids = ch.topics.values_list('id', flat=True)
-            from quiz.models import QuizAttempt
-            leaderboard_qs = (
-                QuizAttempt.objects.filter(
-                    quiz__topic_id__in=topic_ids,
-                    status='completed',
-                )
-                .values('student')
-                .annotate(
-                    total_xp=Sum('xp_earned'),
-                    total_correct=Sum('correct_answers'),
-                    total_attempted=Sum('total_questions'),
-                    avg_accuracy=Avg('percentage'),
-                )
-                .order_by('-total_xp')[:20]
-            )
         else:
             return Response([])
+
+        from quiz.models import QuizAttempt
+        from content.models import ContentProgress
+        from content.models import Content
+        from quiz.models import Quiz
+        from gamification.models import XPTransaction
+
+        quiz_qs = (
+            QuizAttempt.objects.filter(
+                quiz__topic_id__in=topic_ids,
+                status='completed',
+            )
+            .values('student')
+            .annotate(
+                total_correct=Sum('correct_answers'),
+                total_attempted=Sum('total_questions'),
+                avg_accuracy=Avg('percentage'),
+            )
+        )
+        
+        # Collect base stats per student
+        student_stats = {}
+        for entry in quiz_qs:
+            sid = entry['student']
+            student_stats[sid] = {
+                'total_xp': 0,
+                'avg_accuracy': entry['avg_accuracy'],
+            }
+            
+        # Get content and quiz IDs to filter XPTransactions
+        content_ids = Content.objects.filter(topic_id__in=topic_ids).values_list('id', flat=True)
+        quiz_ids = Quiz.objects.filter(topic_id__in=topic_ids).values_list('id', flat=True)
+        
+        # Convert UUIDs to strings for XPTransaction.reference_id (since reference_id might be stored as string or UUID depending on DB)
+        # XPTransaction.reference_id is UUIDField so we can filter directly by list of UUIDs
+        all_refs = list(content_ids) + list(quiz_ids)
+        
+        xp_qs = XPTransaction.objects.filter(
+            reference_id__in=all_refs
+        ).values('student').annotate(
+            total_earned=Sum('xp_amount')
+        )
+        
+        for xp_entry in xp_qs:
+            sid = xp_entry['student']
+            if sid not in student_stats:
+                student_stats[sid] = {
+                    'total_xp': 0,
+                    'avg_accuracy': 0,
+                }
+            student_stats[sid]['total_xp'] += xp_entry['total_earned'] or 0
+
+        # Sort by XP descending, keep top 20
+        sorted_students = sorted(
+            [(sid, stats) for sid, stats in student_stats.items() if stats['total_xp'] > 0],
+            key=lambda x: x[1]['total_xp'],
+            reverse=True
+        )[:20]
 
         profiles = {
             str(p.id): p
             for p in StudentProfile.objects.select_related('user').filter(
-                id__in=[e['student'] for e in leaderboard_qs]
+                id__in=[sid for sid, stats in sorted_students]
             )
         }
 
         entries = []
-        for rank, entry in enumerate(leaderboard_qs, 1):
-            p = profiles.get(str(entry['student']))
+        rank = 1
+        for sid, stats in sorted_students:
+            p = profiles.get(str(sid))
             if not p:
                 continue
             entries.append({
                 'rank': rank,
                 'student_name': p.user.full_name,
                 'avatar': p.user.avatar.url if p.user.avatar else None,
-                'total_xp': entry['total_xp'] or 0,
-                'accuracy': round(float(entry['avg_accuracy'] or 0), 1),
+                'total_xp': stats['total_xp'],
+                'accuracy': round(float(stats['avg_accuracy'] or 0), 1),
                 'is_current_user': p.id == student.id,
             })
+            rank += 1
+
+
 
         return Response(entries)
 

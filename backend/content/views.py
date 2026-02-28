@@ -142,7 +142,9 @@ class ContentProgressViewSet(TenantAwareViewSet):
         
         # Check if already completed (don't award XP twice)
         if progress.is_completed:
-            return Response(ContentProgressSerializer(progress).data)
+            response_data = ContentProgressSerializer(progress).data
+            response_data['xp_earned'] = 0
+            return Response(response_data)
         
         progress.is_completed = True
         progress.completed_at = timezone.now()
@@ -174,8 +176,7 @@ class ContentProgressViewSet(TenantAwareViewSet):
             student,
             study_time_minutes=study_minutes,
             notes_read=1 if content.content_type in ['notes', 'pdf'] else 0,
-            videos_watched=1 if content.content_type == 'video' else 0,
-            xp_earned=xp_amount
+            videos_watched=1 if content.content_type == 'video' else 0
         )
         
         # Update profile study time
