@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
 import remarkGfm from 'remark-gfm'
 import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { contentService } from '../services/contentService'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
@@ -188,16 +189,23 @@ const ContentViewer = () => {
         </div>
       )}
 
-      {/* Notes Content */}
+      {/* Notes Content: render as HTML if content looks like HTML, else as Markdown (with LaTeX) */}
       {content?.content_html && (
         <div className="card p-6 mb-6">
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkMath, remarkGfm]}
-              rehypePlugins={[rehypeKatex]}
-            >
-              {content.content_html}
-            </ReactMarkdown>
+          <div className="prose prose-lg dark:prose-invert max-w-none [&_.katex]:text-base [&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto">
+            {content.content_html.trimStart().startsWith('<') ? (
+              <div
+                className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed prose-ul:my-3 prose-table:my-4"
+                dangerouslySetInnerHTML={{ __html: content.content_html }}
+              />
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkMath, remarkGfm]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {content.content_html}
+              </ReactMarkdown>
+            )}
           </div>
         </div>
       )}
