@@ -159,6 +159,7 @@ class StudySubjectsView(APIView):
 
     def get(self, request):
         from content.models import Content, ContentProgress
+        from quiz.models import Quiz, QuizAttempt
 
         student = request.user.profile
         exam = student.primary_exam
@@ -168,15 +169,28 @@ class StudySubjectsView(APIView):
         subjects = Subject.objects.filter(exams=exam).order_by('order')
         result = []
         for subj in subjects:
-            total_content = Content.objects.filter(
+            content_count = Content.objects.filter(
                 subject=subj, status='published'
             ).count()
-            completed_content = ContentProgress.objects.filter(
+            content_done = ContentProgress.objects.filter(
                 student=student,
                 content__subject=subj,
                 content__status='published',
                 is_completed=True,
             ).count()
+            quiz_count = Quiz.objects.filter(
+                subject=subj, exam=exam, status='published'
+            ).count()
+            quiz_done = QuizAttempt.objects.filter(
+                student=student,
+                quiz__subject=subj,
+                quiz__exam=exam,
+                quiz__status='published',
+                status='completed',
+            ).values('quiz').distinct().count()
+
+            total_content = content_count + quiz_count
+            completed_content = content_done + quiz_done
             progress = (
                 round((completed_content / total_content) * 100)
                 if total_content > 0 else 0
@@ -222,15 +236,26 @@ class StudyChaptersView(APIView):
         for ch in chapters:
             topic_ids = ch.topics.values_list('id', flat=True)
 
-            total_content = Content.objects.filter(
+            content_count = Content.objects.filter(
                 topic_id__in=topic_ids, status='published'
             ).count()
-            completed_content = ContentProgress.objects.filter(
+            content_done = ContentProgress.objects.filter(
                 student=student,
                 content__topic_id__in=topic_ids,
                 content__status='published',
                 is_completed=True,
             ).count()
+            quiz_count = Quiz.objects.filter(
+                topic_id__in=topic_ids, status='published',
+            ).count()
+            quiz_done = QuizAttempt.objects.filter(
+                student=student,
+                quiz__topic_id__in=topic_ids,
+                status='completed',
+            ).values('quiz').distinct().count()
+
+            total_content = content_count + quiz_count
+            completed_content = content_done + quiz_done
 
             reading_total = Content.objects.filter(
                 topic_id__in=topic_ids, status='published',
