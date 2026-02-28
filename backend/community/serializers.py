@@ -47,9 +47,24 @@ class CommunityQuizSerializer(serializers.ModelSerializer):
             'id', 'question', 'options', 'correct_answer', 'explanation',
             'attempts_count', 'correct_count', 'success_rate', 'user_attempt'
         ]
-        extra_kwargs = {
-            'correct_answer': {'write_only': True}  # Hide correct answer
-        }
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        # Hide correct answer and explanation if user hasn't attempted yet
+        has_attempted = False
+        if request and request.user.is_authenticated:
+            has_attempted = QuizAttempt.objects.filter(
+                quiz=instance,
+                user=request.user.profile
+            ).exists()
+        
+        if not has_attempted:
+            representation.pop('correct_answer', None)
+            representation.pop('explanation', None)
+            
+        return representation
     
     def get_user_attempt(self, obj):
         request = self.context.get('request')
@@ -284,7 +299,8 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = QuizAttempt
-        fields = ['quiz', 'selected_answer']
+        fields = ['id', 'quiz', 'selected_answer', 'is_correct', 'xp_earned', 'created_at']
+        read_only_fields = ['id', 'is_correct', 'xp_earned', 'created_at']
     
     def validate(self, data):
         quiz = data['quiz']
