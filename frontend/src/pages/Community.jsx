@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-    MessageCircle, ThumbsUp, Eye, CheckCircle,
+    MessageCircle, MessageSquare, ThumbsUp, Eye, CheckCircle,
     Plus, Filter, TrendingUp, Clock, HelpCircle,
     BarChart3, Zap, Trophy, Users
 } from 'lucide-react'
