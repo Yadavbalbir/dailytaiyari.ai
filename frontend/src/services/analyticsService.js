@@ -113,6 +113,14 @@ export const analyticsService = {
     const response = await api.get('/analytics/tenant-admin-stats/')
     return response.data
   },
+
+  getTenantSubjectStats: async () => {
+    const response = await api.get('/analytics/tenant-subject-stats/')
+    return response.data
+  },
+
+  getTenantLeaderboard: async (limit = 10) => {
+    const response = await api.get(`/analytics/tenant-leaderboard/?limit=${limit}`)
+    return response.data
+  },
 }
-
-

@@ -150,9 +150,9 @@ class ExamEnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ExamEnrollment.objects.filter(student=self.request.user.profile)
 
 
-class TenantStudentViewSet(TenantAwareReadOnlyViewSet):
+class TenantStudentViewSet(TenantAwareViewSet):
     """
-    List and retrieve student profiles for the current tenant.
+    Manage student profiles for the current tenant.
     Only accessible by tenant admins.
     """
     queryset = StudentProfile.objects.all()
@@ -160,7 +160,53 @@ class TenantStudentViewSet(TenantAwareReadOnlyViewSet):
     permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
 
     def get_queryset(self):
-        # Already filtered by TenantAwareReadOnlyViewSet for request.tenant
         return super().get_queryset().select_related('user', 'primary_exam')
 
+    @action(detail=True, methods=['post'])
+    def reset_progress(self, request, pk=None):
+        """Reset all progress for a student."""
+        profile = self.get_object()
+        
+        with transaction.atomic():
+            # Reset profile counters
+            profile.total_xp = 0
+            profile.current_level = 1
+            profile.total_questions_attempted = 0
+            profile.total_correct_answers = 0
+            profile.total_study_time_minutes = 0
+            profile.save()
+            
+            # Delete related analytics data
+            profile.daily_activities.all().delete()
+            profile.topic_masteries.all().delete()
+            profile.subject_performances.all().delete()
+            profile.streaks.all().delete()
+            profile.weekly_reports.all().delete()
+            profile.study_sessions.all().delete()
+            
+            # Note: Quiz attempts and Mock attempts are NOT deleted by default 
+            # to preserve audit logs, but their derived analytics are cleared.
+            
+        return Response({'status': 'progress reset successful'})
 
+    @action(detail=True, methods=['post'])
+    def toggle_status(self, request, pk=None):
+        """Toggle user active status."""
+        profile = self.get_object()
+        user = profile.user
+        
+        # Prevent admins from deactivating themselves via this endpoint 
+        # (though they could via other means, this is a safety check)
+        if user == request.user:
+            return Response(
+                {'error': 'You cannot deactivate your own account'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        user.is_active = not user.is_active
+        user.save(update_fields=['is_active'])
+        
+        return Response({
+            'status': 'status toggled',
+            'is_active': user.is_active
+        })

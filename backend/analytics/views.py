@@ -475,3 +475,38 @@ class TenantAdminStatsView(APIView):
         return Response(stats)
 
 
+class TenantSubjectStatsView(APIView):
+    """
+    Get subject-wise performance for the tenant.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def get(self, request):
+        if not request.tenant:
+            return Response(
+                {'error': 'Tenant context is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        stats = AnalyticsService.get_tenant_subject_performance(request.tenant)
+        return Response(stats)
+
+
+class TenantLeaderboardView(APIView):
+    """
+    Get top students leaderboard for the tenant.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def get(self, request):
+        if not request.tenant:
+            return Response(
+                {'error': 'Tenant context is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        limit = int(request.query_params.get('limit', 10))
+        stats = AnalyticsService.get_tenant_leaderboard(request.tenant, limit=limit)
+        return Response(stats)
+
+

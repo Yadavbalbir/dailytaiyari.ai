@@ -432,8 +432,58 @@ class AnalyticsService:
             'active_today': active_today,
             'avg_accuracy': round(avg_accuracy, 2),
             'total_xp': total_xp,
-
             'level_distribution': level_distribution,
             'activity_trend': activity_trend
         }
+
+    @staticmethod
+    def get_tenant_subject_performance(tenant):
+        """
+        Get aggregated performance data per subject for the tenant.
+        """
+        from django.db.models import Avg, Count
+        
+        # Aggregate stats from SubjectPerformance for students in this tenant
+        stats = SubjectPerformance.objects.filter(
+            student__user__tenant=tenant
+        ).values(
+            'subject__name'
+        ).annotate(
+            avg_accuracy=Avg('accuracy'),
+            total_students=Count('student', distinct=True),
+            avg_study_minutes=Avg('total_study_minutes')
+        ).order_by('-avg_accuracy')
+        
+        return [
+            {
+                'subject': item['subject__name'],
+                'accuracy': round(item['avg_accuracy'] or 0, 2),
+                'student_count': item['total_students'],
+                'avg_study_minutes': round(item['avg_study_minutes'] or 0, 1)
+            }
+            for item in stats
+        ]
+
+    @staticmethod
+    def get_tenant_leaderboard(tenant, limit=10):
+        """
+        Get top performing students in the tenant.
+        """
+        from users.models import StudentProfile
+        
+        top_students = StudentProfile.objects.filter(
+            user__tenant=tenant
+        ).select_related('user').order_by('-total_xp')[:limit]
+        
+        return [
+            {
+                'id': str(student.id),
+                'name': student.user.full_name,
+                'avatar': student.user.avatar.url if student.user.avatar else None,
+                'xp': student.total_xp,
+                'level': student.current_level,
+                'accuracy': student.overall_accuracy
+            }
+            for student in top_students
+        ]
 
