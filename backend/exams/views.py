@@ -157,8 +157,7 @@ class TenantContentExplorerView(APIView):
     permission_classes = [permissions.IsAuthenticated] # Role check handled in frontend for now, or add IsTenantAdmin
 
     def get(self, request):
-        from users.models import User
-        if request.user.role not in [User.Role.TENANT_ADMIN, User.Role.SUPER_ADMIN]:
+        if request.user.role != 'admin' and not request.user.is_superuser:
             return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
             
         from .serializers import ExamContentExplorerSerializer
