@@ -54,11 +54,16 @@ const Sidebar = () => {
       {profile && (
         <div className="p-4 mx-4 mt-4 rounded-xl bg-gradient-to-br from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center">
-              <span className="text-primary-600 dark:text-primary-300 font-semibold">
-                {profile.user?.first_name?.charAt(0) || 'U'}
-              </span>
+            <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center overflow-hidden">
+              {profile.user?.avatar ? (
+                <img src={profile.user.avatar} alt={profile.user.full_name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-primary-600 dark:text-primary-300 font-semibold">
+                  {profile.user?.first_name?.charAt(0) || 'U'}
+                </span>
+              )}
             </div>
+
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{profile.user?.full_name || 'Student'}</p>
               <p className="text-xs text-surface-500">Level {profile.current_level}</p>

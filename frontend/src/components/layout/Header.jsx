@@ -118,11 +118,16 @@ const Header = () => {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-1 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">
-                  {profile?.user?.first_name?.charAt(0) || 'U'}
-                </span>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center overflow-hidden">
+                {profile?.user?.avatar ? (
+                  <img src={profile.user.avatar} alt={profile.user.full_name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-sm font-semibold">
+                    {profile?.user?.first_name?.charAt(0) || 'U'}
+                  </span>
+                )}
               </div>
+
               <svg className="w-4 h-4 text-surface-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>

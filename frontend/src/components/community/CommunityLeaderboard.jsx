@@ -92,9 +92,14 @@ const CommunityLeaderboard = () => {
                             </div>
 
                             {/* Avatar */}
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold">
-                                {entry.user?.first_name?.[0] || entry.user?.full_name?.[0] || '?'}
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold overflow-hidden">
+                                {entry.user?.avatar ? (
+                                    <img src={entry.user.avatar} alt={entry.user.full_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    entry.user?.first_name?.[0] || entry.user?.full_name?.[0] || '?'
+                                )}
                             </div>
+
 
                             {/* Info */}
                             <div className="flex-1 min-w-0">

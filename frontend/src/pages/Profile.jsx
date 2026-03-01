@@ -5,6 +5,8 @@ import { useAuthStore } from '../context/authStore'
 import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
+import ImageCropper from '../components/common/ImageCropper'
+
 import {
   Camera,
   User,
@@ -33,6 +35,9 @@ const Profile = () => {
   const [activeSection, setActiveSection] = useState(null)
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(null)
+  const [showCropper, setShowCropper] = useState(false)
+  const [tempImage, setTempImage] = useState(null)
+
   const [formData, setFormData] = useState({
 
     // Personal info
@@ -132,12 +137,25 @@ const Profile = () => {
         toast.error('Image size should be less than 5MB')
         return
       }
-      setAvatarFile(file)
-      setAvatarPreview(URL.createObjectURL(file))
-      setIsEditing(true)
-      setActiveSection('personal') // Mark as editing personal section when changing avatar
+      const reader = new FileReader()
+      reader.onload = () => {
+        setTempImage(reader.result)
+        setShowCropper(true)
+      }
+      reader.readAsDataURL(file)
     }
   }
+
+  const handleCropComplete = (croppedBlob) => {
+    const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' })
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(croppedBlob))
+    setShowCropper(false)
+    setTempImage(null)
+    setIsEditing(true)
+    setActiveSection('personal')
+  }
+
 
 
   const startEditing = (section) => {
@@ -671,7 +689,19 @@ const Profile = () => {
           </button>
         </div>
       </div>
+
+      {showCropper && (
+        <ImageCropper
+          image={tempImage}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setShowCropper(false)
+            setTempImage(null)
+          }}
+        />
+      )}
     </div>
+
   )
 }
 
