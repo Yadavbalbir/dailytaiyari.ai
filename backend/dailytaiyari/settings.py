@@ -138,40 +138,22 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 # Storage Configuration (S3 for production, FileSystem for dev)
-USE_S3 = config('USE_S3', default=False, cast=bool)
+USE_S3 = True
 
 if USE_S3:
-    # AWS Settings - Optional keys for EC2 IAM Roles
-    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None) or None
-    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None) or None
-
     AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='ap-south-1')
+    AWS_S3_REGION_NAME = 'ap-south-1'
 
-    AWS_QUERYSTRING_AUTH = False  # Generate clean, permanent URLs
+    AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
 
-    AWS_S3_VERIFY = True
-    
-    # S3 Custom Domain (Optional)
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
-    
-    # Media & Static on S3
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.ap-south-1.amazonaws.com'
+
     AWS_LOCATION = 'media'
-    
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-            "OPTIONS": {
-                "location": AWS_LOCATION,
-            },
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-    
+
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
 else:
     MEDIA_URL = 'media/'
