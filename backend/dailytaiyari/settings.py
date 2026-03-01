@@ -148,8 +148,10 @@ if USE_S3:
     AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='ap-south-1')
 
+    AWS_QUERYSTRING_AUTH = False  # Generate clean, permanent URLs
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None
+
     AWS_S3_VERIFY = True
     
     # S3 Custom Domain (Optional)
