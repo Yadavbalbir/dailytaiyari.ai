@@ -81,9 +81,14 @@ const CommentItem = memo(({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold">
-                            {comment.author?.first_name?.[0] || 'U'}
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-sm font-semibold overflow-hidden">
+                            {comment.author?.avatar ? (
+                                <img src={comment.author.avatar} alt={comment.author.full_name} className="w-full h-full object-cover" />
+                            ) : (
+                                comment.author?.first_name?.[0] || 'U'
+                            )}
                         </div>
+
                         <div>
                             <p className="font-medium text-sm flex items-center gap-1">
                                 {comment.author?.full_name || comment.author?.first_name || 'Anonymous'}
@@ -114,6 +119,14 @@ const CommentItem = memo(({
                 <p className="text-surface-700 dark:text-surface-300 whitespace-pre-wrap">
                     {comment.content}
                 </p>
+
+                {/* Comment Image */}
+                {comment.image && (
+                    <div className="mt-3 rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700 max-w-md">
+                        <img src={comment.image} alt="Comment attachment" className="w-full h-auto object-contain" />
+                    </div>
+                )}
+
 
                 {/* Actions */}
                 <div className="flex items-center gap-4 mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">

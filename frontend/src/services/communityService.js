@@ -16,9 +16,15 @@ export const communityService = {
     },
 
     createPost: async (data) => {
-        const response = await api.post('/community/posts/', data)
+        const config = {}
+        let payload = data
+        if (data instanceof FormData) {
+            config.headers = { 'Content-Type': 'multipart/form-data' }
+        }
+        const response = await api.post('/community/posts/', payload, config)
         return response.data
     },
+
 
     updatePost: async (id, data) => {
         const response = await api.patch(`/community/posts/${id}/`, data)
@@ -62,9 +68,14 @@ export const communityService = {
     },
 
     createComment: async (data) => {
-        const response = await api.post('/community/comments/', data)
+        const config = {}
+        if (data instanceof FormData) {
+            config.headers = { 'Content-Type': 'multipart/form-data' }
+        }
+        const response = await api.post('/community/comments/', data, config)
         return response.data
     },
+
 
     likeComment: async (id) => {
         const response = await api.post(`/community/comments/${id}/like/`)

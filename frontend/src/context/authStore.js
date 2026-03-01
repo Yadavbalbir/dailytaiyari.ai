@@ -19,7 +19,7 @@ export const useAuthStore = create(
         try {
           const response = await api.post('/auth/login/', { email, password })
           const { access, refresh, user } = response.data
-          
+
           set({
             user,
             tokens: { access, refresh },
@@ -27,12 +27,12 @@ export const useAuthStore = create(
             isOnboarded: user.is_onboarded,
             isLoading: false,
           })
-          
+
           // Fetch profile if onboarded
           if (user.is_onboarded) {
             get().fetchProfile()
           }
-          
+
           return { success: true }
         } catch (error) {
           const message = error.response?.data?.detail || 'Login failed'
@@ -49,9 +49,9 @@ export const useAuthStore = create(
           // Auto-login after registration
           return get().login(data.email, data.password)
         } catch (error) {
-          const message = error.response?.data?.email?.[0] || 
-                         error.response?.data?.detail || 
-                         'Registration failed'
+          const message = error.response?.data?.email?.[0] ||
+            error.response?.data?.detail ||
+            'Registration failed'
           set({ error: message, isLoading: false })
           return { success: false, error: message }
         }
@@ -90,19 +90,25 @@ export const useAuthStore = create(
       // Update profile
       updateProfile: async (data) => {
         try {
-          const response = await api.patch('/auth/profile/', data)
-          set({ profile: response.data })
+          const config = {}
+          if (data instanceof FormData) {
+            config.headers = { 'Content-Type': 'multipart/form-data' }
+          }
+          const response = await api.patch('/auth/profile/', data, config)
+          set({ profile: response.data, user: response.data.user || get().user })
           return { success: true }
         } catch (error) {
+          console.error('Update profile error:', error.response?.data)
           return { success: false, error: 'Failed to update profile' }
         }
       },
+
 
       // Refresh token
       refreshToken: async () => {
         const { tokens } = get()
         if (!tokens?.refresh) return false
-        
+
         try {
           const response = await api.post('/auth/refresh/', {
             refresh: tokens.refresh,

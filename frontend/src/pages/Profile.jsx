@@ -30,8 +30,11 @@ const Profile = () => {
   const queryClient = useQueryClient()
 
   const [isEditing, setIsEditing] = useState(false)
-  const [activeSection, setActiveSection] = useState(null) // Track which section is being edited
+  const [activeSection, setActiveSection] = useState(null)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
   const [formData, setFormData] = useState({
+
     // Personal info
     date_of_birth: profile?.date_of_birth || '',
     bio: profile?.bio || '',
@@ -68,28 +71,38 @@ const Profile = () => {
     }
   }, [profile])
 
-  const updateGoalMutation = useMutation({
-    mutationFn: (goalMinutes) => analyticsService.updateStudyGoal(goalMinutes),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['studyTimer'])
-    },
-  })
-
   const handleSave = async () => {
     // Update study goal separately if changed
     if (formData.daily_study_goal_minutes !== profile?.daily_study_goal_minutes) {
       await updateGoalMutation.mutateAsync(formData.daily_study_goal_minutes)
     }
 
-    const result = await updateProfile(formData)
+    const submitData = new FormData()
+
+    // Add avatar if changed
+    if (avatarFile) {
+      submitData.append('user.avatar', avatarFile)
+    }
+
+    // Add other fields
+    Object.keys(formData).forEach(key => {
+      if (formData[key] !== profile?.[key]) {
+        submitData.append(key, formData[key])
+      }
+    })
+
+    const result = await updateProfile(submitData)
     if (result.success) {
       toast.success('Profile updated!')
       setIsEditing(false)
       setActiveSection(null)
+      setAvatarFile(null)
+      setAvatarPreview(null)
     } else {
       toast.error('Failed to update profile')
     }
   }
+
 
   const handleCancel = () => {
     // Reset form data to current profile
@@ -108,7 +121,24 @@ const Profile = () => {
     })
     setIsEditing(false)
     setActiveSection(null)
+    setAvatarFile(null)
+    setAvatarPreview(null)
   }
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB')
+        return
+      }
+      setAvatarFile(file)
+      setAvatarPreview(URL.createObjectURL(file))
+      setIsEditing(true)
+      setActiveSection('personal') // Mark as editing personal section when changing avatar
+    }
+  }
+
 
   const startEditing = (section) => {
     setIsEditing(true)
@@ -153,13 +183,30 @@ const Profile = () => {
         <div className="flex items-start gap-5">
           {/* Avatar */}
           <div className="relative">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-400 via-accent-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shadow-primary-500/25">
-              {user?.first_name?.charAt(0) || 'U'}
+            <input
+              type="file"
+              id="avatar-upload"
+              className="hidden"
+              accept="image/*"
+              onChange={handleAvatarChange}
+            />
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-400 via-accent-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shadow-primary-500/25 overflow-hidden">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : user?.avatar ? (
+                <img src={user.avatar} alt={user.full_name} className="w-full h-full object-cover" />
+              ) : (
+                user?.first_name?.charAt(0) || 'U'
+              )}
             </div>
-            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-surface-100 dark:bg-surface-800 border-2 border-white dark:border-surface-900 rounded-full flex items-center justify-center hover:bg-surface-200 transition-colors">
+            <label
+              htmlFor="avatar-upload"
+              className="absolute -bottom-2 -right-2 w-8 h-8 bg-surface-100 dark:bg-surface-800 border-2 border-white dark:border-surface-900 rounded-full flex items-center justify-center hover:bg-surface-200 transition-colors cursor-pointer"
+            >
               <Camera size={14} className="text-surface-600" />
-            </button>
+            </label>
           </div>
+
 
           {/* User Info */}
           <div className="flex-1">

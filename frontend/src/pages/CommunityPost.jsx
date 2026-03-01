@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     ArrowLeft, ThumbsUp, MessageCircle, Eye, Share2,
     CheckCircle, Clock, BarChart3, Zap, Trophy, Send,
-    BadgeCheck
+    BadgeCheck, Camera, Image as ImageIcon, X
 } from 'lucide-react'
+
 import { communityService } from '../services/communityService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
@@ -22,6 +23,9 @@ const CommunityPost = () => {
     const [selectedPollOption, setSelectedPollOption] = useState(null)
     const [selectedQuizAnswer, setSelectedQuizAnswer] = useState(null)
     const [quizSubmitted, setQuizSubmitted] = useState(false)
+    const [commentImage, setCommentImage] = useState(null)
+    const [commentImagePreview, setCommentImagePreview] = useState(null)
+
 
     // Fetch post
     const { data: post, isLoading: postLoading } = useQuery({
@@ -45,18 +49,22 @@ const CommunityPost = () => {
 
     // Add comment
     const commentMutation = useMutation({
-        mutationFn: (content) => communityService.createComment({ post: id, content }),
+        mutationFn: (data) => communityService.createComment(data),
         onSuccess: () => {
             toast.success('Answer posted! +15 XP earned 🎉')
             setNewComment('')
+            setCommentImage(null)
+            setCommentImagePreview(null)
             queryClient.invalidateQueries(['communityComments', id])
             queryClient.invalidateQueries(['communityPost', id])
         },
         onError: (error) => {
+            console.error('Comment error:', error.response?.data)
             const message = error.response?.data?.content?.[0] || 'Failed to post answer'
             toast.error(message)
         }
     })
+
 
     // Vote poll
     const pollMutation = useMutation({
@@ -96,8 +104,29 @@ const CommunityPost = () => {
             toast.error('Please enter an answer')
             return
         }
-        commentMutation.mutate(newComment.trim())
+
+        const submitData = new FormData()
+        submitData.append('post', id)
+        submitData.append('content', newComment.trim())
+        if (commentImage) {
+            submitData.append('image', commentImage)
+        }
+
+        commentMutation.mutate(submitData)
     }
+
+    const handleCommentImageChange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image size should be less than 5MB')
+                return
+            }
+            setCommentImage(file)
+            setCommentImagePreview(URL.createObjectURL(file))
+        }
+    }
+
 
     const handlePollVote = () => {
         if (selectedPollOption === null) {
@@ -182,9 +211,14 @@ const CommunityPost = () => {
 
                 {/* Author */}
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-lg font-semibold">
-                        {post.author?.first_name?.[0] || 'U'}
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-lg font-semibold overflow-hidden">
+                        {post.author?.avatar ? (
+                            <img src={post.author.avatar} alt={post.author.full_name} className="w-full h-full object-cover" />
+                        ) : (
+                            post.author?.first_name?.[0] || 'U'
+                        )}
                     </div>
+
                     <div>
                         <p className="font-medium flex items-center gap-1">
                             {post.author?.full_name || post.author?.first_name || 'Anonymous'}
@@ -212,6 +246,14 @@ const CommunityPost = () => {
                 <div className="prose dark:prose-invert max-w-none mb-6">
                     <p className="whitespace-pre-wrap">{post.content}</p>
                 </div>
+
+                {/* Post Image */}
+                {post.image && (
+                    <div className="mb-6 rounded-2xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                        <img src={post.image} alt={post.title} className="w-full max-h-[600px] object-contain mx-auto" />
+                    </div>
+                )}
+
 
                 {/* Poll Options */}
                 {post.post_type === 'poll' && post.poll_options && (
@@ -373,20 +415,54 @@ const CommunityPost = () => {
                     <h3 className="font-semibold mb-4">
                         {post.post_type === 'question' ? 'Your Answer' : 'Add Comment'}
                     </h3>
-                    <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder={post.post_type === 'question'
-                            ? "Write your answer here... Be helpful and detailed!"
-                            : "Share your thoughts on this poll..."}
-                        className="input w-full h-32 resize-none"
-                    />
+                    <div className="relative">
+                        <textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder={post.post_type === 'question'
+                                ? "Write your answer here... Be helpful and detailed!"
+                                : "Share your thoughts on this poll..."}
+                            className="input w-full h-32 resize-none"
+                        />
+
+                        {/* Image Preview in Textarea area */}
+                        {commentImagePreview && (
+                            <div className="absolute bottom-4 left-4 group">
+                                <div className="relative w-20 h-20 rounded-lg overflow-hidden border-2 border-primary-500 shadow-lg">
+                                    <img src={commentImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => {
+                                            setCommentImage(null)
+                                            setCommentImagePreview(null)
+                                        }}
+                                        className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <X size={10} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex justify-between items-center mt-4">
-                        <p className="text-sm text-surface-500">
-                            {post.post_type === 'question'
-                                ? 'Earn +15 XP for answering, +50 XP if selected as best answer!'
-                                : 'Earn +15 XP for commenting!'}
-                        </p>
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2 text-sm text-primary-500 hover:text-primary-600 cursor-pointer">
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleCommentImageChange}
+                                />
+                                <ImageIcon size={18} />
+                                <span>Attach Photo</span>
+                            </label>
+                            <p className="text-sm text-surface-500">
+                                {post.post_type === 'question'
+                                    ? 'Earn +15 XP for answering!'
+                                    : 'Earn +15 XP for commenting!'}
+                            </p>
+                        </div>
+
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}

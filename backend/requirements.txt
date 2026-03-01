@@ -32,3 +32,6 @@ pytest>=8.0.0
 pytest-django>=4.7.0
 factory-boy>=3.3.0
 
+# Production Storage
+django-storages[s3]>=9.4.1
+boto3>=1.34.0

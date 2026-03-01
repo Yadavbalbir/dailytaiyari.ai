@@ -16,8 +16,10 @@ class AuthorSerializer(serializers.Serializer):
     full_name = serializers.CharField(source='user.full_name')
     first_name = serializers.CharField(source='user.first_name')
     role = serializers.CharField(source='user.role', read_only=True)
+    avatar = serializers.ImageField(source='user.avatar', read_only=True)
     current_level = serializers.IntegerField()
     total_xp = serializers.IntegerField()
+
 
 
 class PollOptionSerializer(serializers.ModelSerializer):
@@ -94,10 +96,11 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'id', 'post', 'parent', 'author', 'content',
+            'id', 'post', 'parent', 'author', 'content', 'image',
             'likes_count', 'is_best_answer', 'is_liked',
             'replies', 'created_at'
         ]
+
         read_only_fields = ['id', 'author', 'likes_count', 'is_best_answer', 'created_at']
     
     def get_replies(self, obj):
@@ -126,7 +129,8 @@ class CommentCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Comment
-        fields = ['post', 'parent', 'content']
+        fields = ['post', 'parent', 'content', 'image']
+
     
     def validate_content(self, value):
         result = ContentModerationService.validate_content(content=value)
@@ -151,7 +155,7 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'post_type', 'title', 'content', 'author',
+            'id', 'post_type', 'title', 'content', 'image', 'author',
             'exam', 'subject', 'tags',
             'likes_count', 'comments_count', 'views_count',
             'is_solved', 'best_answer', 'status',
@@ -198,9 +202,10 @@ class PostCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'post_type', 'title', 'content', 'exam', 'subject', 'tags',
+            'post_type', 'title', 'content', 'image', 'exam', 'subject', 'tags',
             'poll_options', 'quiz_data'
         ]
+
     
     def validate(self, data):
         # Validate content for profanity

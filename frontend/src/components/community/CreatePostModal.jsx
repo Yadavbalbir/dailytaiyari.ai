@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Trash2, HelpCircle, BarChart3, Zap } from 'lucide-react'
+import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera } from 'lucide-react'
+
 import { communityService } from '../../services/communityService'
 import toast from 'react-hot-toast'
 
@@ -12,6 +13,9 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
     const [content, setContent] = useState('')
     const [tags, setTags] = useState([])
     const [tagInput, setTagInput] = useState('')
+    const [imageFile, setImageFile] = useState(null)
+    const [imagePreview, setImagePreview] = useState(null)
+
 
     // Poll state
     const [pollOptions, setPollOptions] = useState(['', ''])
@@ -32,6 +36,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             onClose()
         },
         onError: (error) => {
+            console.error('Post creation error:', error.response?.data)
             const message = error.response?.data?.content?.[0] ||
                 error.response?.data?.title?.[0] ||
                 error.response?.data?.detail ||
@@ -39,6 +44,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             toast.error(message)
         }
     })
+
 
     const resetForm = () => {
         setTitle('')
@@ -50,7 +56,22 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         setQuizOptions(['', '', '', ''])
         setCorrectAnswer(0)
         setExplanation('')
+        setImageFile(null)
+        setImagePreview(null)
     }
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image size should be less than 5MB')
+                return
+            }
+            setImageFile(file)
+            setImagePreview(URL.createObjectURL(file))
+        }
+    }
+
 
     const handleAddTag = () => {
         if (tagInput.trim() && tags.length < 5) {
@@ -88,12 +109,14 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             return
         }
 
-        const data = {
-            post_type: type,
-            title: title.trim(),
-            content: content.trim(),
-            tags
+        const submitData = new FormData()
+        submitData.append('post_type', type)
+        submitData.append('title', title.trim())
+        submitData.append('content', content.trim())
+        if (imageFile) {
+            submitData.append('image', imageFile)
         }
+        tags.forEach(tag => submitData.append('tags', tag))
 
         if (type === 'poll') {
             const validOptions = pollOptions.filter(o => o.trim())
@@ -101,7 +124,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                 toast.error('Poll must have at least 2 options')
                 return
             }
-            data.poll_options = validOptions
+            validOptions.forEach(opt => submitData.append('poll_options', opt))
         }
 
         if (type === 'quiz') {
@@ -114,16 +137,17 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                 toast.error('Quiz must have at least 2 options')
                 return
             }
-            data.quiz_data = {
+            submitData.append('quiz_data', JSON.stringify({
                 question: quizQuestion.trim(),
                 options: validOptions,
                 correct_answer: correctAnswer,
                 explanation: explanation.trim()
-            }
+            }))
         }
 
-        createMutation.mutate(data)
+        createMutation.mutate(submitData)
     }
+
 
     const typeOptions = [
         { id: 'question', label: 'Question', icon: HelpCircle, color: 'blue' },
@@ -171,8 +195,8 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                                         type="button"
                                         onClick={() => setType(option.id)}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${type === option.id
-                                                ? `border-${option.color}-500 bg-${option.color}-50 dark:bg-${option.color}-900/20 text-${option.color}-600`
-                                                : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'
+                                            ? `border-${option.color}-500 bg-${option.color}-50 dark:bg-${option.color}-900/20 text-${option.color}-600`
+                                            : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'
                                             }`}
                                     >
                                         <option.icon size={18} />
@@ -212,6 +236,40 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                                 className="input w-full h-32 resize-none"
                             />
                         </div>
+
+                        {/* Image Upload */}
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Attach Image (optional)</label>
+                            <div className="flex items-center gap-4">
+                                <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-surface-300 dark:border-surface-700 rounded-xl hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 cursor-pointer transition-all">
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleImageChange}
+                                    />
+                                    <ImageIcon className="text-surface-400 mb-1" />
+                                    <span className="text-xs text-surface-500">Add Photo</span>
+                                </label>
+
+                                {imagePreview && (
+                                    <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-surface-200 dark:border-surface-700">
+                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setImageFile(null)
+                                                setImagePreview(null)
+                                            }}
+                                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
 
                         {/* Poll Options */}
                         {type === 'poll' && (
@@ -291,8 +349,8 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                                                     }}
                                                     placeholder={`Option ${String.fromCharCode(65 + index)}`}
                                                     className={`input flex-1 ${correctAnswer === index
-                                                            ? 'border-success-500 bg-success-50 dark:bg-success-900/20'
-                                                            : ''
+                                                        ? 'border-success-500 bg-success-50 dark:bg-success-900/20'
+                                                        : ''
                                                         }`}
                                                 />
                                             </div>

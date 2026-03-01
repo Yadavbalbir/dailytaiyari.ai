@@ -64,7 +64,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     """Serializer for student profile."""
-    user = UserSerializer(read_only=True)
+    user = UserSerializer(required=False)
+
     overall_accuracy = serializers.ReadOnlyField()
     xp_for_next_level = serializers.ReadOnlyField()
     primary_exam_name = serializers.CharField(source='primary_exam.name', read_only=True)
@@ -94,10 +95,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'user', 'total_xp', 'current_level', 
+            'id', 'total_xp', 'current_level', 
             'total_questions_attempted', 'total_correct_answers',
             'total_study_time_minutes', 'created_at', 'updated_at'
         ]
+
     
     def to_internal_value(self, data):
         # Convert empty strings to None for nullable fields
@@ -106,6 +108,16 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         if 'target_year' in data and data['target_year'] == '':
             data['target_year'] = None
         return super().to_internal_value(data)
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+        if user_data:
+            user_serializer = UserSerializer(instance.user, data=user_data, partial=True)
+            user_serializer.is_valid(raise_exception=True)
+            user_serializer.save()
+        
+        return super().update(instance, validated_data)
+
 
 
 

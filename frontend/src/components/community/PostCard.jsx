@@ -51,9 +51,14 @@ const PostCard = ({ post, onLike, onClick }) => {
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                     {/* Author Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-semibold">
-                        {post.author?.first_name?.[0] || post.author?.full_name?.[0] || 'U'}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-semibold overflow-hidden">
+                        {post.author?.avatar ? (
+                            <img src={post.author.avatar} alt={post.author.full_name} className="w-full h-full object-cover" />
+                        ) : (
+                            post.author?.first_name?.[0] || post.author?.full_name?.[0] || 'U'
+                        )}
                     </div>
+
                     <div>
                         <p className="font-medium text-sm flex items-center gap-1">
                             {post.author?.full_name || post.author?.first_name || 'Anonymous'}
@@ -93,6 +98,14 @@ const PostCard = ({ post, onLike, onClick }) => {
             <p className="text-surface-600 dark:text-surface-400 text-sm line-clamp-2 mb-4">
                 {post.content}
             </p>
+
+            {/* Post Image */}
+            {post.image && (
+                <div className="mb-4 rounded-xl overflow-hidden aspect-video bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                    <img src={post.image} alt={post.title} className="w-full h-full object-cover" />
+                </div>
+            )}
+
 
             {/* Poll Preview */}
             {post.post_type === 'poll' && post.poll_options && (

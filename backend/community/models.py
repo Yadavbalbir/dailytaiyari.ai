@@ -26,6 +26,8 @@ class Post(TimeStampedModel):
     post_type = models.CharField(max_length=20, choices=POST_TYPES, default='question')
     title = models.CharField(max_length=300, validators=[MinLengthValidator(10)])
     content = models.TextField(validators=[MinLengthValidator(20)])
+    image = models.ImageField(upload_to='community/posts/', null=True, blank=True)
+
     
     author = models.ForeignKey(
         'users.StudentProfile',
@@ -104,6 +106,7 @@ class Comment(TimeStampedModel):
     )
     
     content = models.TextField(validators=[MinLengthValidator(5)])
+    image = models.ImageField(upload_to='community/comments/', null=True, blank=True)
     
     # Stats
     likes_count = models.PositiveIntegerField(default=0)
