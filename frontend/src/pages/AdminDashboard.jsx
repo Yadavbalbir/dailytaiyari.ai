@@ -16,7 +16,13 @@ import {
     RotateCcw,
     UserCog,
     ChevronRight,
-    Award
+    Award,
+    X,
+    Calendar,
+    MapPin,
+    School,
+    BookOpen,
+    ExternalLink
 } from 'lucide-react'
 
 const StatCard = ({ title, value, icon: Icon, color, description }) => (
@@ -40,10 +46,129 @@ const StatCard = ({ title, value, icon: Icon, color, description }) => (
     </motion.div>
 )
 
+const StudentDetailModal = ({ student, onClose }) => {
+    if (!student) return null;
+
+    const sections = [
+        {
+            title: 'Personal Information',
+            icon: Users,
+            fields: [
+                { label: 'Full Name', value: student.user.full_name },
+                { label: 'Email', value: student.user.email },
+                { label: 'Phone', value: student.user.phone || 'Not provided' },
+                { label: 'Date of Birth', value: student.date_of_birth || 'Not provided', icon: Calendar },
+                { label: 'Bio', value: student.bio || 'No bio available', fullWidth: true },
+            ]
+        },
+        {
+            title: 'Academic Details',
+            icon: School,
+            fields: [
+                { label: 'Primary Exam', value: student.primary_exam_name, icon: BookOpen },
+                { label: 'Target Year', value: student.target_year || 'Not set' },
+                { label: 'Grade/Level', value: student.grade || 'Not provided' },
+                { label: 'School/Institute', value: student.school || 'Not provided' },
+                { label: 'Coaching Center', value: student.coaching || 'Not provided' },
+                { label: 'Board/University', value: student.board || 'Not provided' },
+                { label: 'Study Medium', value: student.medium || 'Not provided' },
+            ]
+        },
+        {
+            title: 'Location & Preferences',
+            icon: MapPin,
+            fields: [
+                { label: 'City', value: student.city || 'Not provided' },
+                { label: 'State', value: student.state || 'Not provided' },
+                { label: 'Daily Study Goal', value: `${student.daily_study_goal_minutes} minutes` },
+                { label: 'Preferred Study Time', value: student.preferred_study_time, className: 'capitalize' },
+                { label: 'Instagram', value: student.instagram_handle ? `@${student.instagram_handle}` : 'Not provided' },
+                { label: 'Parent Contact', value: student.parent_phone || 'Not provided' },
+            ]
+        },
+        {
+            title: 'Performance Statistics',
+            icon: BarChart3,
+            fields: [
+                { label: 'Current Level', value: `Level ${student.current_level}`, className: 'font-bold text-primary-600' },
+                { label: 'Total XP', value: student.total_xp.toLocaleString() },
+                { label: 'Overall Accuracy', value: `${student.overall_accuracy}%` },
+                { label: 'Questions Attempted', value: student.total_questions_attempted },
+                { label: 'Correct Answers', value: student.total_correct_answers },
+                { label: 'Total Study Time', value: `${student.total_study_time_minutes} minutes` },
+            ]
+        }
+    ];
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-900/60 backdrop-blur-sm">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="bg-white dark:bg-surface-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl border border-surface-100 dark:border-surface-700 flex flex-col"
+            >
+                {/* Header */}
+                <div className="p-6 border-b dark:border-surface-700 flex items-center justify-between bg-surface-50/50 dark:bg-surface-900/20">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 text-xl font-black">
+                            {student.user.full_name.charAt(0)}
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-surface-900 dark:text-white">{student.user.full_name}</h2>
+                            <p className="text-sm text-surface-500">{student.user.email}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-xl transition-colors"
+                    >
+                        <X className="w-6 h-6 text-surface-500" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-8 space-y-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        {sections.map((section, idx) => (
+                            <div key={idx} className="space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-primary-600 dark:text-primary-400 flex items-center gap-2">
+                                    <section.icon className="w-4 h-4" />
+                                    {section.title}
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {section.fields.map((field, fIdx) => (
+                                        <div key={fIdx} className={`${field.fullWidth ? 'col-span-2' : ''} space-y-1`}>
+                                            <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{field.label}</p>
+                                            <p className={`text-sm text-surface-700 dark:text-surface-200 ${field.className || ''}`}>
+                                                {field.value}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 bg-surface-50 dark:bg-surface-900/20 border-t dark:border-surface-700 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 bg-surface-900 dark:bg-white text-white dark:text-surface-900 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+                    >
+                        Close Profile
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    )
+}
+
 const StudentManagement = () => {
     const queryClient = useQueryClient()
     const [searchTerm, setSearchTerm] = useState('')
     const [filterRole, setFilterRole] = useState('all')
+    const [selectedStudent, setSelectedStudent] = useState(null)
 
     const { data: students, isLoading } = useQuery({
         queryKey: ['tenantStudents'],
@@ -181,6 +306,14 @@ const StudentManagement = () => {
                                                 <RotateCcw className="w-4 h-4" />
                                             </button>
 
+                                            <button
+                                                onClick={() => setSelectedStudent(student)}
+                                                className="p-2 text-surface-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all tooltip"
+                                                title="View Full Profile"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                            </button>
+
                                             <div className="relative group/role">
                                                 <button className="p-2 text-surface-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all">
                                                     <UserCog className="w-4 h-4" />
@@ -218,6 +351,15 @@ const StudentManagement = () => {
                     </table>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {selectedStudent && (
+                    <StudentDetailModal
+                        student={selectedStudent}
+                        onClose={() => setSelectedStudent(null)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     )
 }
@@ -463,27 +605,28 @@ const AdminDashboard = () => {
                                 <div className="card p-6">
                                     <h3 className="text-lg font-bold mb-6">30-Day Student Activity</h3>
                                     <div className="h-64 flex items-end gap-1">
-                                        {stats?.activity_trend?.map((item, index) => {
-                                            const maxUsers = Math.max(...stats.activity_trend.map(i => i.active_users), 1)
-                                            const height = (item.active_users / maxUsers) * 100
-
-                                            return (
-                                                <div
-                                                    key={item.date}
-                                                    className="group relative flex-1"
-                                                >
-                                                    <motion.div
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: `${height}%` }}
-                                                        className="bg-primary-400/30 group-hover:bg-primary-500 transition-colors rounded-t-sm"
-                                                    />
-                                                    {/* Tooltip */}
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-900 text-white text-[10px] p-2 rounded shadow-xl z-10 whitespace-nowrap">
-                                                        {item.date}: {item.active_users} users
+                                        {(() => {
+                                            const maxUsers = Math.max(...(stats?.activity_trend || []).map(i => i.active_users), 1)
+                                            return stats?.activity_trend?.map((item) => {
+                                                const height = (item.active_users / maxUsers) * 100
+                                                return (
+                                                    <div
+                                                        key={item.date}
+                                                        className="group relative flex-1"
+                                                    >
+                                                        <motion.div
+                                                            initial={{ height: 0 }}
+                                                            animate={{ height: `${height}%` }}
+                                                            className="w-full bg-primary-500/30 group-hover:bg-primary-500 transition-colors rounded-t-sm"
+                                                        />
+                                                        {/* Tooltip */}
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-900 text-white text-[10px] p-2 rounded shadow-xl z-10 whitespace-nowrap">
+                                                            {item.date}: {item.active_users} users
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )
-                                        })}
+                                                )
+                                            })
+                                        })()}
                                         {(!stats?.activity_trend || stats.activity_trend.length === 0) && (
                                             <p className="w-full text-center text-surface-500 py-24 italic">No activity trend available.</p>
                                         )}
