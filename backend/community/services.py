@@ -269,8 +269,8 @@ class CommunityLeaderboardService:
             period_start = date(2020, 1, 1)
         
         # Check if we have recent entries
-        # If any entry is older than 1 hour, refresh the whole leaderboard for this period
-        staleness_threshold = timezone.now() - timedelta(hours=1)
+        # If any entry is older than 5 minutes, refresh the whole leaderboard for this period
+        staleness_threshold = timezone.now() - timedelta(minutes=5)
         
         last_entry = CommunityLeaderboard.objects.filter(
             period=period,

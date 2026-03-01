@@ -128,6 +128,12 @@ const CommunityLeaderboard = () => {
                     <p className="text-xs mt-1">Be the first to contribute!</p>
                 </div>
             )}
+
+            <div className="mt-4 pt-3 border-t border-surface-100 dark:border-surface-800">
+                <p className="text-[10px] text-surface-400 text-center italic">
+                    * Leaderboard refreshes every 5 minutes.
+                </p>
+            </div>
         </div>
     )
 }
