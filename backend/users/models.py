@@ -47,6 +47,7 @@ class User(AbstractUser):
     tenant = models.ForeignKey('core.Tenant', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
+    is_suspended = models.BooleanField(default=False)
     username = None  # Remove username field
     email = models.EmailField()
 

@@ -145,15 +145,15 @@ const StudentManagement = () => {
                                     <td className="px-6 py-4">
                                         <button
                                             onClick={() => statusMutation.mutate(student.id)}
-                                            className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-all ${student.user.is_active
+                                            className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-all ${!student.user.is_suspended
                                                 ? 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
                                                 : 'bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400 hover:bg-rose-100'
                                                 }`}
                                         >
-                                            {student.user.is_active ? (
+                                            {!student.user.is_suspended ? (
                                                 <><Shield className="w-3.5 h-3.5" /> Active</>
                                             ) : (
-                                                <><ShieldOff className="w-3.5 h-3.5" /> Deactivated</>
+                                                <><ShieldOff className="w-3.5 h-3.5" /> Suspended</>
                                             )}
                                         </button>
                                     </td>

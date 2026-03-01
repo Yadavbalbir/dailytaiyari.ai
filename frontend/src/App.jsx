@@ -6,6 +6,7 @@ import { useTenantStore } from './context/tenantStore'
 // Layouts
 import MainLayout from './components/layout/MainLayout'
 import AuthLayout from './components/layout/AuthLayout'
+import SuspensionOverlay from './components/layout/SuspensionOverlay'
 
 // Auth Pages
 import Login from './pages/auth/Login'
@@ -79,68 +80,71 @@ function App() {
   }
 
   return (
-    <Routes>
-      {/* Auth Routes */}
-      <Route element={<AuthLayout />}>
+    <>
+      <SuspensionOverlay />
+      <Routes>
+        {/* Auth Routes */}
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
+          <Route path="/onboarding" element={<Onboarding />} />
+        </Route>
+
+        {/* Main App Routes */}
         <Route
-          path="/login"
           element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
           }
-        />
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
-        />
-        <Route path="/onboarding" element={<Onboarding />} />
-      </Route>
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/study" element={<Study />} />
+          <Route path="/study/:subjectId" element={<StudyChapters />} />
+          <Route path="/study/chapter/:chapterId" element={<StudyChapterDetail />} />
+          <Route path="/topic/:topicId" element={<TopicView />} />
+          <Route path="/content/:contentId" element={<ContentViewer />} />
+          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/quiz/:quizId" element={<QuizAttempt />} />
+          <Route path="/quiz/review/:attemptId" element={<QuizReview />} />
+          <Route path="/mock-test" element={<MockTest />} />
+          <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
+          <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
+          <Route path="/pyp" element={<PreviousYearPapers />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/doubt-solver" element={<AIDoubtSolver />} />
+          <Route path="/ai-doubt-solver" element={<AIDoubtSolver />} />
+          <Route path="/ai-learning" element={<AILearning />} />
+          <Route path="/ai-quiz-review/:attemptId" element={<AIQuizReview />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/community/:id" element={<CommunityPost />} />
 
-      {/* Main App Routes */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/study" element={<Study />} />
-        <Route path="/study/:subjectId" element={<StudyChapters />} />
-        <Route path="/study/chapter/:chapterId" element={<StudyChapterDetail />} />
-        <Route path="/topic/:topicId" element={<TopicView />} />
-        <Route path="/content/:contentId" element={<ContentViewer />} />
-        <Route path="/quiz" element={<Quiz />} />
-        <Route path="/quiz/:quizId" element={<QuizAttempt />} />
-        <Route path="/quiz/review/:attemptId" element={<QuizReview />} />
-        <Route path="/mock-test" element={<MockTest />} />
-        <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
-        <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
-        <Route path="/pyp" element={<PreviousYearPapers />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/doubt-solver" element={<AIDoubtSolver />} />
-        <Route path="/ai-doubt-solver" element={<AIDoubtSolver />} />
-        <Route path="/ai-learning" element={<AILearning />} />
-        <Route path="/ai-quiz-review/:attemptId" element={<AIQuizReview />} />
-        <Route path="/community" element={<Community />} />
-        <Route path="/community/:id" element={<CommunityPost />} />
-
-        {/* Admin Dashboard */}
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
-      </Route>
+          {/* Admin Dashboard */}
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        </Route>
 
 
-      {/* Redirects */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* Redirects */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </>
   )
 }
 

@@ -19,6 +19,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         token['name'] = user.full_name
         token['is_onboarded'] = user.is_onboarded
+        token['is_suspended'] = user.is_suspended
         return token
 
     def validate(self, attrs):
@@ -83,7 +84,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'full_name', 'role',
+            'id', 'email', 'first_name', 'last_name', 'full_name', 'role', 'is_active', 'is_suspended',
             'phone', 'avatar', 'is_onboarded', 'preferred_language',
             'notification_enabled', 'dark_mode', 'created_at', 'last_active'
         ]

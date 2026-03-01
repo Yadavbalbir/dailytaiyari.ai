@@ -206,10 +206,11 @@ class TenantStudentViewSet(TenantAwareViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        user.is_active = not user.is_active
-        user.save(update_fields=['is_active'])
+        user.is_suspended = not user.is_suspended
+        user.save(update_fields=['is_suspended'])
         
         return Response({
             'status': 'status toggled',
-            'is_active': user.is_active
+            'is_active': user.is_active,
+            'is_suspended': user.is_suspended
         })
