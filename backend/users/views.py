@@ -4,9 +4,11 @@ Views for user authentication and profile management.
 from rest_framework import status, generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db import transaction
 
 from .models import StudentProfile, ExamEnrollment
 from .serializers import (
@@ -19,7 +21,7 @@ from .serializers import (
 )
 from exams.models import Exam
 from core.permissions import IsTenantAdmin
-from core.views import TenantAwareReadOnlyViewSet
+from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
 User = get_user_model()
