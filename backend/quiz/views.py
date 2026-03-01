@@ -203,21 +203,30 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
 
     @action(detail=False, methods=['get'])
     def daily_challenge(self, request):
-        """Get today's daily challenge."""
+        """Get today's daily challenge with fallback to latest available."""
         exam_id = request.query_params.get('exam_id')
         today = timezone.now().date()
         
-        quiz = self.get_queryset().filter(
-            is_daily_challenge=True,
-            challenge_date=today
-        )
+        # Primary search: Today's specific challenge
+        quiz_qs = self.get_queryset().filter(is_daily_challenge=True)
+        
+        quiz = quiz_qs.filter(challenge_date=today)
         if exam_id:
             quiz = quiz.filter(exam_id=exam_id)
         
         quiz = quiz.first()
+        
+        # Fallback search: Latest available challenge if today's is missing
+        if not quiz:
+            fallback_qs = quiz_qs
+            if exam_id:
+                fallback_qs = fallback_qs.filter(exam_id=exam_id)
+            
+            quiz = fallback_qs.order_by('-challenge_date').first()
+            
         if not quiz:
             return Response(
-                {'error': 'No daily challenge available'},
+                {'error': 'No daily challenge available for this exam. Please check back later!'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
