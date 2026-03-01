@@ -603,33 +603,66 @@ const AdminDashboard = () => {
 
                                 {/* Performance Trend */}
                                 <div className="card p-6">
-                                    <h3 className="text-lg font-bold mb-6">30-Day Student Activity</h3>
-                                    <div className="h-64 flex items-end gap-1">
-                                        {(() => {
-                                            const maxUsers = Math.max(...(stats?.activity_trend || []).map(i => i.active_users), 1)
-                                            return stats?.activity_trend?.map((item) => {
-                                                const height = (item.active_users / maxUsers) * 100
-                                                return (
-                                                    <div
-                                                        key={item.date}
-                                                        className="group relative flex-1 h-full flex flex-col justify-end"
-                                                    >
-                                                        <motion.div
-                                                            initial={{ height: 0 }}
-                                                            animate={{ height: `${height}%` }}
-                                                            className="w-full bg-primary-500 dark:bg-primary-400 opacity-30 group-hover:opacity-100 transition-opacity rounded-t-sm"
-                                                        />
-                                                        {/* Tooltip */}
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-900 text-white text-[10px] p-2 rounded shadow-xl z-10 whitespace-nowrap">
-                                                            {item.date}: {item.active_users} users
+                                    <h3 className="text-lg font-bold mb-6 flex items-center justify-between">
+                                        <span>30-Day Student Activity</span>
+                                        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-surface-400 font-bold">
+                                            <div className="w-2 h-2 rounded-full bg-primary-500"></div>
+                                            Active Users
+                                        </div>
+                                    </h3>
+
+                                    <div className="relative h-64">
+                                        {/* Background Grid Lines */}
+                                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                            {[...Array(5)].map((_, i) => (
+                                                <div key={i} className="w-full border-t border-surface-100 dark:border-surface-800/50 h-0"></div>
+                                            ))}
+                                        </div>
+
+                                        <div className="relative h-full flex items-end gap-1 px-2">
+                                            {(() => {
+                                                const trend = stats?.activity_trend || []
+                                                const maxUsers = Math.max(...trend.map(i => i.active_users), 1)
+
+                                                return trend.map((item) => {
+                                                    const height = (item.active_users / maxUsers) * 100
+                                                    return (
+                                                        <div
+                                                            key={item.date}
+                                                            className="group relative flex-1 h-full flex flex-col justify-end items-center"
+                                                        >
+                                                            {/* Ghost Bar (Background) */}
+                                                            <div className="absolute inset-x-0 bottom-0 top-0 bg-primary-500/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-lg"></div>
+
+                                                            {/* Actual Data Bar */}
+                                                            <motion.div
+                                                                initial={{ height: 0 }}
+                                                                animate={{ height: `${height}%` }}
+                                                                className="w-1.5 md:w-2.5 bg-gradient-to-t from-primary-600 to-primary-400 rounded-full relative z-10 shadow-sm"
+                                                            />
+
+                                                            {/* Tooltip */}
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 hidden group-hover:block z-50">
+                                                                <div className="bg-surface-900 dark:bg-surface-800 text-white p-2 rounded-xl shadow-2xl border border-surface-700/50 whitespace-nowrap">
+                                                                    <div className="text-[8px] uppercase tracking-tighter text-surface-400 font-black mb-0.5">{item.date}</div>
+                                                                    <div className="text-sm font-black flex items-center gap-1.5">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-primary-400"></div>
+                                                                        {item.active_users} Users
+                                                                    </div>
+                                                                </div>
+                                                                <div className="w-2 h-2 bg-surface-900 dark:bg-surface-800 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-surface-700/50"></div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )
-                                            })
-                                        })()}
-                                        {(!stats?.activity_trend || stats.activity_trend.length === 0) && (
-                                            <p className="w-full text-center text-surface-500 py-24 italic">No activity trend available.</p>
-                                        )}
+                                                    )
+                                                })
+                                            })()}
+
+                                            {(!stats?.activity_trend || stats.activity_trend.length === 0) && (
+                                                <div className="absolute inset-0 flex items-center justify-center text-surface-500 italic text-sm">
+                                                    No activity trend data recorded.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
