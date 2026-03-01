@@ -8,6 +8,8 @@ from .models import Exam, Subject, Topic, TopicExamRelevance, Chapter
 class ExamSerializer(serializers.ModelSerializer):
     """Serializer for Exam model."""
     subjects_count = serializers.SerializerMethodField()
+    mock_tests_count = serializers.SerializerMethodField()
+    quizzes_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Exam

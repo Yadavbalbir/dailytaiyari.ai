@@ -164,7 +164,10 @@ class TenantContentExplorerView(APIView):
         from .serializers import ExamContentExplorerSerializer
         exams = Exam.objects.filter(status='active').prefetch_related(
             'subjects',
-            'subjects__chapters'
+            'subjects__chapters',
+            'subjects__quizzes',
+            'mock_tests',
+            'quizzes'
         ).order_by('name')
         
         serializer = ExamContentExplorerSerializer(exams, many=True)
