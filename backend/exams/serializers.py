@@ -16,11 +16,17 @@ class ExamSerializer(serializers.ModelSerializer):
             'icon', 'color', 'status', 'is_featured',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
-            'subjects_count', 'created_at'
+            'subjects_count', 'mock_tests_count', 'quizzes_count', 'created_at'
         ]
     
     def get_subjects_count(self, obj):
         return obj.subjects.count()
+
+    def get_mock_tests_count(self, obj):
+        return obj.mock_tests.count()
+
+    def get_quizzes_count(self, obj):
+        return obj.quizzes.count()
 
 
 class ExamListSerializer(serializers.ModelSerializer):
@@ -60,17 +66,21 @@ class TopicDetailSerializer(TopicSerializer):
 class SubjectSerializer(serializers.ModelSerializer):
     """Serializer for Subject model."""
     topics_count = serializers.SerializerMethodField()
+    quizzes_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Subject
         fields = [
             'id', 'name', 'code', 'description', 'icon', 'color',
             'weightage', 'total_topics', 'total_questions',
-            'topics_count', 'order'
+            'topics_count', 'quizzes_count', 'order'
         ]
     
     def get_topics_count(self, obj):
         return obj.topics.count()
+
+    def get_quizzes_count(self, obj):
+        return obj.quizzes.count()
 
 
 class SubjectDetailSerializer(SubjectSerializer):
@@ -108,6 +118,22 @@ class ChapterDetailSerializer(ChapterSerializer):
 class ExamDetailSerializer(ExamSerializer):
     """Detailed exam serializer with subjects."""
     subjects = SubjectSerializer(many=True, read_only=True)
+    
+    class Meta(ExamSerializer.Meta):
+        fields = ExamSerializer.Meta.fields + ['subjects']
+
+
+class SubjectWithChaptersSerializer(SubjectSerializer):
+    """Subject serializer with nested chapters."""
+    chapters = ChapterSerializer(many=True, read_only=True)
+    
+    class Meta(SubjectSerializer.Meta):
+        fields = SubjectSerializer.Meta.fields + ['chapters']
+
+
+class ExamContentExplorerSerializer(ExamSerializer):
+    """Hierarchical serializer for admin content explorer: Exam -> Subject -> Chapter."""
+    subjects = SubjectWithChaptersSerializer(many=True, read_only=True)
     
     class Meta(ExamSerializer.Meta):
         fields = ExamSerializer.Meta.fields + ['subjects']

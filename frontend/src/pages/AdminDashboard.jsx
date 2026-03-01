@@ -22,7 +22,12 @@ import {
     MapPin,
     School,
     BookOpen,
-    ExternalLink
+    ExternalLink,
+    Library,
+    ChevronDown,
+    Book,
+    Layers,
+    FileText
 } from 'lucide-react'
 
 const StatCard = ({ title, value, icon: Icon, color, description }) => (
@@ -465,6 +470,147 @@ const PerformanceReports = () => {
     )
 }
 
+const ContentManagement = () => {
+    const { data: explorer, isLoading } = useQuery({
+        queryKey: ['contentExplorer'],
+        queryFn: () => analyticsService.getContentExplorer(),
+    })
+
+    const [expandedExam, setExpandedExam] = useState(null)
+    const [expandedSubject, setExpandedSubject] = useState(null)
+
+    if (isLoading) return <div className="py-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between mb-2">
+                <div>
+                    <h2 className="text-xl font-bold text-surface-900 dark:text-white">Institutional Content Library</h2>
+                    <p className="text-sm text-surface-500">Explore exams, subjects, and chapters available to your students</p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {explorer?.map((exam) => (
+                    <div key={exam.id} className="bg-white dark:bg-surface-800 rounded-3xl border border-surface-100 dark:border-surface-700 overflow-hidden shadow-sm">
+                        {/* Exam Header */}
+                        <button
+                            onClick={() => setExpandedExam(expandedExam === exam.id ? null : exam.id)}
+                            className="w-full p-6 flex items-center justify-between hover:bg-surface-50/50 dark:hover:bg-surface-900/10 transition-colors"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-surface-100 dark:bg-surface-900/30 flex items-center justify-center">
+                                    <Library className="w-6 h-6 text-primary-500" />
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="font-bold text-lg text-surface-900 dark:text-white">{exam.name}</h3>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-xs font-bold text-surface-400 uppercase tracking-widest">{exam.exam_type}</span>
+                                        <div className="w-1 h-1 rounded-full bg-surface-300"></div>
+                                        <span className="text-xs text-surface-500">{exam.subjects_count} Subjects</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronDown className={`w-5 h-5 text-surface-400 transition-transform ${expandedExam === exam.id ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <AnimatePresence>
+                            {expandedExam === exam.id && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="overflow-hidden border-t dark:border-surface-700"
+                                >
+                                    <div className="p-6 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="p-4 bg-surface-50 dark:bg-surface-900/30 rounded-2xl">
+                                                <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">Duration</p>
+                                                <p className="font-bold text-surface-700 dark:text-surface-200">{exam.duration_minutes} Minutes</p>
+                                            </div>
+                                            <div className="p-4 bg-surface-50 dark:bg-surface-900/30 rounded-2xl">
+                                                <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">Marking Scheme</p>
+                                                <p className="font-bold text-surface-700 dark:text-surface-200">+{exam.total_marks} Total / No Neg</p>
+                                            </div>
+                                            <div className="p-4 bg-surface-50 dark:bg-surface-900/30 rounded-2xl">
+                                                <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">Testing Resources</p>
+                                                <p className="font-bold text-surface-700 dark:text-surface-200">{exam.mock_tests_count} Mock Tests / {exam.quizzes_count} Quizzes</p>
+                                            </div>
+                                            <div className="p-4 bg-surface-50 dark:bg-surface-900/30 rounded-2xl">
+                                                <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">Global Database</p>
+                                                <p className="font-bold text-surface-700 dark:text-surface-200">{exam.total_questions?.toLocaleString()}+ Questions</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <h4 className="text-xs font-black text-surface-400 uppercase tracking-widest px-2">Subjects & Chapters</h4>
+                                            {exam.subjects?.map((subject) => (
+                                                <div key={subject.id} className="border dark:border-surface-700 rounded-2xl overflow-hidden bg-surface-50/30 dark:bg-surface-900/10">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setExpandedSubject(expandedSubject === subject.id ? null : subject.id)
+                                                        }}
+                                                        className="w-full p-4 flex items-center justify-between hover:bg-surface-100/50 dark:hover:bg-surface-700/30 transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-white dark:bg-surface-800 flex items-center justify-center border border-surface-100 dark:border-surface-700">
+                                                                <Book className="w-4 h-4 text-primary-600" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <p className="font-bold text-surface-800 dark:text-surface-200">{subject.name}</p>
+                                                                <p className="text-[10px] text-surface-500">{subject.weightage}% weightage • {subject.total_topics} Topics</p>
+                                                            </div>
+                                                        </div>
+                                                        <ChevronDown className={`w-4 h-4 text-surface-400 transition-transform ${expandedSubject === subject.id ? 'rotate-180' : ''}`} />
+                                                    </button>
+
+                                                    <AnimatePresence>
+                                                        {expandedSubject === subject.id && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, height: 0 }}
+                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                exit={{ opacity: 0, height: 0 }}
+                                                                className="overflow-hidden bg-white dark:bg-surface-800"
+                                                            >
+                                                                <div className="p-4 pt-0 divide-y dark:divide-surface-700/50">
+                                                                    {subject.chapters?.map((chapter) => (
+                                                                        <div key={chapter.id} className="py-3 flex items-center justify-between group">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <Layers className="w-3.5 h-3.5 text-surface-400 group-hover:text-primary-500 transition-colors" />
+                                                                                <div>
+                                                                                    <p className="text-sm font-medium text-surface-700 dark:text-surface-300">{chapter.name}</p>
+                                                                                    <p className="text-[10px] text-surface-500 italic">{chapter.grade ? `Grade ${chapter.grade}` : 'Resource'} • {chapter.estimated_hours}h estimated</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-[10px] bg-surface-100 dark:bg-surface-900 border dark:border-surface-700 px-2 py-0.5 rounded-full text-surface-500">
+                                                                                    {chapter.topics_count} Topics
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {subject.chapters?.length === 0 && (
+                                                                        <p className="py-4 text-center text-xs text-surface-400 italic">No chapters defined for this subject.</p>
+                                                                    )}
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview')
 
@@ -512,6 +658,7 @@ const AdminDashboard = () => {
                     { id: 'overview', label: 'Overview', icon: TrendingUp },
                     { id: 'students', label: 'User Management', icon: Users },
                     { id: 'performance', label: 'Performance Reports', icon: BarChart3 },
+                    { id: 'content', label: 'Content Explorer', icon: Library },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -671,6 +818,7 @@ const AdminDashboard = () => {
 
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'performance' && <PerformanceReports />}
+                    {activeTab === 'content' && <ContentManagement />}
                 </motion.div>
             </AnimatePresence>
         </div>

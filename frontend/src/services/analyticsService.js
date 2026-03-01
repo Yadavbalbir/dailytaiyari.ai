@@ -123,4 +123,9 @@ export const analyticsService = {
     const response = await api.get(`/analytics/tenant-leaderboard/?limit=${limit}`)
     return response.data
   },
+
+  getContentExplorer: async () => {
+    const response = await api.get('/exams/explorer/')
+    return response.data
+  },
 }

@@ -149,6 +149,28 @@ class ChapterViewSet(TenantAwareReadOnlyViewSet):
         return ChapterSerializer
 
 
+class TenantContentExplorerView(APIView):
+    """
+    Hierarchical content explorer for Tenant Admins.
+    Returns all active exams -> subjects -> chapters.
+    """
+    permission_classes = [permissions.IsAuthenticated] # Role check handled in frontend for now, or add IsTenantAdmin
+
+    def get(self, request):
+        from users.models import User
+        if request.user.role not in [User.Role.TENANT_ADMIN, User.Role.SUPER_ADMIN]:
+            return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+            
+        from .serializers import ExamContentExplorerSerializer
+        exams = Exam.objects.filter(status='active').prefetch_related(
+            'subjects',
+            'subjects__chapters'
+        ).order_by('name')
+        
+        serializer = ExamContentExplorerSerializer(exams, many=True)
+        return Response(serializer.data)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Study Flow API — subjects/chapters/content with progress
 # ──────────────────────────────────────────────────────────────────────────────
