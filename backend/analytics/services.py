@@ -363,3 +363,72 @@ class AnalyticsService:
         
         return report
 
+    @staticmethod
+    def get_tenant_admin_stats(tenant):
+        """
+        Get aggregated statistics for all students in a tenant.
+        """
+        from users.models import StudentProfile
+        from django.db.models import Count, Avg, Sum
+        
+        # Base queryset for students in this tenant
+        students = StudentProfile.objects.filter(user__tenant=tenant)
+        total_students = students.count()
+        
+        if total_students == 0:
+            return {
+                'total_students': 0,
+                'active_today': 0,
+                'avg_accuracy': 0,
+                'total_xp': 0,
+                'level_distribution': {},
+                'activity_trend': []
+            }
+
+        # Active today (activity in last 24h)
+        today = timezone.now().date()
+        active_today = DailyActivity.objects.filter(
+            student__user__tenant=tenant,
+            date=today
+        ).values('student').distinct().count()
+
+        # Overall performance
+        performance = students.aggregate(
+            avg_accuracy=Avg('total_correct_answers' * 100.0 / F('total_questions_attempted')),
+            total_xp=Sum('total_xp')
+        )
+
+        # Level distribution
+        level_dist = students.values('current_level').annotate(count=Count('id')).order_by('current_level')
+        level_distribution = {str(item['current_level']): item['count'] for item in level_dist}
+
+        # Activity trend (last 30 days)
+        thirty_days_ago = today - timedelta(days=30)
+        trend_data = DailyActivity.objects.filter(
+            student__user__tenant=tenant,
+            date__gte=thirty_days_ago
+        ).values('date').annotate(
+            active_users=Count('student', distinct=True),
+            total_questions=Sum('questions_attempted'),
+            total_time=Sum('study_time_minutes')
+        ).order_by('date')
+
+        activity_trend = [
+            {
+                'date': item['date'].strftime('%Y-%m-%d'),
+                'active_users': item['active_users'],
+                'total_questions': item['total_questions'],
+                'total_time': item['total_time']
+            }
+            for item in trend_data
+        ]
+
+        return {
+            'total_students': total_students,
+            'active_today': active_today,
+            'avg_accuracy': round(performance['avg_accuracy'] or 0, 2),
+            'total_xp': performance['total_xp'] or 0,
+            'level_distribution': level_distribution,
+            'activity_trend': activity_trend
+        }
+

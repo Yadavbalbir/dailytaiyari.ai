@@ -107,5 +107,12 @@ export const analyticsService = {
     })
     return response.data
   },
+
+  // Tenant Admin Stats
+  getTenantAdminStats: async () => {
+    const response = await api.get('/analytics/tenant-admin-stats/')
+    return response.data
+  },
 }
+
 

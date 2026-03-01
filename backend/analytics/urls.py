@@ -7,8 +7,10 @@ from .views import (
     DashboardView,
     TopicMasteryViewSet, SubjectPerformanceViewSet,
     DailyActivityViewSet, StreakViewSet, WeeklyReportViewSet,
-    StudyTimerView, StudyGoalView
+    StudyTimerView, StudyGoalView,
+    TenantAdminStatsView
 )
+
 
 router = DefaultRouter()
 router.register(r'topic-mastery', TopicMasteryViewSet, basename='topic-mastery')
@@ -19,7 +21,9 @@ router.register(r'weekly-reports', WeeklyReportViewSet, basename='weekly-report'
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('tenant-admin-stats/', TenantAdminStatsView.as_view(), name='tenant-admin-stats'),
     path('study-timer/', StudyTimerView.as_view(), name='study-timer'),
+
     path('study-goal/', StudyGoalView.as_view(), name='study-goal'),
     path('', include(router.urls)),
 ]
