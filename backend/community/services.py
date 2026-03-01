@@ -3,7 +3,8 @@ Community services - Content moderation, XP rewards, leaderboard.
 """
 from datetime import date, timedelta
 from django.db import transaction
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, F, Q
+from django.utils import timezone
 from better_profanity import profanity
 
 from .models import (
@@ -155,7 +156,7 @@ class CommunityLeaderboardService:
     @classmethod
     def update_leaderboard(cls, period: str = 'weekly'):
         """
-        Update leaderboard for the specified period.
+        Update leaderboard for the specified period using XPTransaction as source of truth.
         """
         today = date.today()
         
@@ -170,60 +171,53 @@ class CommunityLeaderboardService:
             period_start = date(2020, 1, 1)
             period_end = today
         
-        # Get user stats for the period
         from users.models import StudentProfile
+        from gamification.models import XPTransaction
         
-        user_scores = []
+        # Get aggregate scores from XP transactions for the period
+        # We also need to get the counts for posts, answers, etc. for display
         
-        for profile in StudentProfile.objects.all():
-            # Count posts
-            posts = Post.objects.filter(
-                author=profile,
-                created_at__date__gte=period_start,
-                created_at__date__lte=period_end
-            ).count()
-            
-            # Count answers (comments on posts)
-            answers = Comment.objects.filter(
-                author=profile,
-                parent__isnull=True,  # Only top-level comments (answers)
-                created_at__date__gte=period_start,
-                created_at__date__lte=period_end
-            ).count()
-            
-            # Count best answers
-            best_answers = Comment.objects.filter(
-                author=profile,
-                is_best_answer=True,
-                created_at__date__gte=period_start,
-                created_at__date__lte=period_end
-            ).count()
-            
-            # Count likes received
-            likes = Like.objects.filter(
-                post__author=profile,
-                created_at__date__gte=period_start,
-                created_at__date__lte=period_end
-            ).count() + Like.objects.filter(
-                comment__author=profile,
-                created_at__date__gte=period_start,
-                created_at__date__lte=period_end
-            ).count()
-            
-            score = cls.calculate_score(posts, answers, best_answers, likes)
-            
-            if score > 0:
-                user_scores.append({
-                    'user': profile,
-                    'posts_count': posts,
-                    'answers_count': answers,
-                    'best_answers_count': best_answers,
-                    'likes_received': likes,
-                    'score': score
-                })
-        
-        # Sort by score and assign ranks
-        user_scores.sort(key=lambda x: x['score'], reverse=True)
+        # Use a single query with annotations to get all data
+        # Note: We filter profiles that have ANY community activity in this period
+        profiles_with_activity = StudentProfile.objects.annotate(
+            period_xp=Sum(
+                'xp_transactions__xp_amount',
+                filter=Q(
+                    xp_transactions__transaction_type='community',
+                    xp_transactions__created_at__date__gte=period_start,
+                    xp_transactions__created_at__date__lte=period_end
+                )
+            ),
+            p_count=Count(
+                'community_posts',
+                filter=Q(
+                    community_posts__created_at__date__gte=period_start,
+                    community_posts__created_at__date__lte=period_end,
+                    community_posts__status='active'
+                ),
+                distinct=True
+            ),
+            a_count=Count(
+                'community_comments',
+                filter=Q(
+                    community_comments__created_at__date__gte=period_start,
+                    community_comments__created_at__date__lte=period_end,
+                    community_comments__parent__isnull=True
+                ),
+                distinct=True
+            ),
+            ba_count=Count(
+                'community_comments',
+                filter=Q(
+                    community_comments__created_at__date__gte=period_start,
+                    community_comments__created_at__date__lte=period_end,
+                    community_comments__is_best_answer=True
+                ),
+                distinct=True
+            ),
+            # Likes received is harder to count direct via relationships in one go without complexity
+            # But we can approximate or just use the XP score as primary
+        ).filter(period_xp__gt=0).order_by('-period_xp')
         
         with transaction.atomic():
             # Delete old entries for this period
@@ -233,25 +227,38 @@ class CommunityLeaderboardService:
             ).delete()
             
             # Create new entries
-            for rank, data in enumerate(user_scores, 1):
-                CommunityLeaderboard.objects.create(
-                    user=data['user'],
+            # Limit to top 100 for storage efficiency per period
+            entries_to_create = []
+            for rank, profile in enumerate(profiles_with_activity[:100], 1):
+                # We still need likes count for display, we'll do quick secondary counts
+                # Since we are only doing this for top 100, it's fine
+                likes = Like.objects.filter(
+                    Q(post__author=profile) | Q(comment__author=profile),
+                    created_at__date__gte=period_start,
+                    created_at__date__lte=period_end
+                ).count()
+                
+                entries_to_create.append(CommunityLeaderboard(
+                    user=profile,
                     period=period,
                     period_start=period_start,
                     period_end=period_end,
-                    posts_count=data['posts_count'],
-                    answers_count=data['answers_count'],
-                    best_answers_count=data['best_answers_count'],
-                    likes_received=data['likes_received'],
-                    score=data['score'],
+                    posts_count=profile.p_count,
+                    answers_count=profile.a_count,
+                    best_answers_count=profile.ba_count,
+                    likes_received=likes,
+                    community_xp=profile.period_xp,
+                    score=profile.period_xp, # Use XP as the score directly
                     rank=rank
-                )
-        
-        return len(user_scores)
+                ))
+            
+            CommunityLeaderboard.objects.bulk_create(entries_to_create)
+            
+        return len(entries_to_create)
     
     @classmethod
     def get_leaderboard(cls, period: str = 'weekly', limit: int = 50):
-        """Get current leaderboard, generating if needed."""
+        """Get current leaderboard, generating if needed or stale."""
         today = date.today()
         
         if period == 'weekly':
@@ -261,17 +268,21 @@ class CommunityLeaderboardService:
         else:
             period_start = date(2020, 1, 1)
         
+        # Check if we have recent entries
+        # If any entry is older than 1 hour, refresh the whole leaderboard for this period
+        staleness_threshold = timezone.now() - timedelta(hours=1)
+        
+        last_entry = CommunityLeaderboard.objects.filter(
+            period=period,
+            period_start=period_start
+        ).order_by('-updated_at').first()
+        
+        if not last_entry or last_entry.updated_at < staleness_threshold:
+            cls.update_leaderboard(period)
+        
         entries = CommunityLeaderboard.objects.filter(
             period=period,
             period_start=period_start
-        ).select_related('user__user')[:limit]
-        
-        # If no entries exist, generate the leaderboard
-        if not entries.exists():
-            cls.update_leaderboard(period)
-            entries = CommunityLeaderboard.objects.filter(
-                period=period,
-                period_start=period_start
-            ).select_related('user__user')[:limit]
+        ).select_related('user__user').order_by('rank')[:limit]
         
         return entries
