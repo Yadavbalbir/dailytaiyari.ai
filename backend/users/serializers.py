@@ -22,10 +22,35 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs)
-        # Add extra response data
-        data['user'] = UserSerializer(self.user).data
-        return data
+        # The standard validate calls authenticate() which will fail 
+        # because the email is no longer globally unique for the default backend.
+        # We handle tenant-scoping here.
+        email = attrs.get('email')
+        password = attrs.get('password')
+        tenant = getattr(self.context['request'], 'tenant', None)
+
+        if not tenant:
+            raise serializers.ValidationError('Tenant context is missing.')
+
+        try:
+            user = User.objects.get(email=email, tenant=tenant)
+        except User.DoesNotExist:
+            user = None
+
+        if user and user.check_password(password):
+            if not user.is_active:
+                raise serializers.ValidationError('User account is disabled.')
+            self.user = user
+            refresh = self.get_token(user)
+            data = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': UserSerializer(user).data
+            }
+            return data
+        
+        raise serializers.ValidationError('No active account found with the given credentials')
+
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -43,9 +68,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        password = validated_data.pop('password')
         validated_data.pop('password_confirm')
-        user = User.objects.create_user(**validated_data)
+        tenant = validated_data.pop('tenant')
+        user = User.objects.create_user(password=password, tenant=tenant, **validated_data)
         return user
+
 
 
 class UserSerializer(serializers.ModelSerializer):

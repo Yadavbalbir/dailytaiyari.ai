@@ -11,19 +11,26 @@ import uuid
 class UserManager(BaseUserManager):
     """Custom user manager for email-based authentication."""
     
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, tenant=None, password=None, **extra_fields):
         if not email:
             raise ValueError('Email is required')
+        # Only require tenant for non-superuser/non-staff if needed, 
+        # but generally, we want to allow the model to handle the nullability.
+
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        user = self.model(email=email, tenant=tenant, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
+
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email, password, **extra_fields)
+        
+        # Superusers can be tenant-less
+        return self.create_user(email, tenant=None, password=password, **extra_fields)
+
 
 
 class User(AbstractUser):
@@ -37,10 +44,12 @@ class User(AbstractUser):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tenant = models.ForeignKey('core.Tenant', on_delete=models.CASCADE, related_name='users')
+    tenant = models.ForeignKey('core.Tenant', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
+
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     username = None  # Remove username field
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
+
     phone = models.CharField(max_length=15, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     
@@ -66,6 +75,8 @@ class User(AbstractUser):
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+        unique_together = ['email', 'tenant']
+
 
     def __str__(self):
         return self.email

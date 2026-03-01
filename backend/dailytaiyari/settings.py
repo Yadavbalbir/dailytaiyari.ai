@@ -62,6 +62,9 @@ INSTALLED_APPS = [
     'community.apps.CommunityConfig',
 ]
 
+SILENCED_SYSTEM_CHECKS = ["auth.E003"]
+
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
