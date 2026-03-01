@@ -18,6 +18,9 @@ from .serializers import (
     OnboardingSerializer
 )
 from exams.models import Exam
+from core.permissions import IsTenantAdmin
+from core.views import TenantAwareReadOnlyViewSet
+
 
 User = get_user_model()
 
@@ -145,4 +148,19 @@ class ExamEnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return ExamEnrollment.objects.filter(student=self.request.user.profile)
+
+
+class TenantStudentViewSet(TenantAwareReadOnlyViewSet):
+    """
+    List and retrieve student profiles for the current tenant.
+    Only accessible by tenant admins.
+    """
+    queryset = StudentProfile.objects.all()
+    serializer_class = StudentProfileSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def get_queryset(self):
+        # Already filtered by TenantAwareReadOnlyViewSet for request.tenant
+        return super().get_queryset().select_related('user', 'primary_exam')
+
 

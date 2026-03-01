@@ -34,6 +34,8 @@ import AIQuizReview from './pages/AIQuizReview'
 import Community from './pages/Community'
 import CommunityPost from './pages/CommunityPost'
 import PreviousYearPapers from './pages/PreviousYearPapers'
+import AdminDashboard from './pages/AdminDashboard'
+
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -129,7 +131,11 @@ function App() {
         <Route path="/ai-quiz-review/:attemptId" element={<AIQuizReview />} />
         <Route path="/community" element={<Community />} />
         <Route path="/community/:id" element={<CommunityPost />} />
+
+        {/* Admin Dashboard */}
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
       </Route>
+
 
       {/* Redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

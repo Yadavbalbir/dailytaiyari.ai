@@ -1,7 +1,8 @@
 """
 URL patterns for user authentication and profile.
 """
-from django.urls import path
+from django.urls import path, include
+
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     CustomTokenObtainPairView,
@@ -11,7 +12,13 @@ from .views import (
     OnboardingView,
     ExamEnrollmentListView,
     ExamEnrollmentDetailView,
+    TenantStudentViewSet,
 )
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register(r'tenant-students', TenantStudentViewSet, basename='tenant-students')
+
 
 urlpatterns = [
     # Authentication
@@ -27,5 +34,9 @@ urlpatterns = [
     # Exam Enrollments
     path('enrollments/', ExamEnrollmentListView.as_view(), name='enrollment-list'),
     path('enrollments/<uuid:pk>/', ExamEnrollmentDetailView.as_view(), name='enrollment-detail'),
+
+    # Tenant Management
+    path('', include(router.urls)),
 ]
+
 

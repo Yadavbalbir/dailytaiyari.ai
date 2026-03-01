@@ -17,6 +17,8 @@ from .serializers import (
 from .services import AnalyticsService
 from gamification.services import GamificationService
 from core.views import TenantAwareReadOnlyViewSet
+from core.permissions import IsTenantAdmin
+
 
 
 class DashboardView(APIView):
@@ -453,4 +455,23 @@ class StudyGoalView(APIView):
             'message': 'Goal updated',
             'daily_study_goal_minutes': new_goal,
         })
+
+
+class TenantAdminStatsView(APIView):
+    """
+    Get aggregated statistics for the entire tenant.
+    Only accessible by tenant admins.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def get(self, request):
+        if not request.tenant:
+            return Response(
+                {'error': 'Tenant context is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        stats = AnalyticsService.get_tenant_admin_stats(request.tenant)
+        return Response(stats)
+
 

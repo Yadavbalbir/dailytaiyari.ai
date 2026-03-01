@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../../context/authStore'
@@ -8,9 +9,14 @@ import { analyticsService } from '../../services/analyticsService'
 
 const Header = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { profile, logout } = useAuthStore()
   const { sidebarOpen, toggleSidebar, toggleMobileMenu, darkMode, toggleDarkMode } = useAppStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
+
+  const isAdmin = profile?.user?.role === 'admin'
+  const isAdminView = location.pathname.startsWith('/admin-dashboard')
+
 
   // Fetch current streak
   const { data: streakData } = useQuery({
@@ -64,7 +70,26 @@ const Header = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
+
+          {/* Admin Toggle */}
+          {isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate(isAdminView ? '/dashboard' : '/admin-dashboard')}
+              className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${isAdminView
+                ? 'bg-accent-50 border-accent-200 text-accent-700 dark:bg-accent-900/30 dark:border-accent-800 dark:text-accent-400'
+                : 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-400'
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full animate-pulse ${isAdminView ? 'bg-accent-500' : 'bg-primary-500'}`} />
+              <span className="text-sm font-semibold">
+                {isAdminView ? 'Back to Student View' : 'Switch to Admin View'}
+              </span>
+            </motion.button>
+          )}
         </div>
+
 
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
