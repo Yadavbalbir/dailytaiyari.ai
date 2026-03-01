@@ -612,12 +612,12 @@ const AdminDashboard = () => {
                                                 return (
                                                     <div
                                                         key={item.date}
-                                                        className="group relative flex-1"
+                                                        className="group relative flex-1 h-full flex flex-col justify-end"
                                                     >
                                                         <motion.div
                                                             initial={{ height: 0 }}
                                                             animate={{ height: `${height}%` }}
-                                                            className="w-full bg-primary-500/30 group-hover:bg-primary-500 transition-colors rounded-t-sm"
+                                                            className="w-full bg-primary-500 dark:bg-primary-400 opacity-30 group-hover:opacity-100 transition-opacity rounded-t-sm"
                                                         />
                                                         {/* Tooltip */}
                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-surface-900 text-white text-[10px] p-2 rounded shadow-xl z-10 whitespace-nowrap">
