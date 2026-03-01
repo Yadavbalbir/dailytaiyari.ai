@@ -12,9 +12,9 @@ from .views import (
 
 
 router = DefaultRouter()
-router.register(r'topics', TopicMasteryViewSet, basename='topic-mastery')
-router.register(r'subjects', SubjectPerformanceViewSet, basename='subject-performance')
-router.register(r'activity', DailyActivityViewSet, basename='daily-activity')
+router.register(r'topic-mastery', TopicMasteryViewSet, basename='topic-mastery')
+router.register(r'subject-performance', SubjectPerformanceViewSet, basename='subject-performance')
+router.register(r'daily-activity', DailyActivityViewSet, basename='daily-activity')
 router.register(r'streaks', StreakViewSet, basename='streak')
 router.register(r'weekly-reports', WeeklyReportViewSet, basename='weekly-report')
 
