@@ -393,10 +393,14 @@ class AnalyticsService:
         ).values('student').distinct().count()
 
         # Overall performance
-        performance = students.aggregate(
-            avg_accuracy=Avg('total_correct_answers' * 100.0 / F('total_questions_attempted')),
-            total_xp=Sum('total_xp')
+        # Total XP from all students
+        total_xp = students.aggregate(total=Sum('total_xp'))['total'] or 0
+        
+        # Avg accuracy only from students who have attempted questions
+        performance = students.filter(total_questions_attempted__gt=0).aggregate(
+            avg_accuracy=Avg(F('total_correct_answers') * 100.0 / F('total_questions_attempted'))
         )
+        avg_accuracy = performance['avg_accuracy'] or 0
 
         # Level distribution
         level_dist = students.values('current_level').annotate(count=Count('id')).order_by('current_level')
@@ -426,8 +430,9 @@ class AnalyticsService:
         return {
             'total_students': total_students,
             'active_today': active_today,
-            'avg_accuracy': round(performance['avg_accuracy'] or 0, 2),
-            'total_xp': performance['total_xp'] or 0,
+            'avg_accuracy': round(avg_accuracy, 2),
+            'total_xp': total_xp,
+
             'level_distribution': level_distribution,
             'activity_trend': activity_trend
         }
