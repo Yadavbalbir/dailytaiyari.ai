@@ -73,7 +73,9 @@ const StudentManagement = () => {
         }
     })
 
-    const filteredStudents = students?.filter(student => {
+    const studentList = Array.isArray(students) ? students : (students?.results || [])
+
+    const filteredStudents = studentList.filter(student => {
         const matchesSearch = student.user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             student.user.email.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesRole = filterRole === 'all' || student.user.role === filterRole

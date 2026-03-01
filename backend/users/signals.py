@@ -10,7 +10,7 @@ from .models import User, StudentProfile
 def create_student_profile(sender, instance, created, **kwargs):
     """Create StudentProfile when a new User is created."""
     if created:
-        StudentProfile.objects.create(user=instance)
+        StudentProfile.objects.create(user=instance, tenant=instance.tenant)
 
 
 @receiver(post_save, sender=User)

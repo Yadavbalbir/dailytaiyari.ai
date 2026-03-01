@@ -162,7 +162,8 @@ class TenantStudentViewSet(TenantAwareViewSet):
     permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
 
     def get_queryset(self):
-        return super().get_queryset().select_related('user', 'primary_exam')
+        tenant = self.request.tenant
+        return StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_exam')
 
     @action(detail=True, methods=['post'])
     def reset_progress(self, request, pk=None):
