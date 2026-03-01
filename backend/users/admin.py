@@ -5,18 +5,20 @@ from .models import User, StudentProfile, ExamEnrollment
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['email', 'first_name', 'last_name', 'is_onboarded', 'is_active', 'created_at']
-    list_filter = ['is_onboarded', 'is_active', 'is_staff']
+    list_display = ['email', 'first_name', 'last_name', 'tenant', 'role', 'is_onboarded', 'is_active', 'created_at']
+    list_filter = ['tenant', 'role', 'is_onboarded', 'is_active', 'is_staff']
     search_fields = ['email', 'first_name', 'last_name']
     ordering = ['-created_at']
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
+        ('Organization', {'fields': ('tenant', 'role')}),
         ('Personal Info', {'fields': ('first_name', 'last_name', 'phone', 'avatar')}),
         ('Preferences', {'fields': ('preferred_language', 'notification_enabled', 'dark_mode')}),
         ('Status', {'fields': ('is_onboarded', 'onboarded_at')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
     )
+
     
     add_fieldsets = (
         (None, {
