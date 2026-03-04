@@ -1,11 +1,13 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { examService } from '../services/examService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
-  ChevronRight, GraduationCap
+  ChevronRight, GraduationCap, ChevronDown
 } from 'lucide-react'
 
 const iconMap = {
@@ -18,26 +20,67 @@ const iconMap = {
 
 const Study = () => {
   const navigate = useNavigate()
+  const { profile } = useAuthStore()
+  const primaryExamId = profile?.primary_exam ?? null
 
-  const { data: subjects, isLoading } = useQuery({
-    queryKey: ['studySubjects'],
-    queryFn: () => examService.getStudySubjects(),
+  const [selectedExamId, setSelectedExamId] = useState(primaryExamId || '')
+
+  useEffect(() => {
+    if (primaryExamId && !selectedExamId) setSelectedExamId(primaryExamId)
+  }, [primaryExamId])
+
+  const { data: exams, isLoading: examsLoading } = useQuery({
+    queryKey: ['examsList'],
+    queryFn: () => examService.getExams(),
   })
 
-  if (isLoading) return <Loading fullScreen />
+  const { data: subjects, isLoading: subjectsLoading } = useQuery({
+    queryKey: ['studySubjects', selectedExamId || primaryExamId],
+    queryFn: () => examService.getStudySubjects(selectedExamId || primaryExamId || undefined),
+    enabled: !!(selectedExamId || primaryExamId),
+  })
+
+  const effectiveExamId = selectedExamId || primaryExamId
+  const isLoading = examsLoading || subjectsLoading
+
+  if (isLoading && !subjects?.length) return <Loading fullScreen />
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Study</h1>
-        <p className="text-surface-500 mt-1">Select a subject to start learning</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Study</h1>
+          <p className="text-surface-500 mt-1">Select a subject to start learning</p>
+        </div>
+        {exams?.length >= 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-surface-500 whitespace-nowrap">Exam:</span>
+            <select
+              value={effectiveExamId || ''}
+              onChange={(e) => setSelectedExamId(e.target.value || null)}
+              className="input py-2 pl-3 pr-8 text-sm min-w-[180px]"
+            >
+              {!effectiveExamId && <option value="">Select exam</option>}
+              {exams.map((exam) => (
+                <option key={exam.id} value={exam.id}>
+                  {exam.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={18} className="text-surface-400 -ml-6 pointer-events-none" />
+          </div>
+        )}
       </div>
 
       {(!subjects || subjects.length === 0) ? (
         <div className="text-center py-16 text-surface-500">
           <GraduationCap size={64} className="mx-auto mb-4 text-surface-300" />
           <p className="text-lg font-medium">No subjects available yet</p>
-          <p className="text-sm mt-1">Please set your primary exam in your profile</p>
+          <p className="text-sm mt-1">
+            {effectiveExamId
+              ? 'This exam has no subjects configured, or try another exam from the dropdown above.'
+              : 'Select an exam above or set your primary exam in your profile.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

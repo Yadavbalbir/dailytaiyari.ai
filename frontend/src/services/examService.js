@@ -26,9 +26,10 @@ export const examService = {
     return response.data
   },
 
-  // Study flow APIs
-  getStudySubjects: async () => {
-    const response = await api.get('/exams/study/subjects/')
+  // Study flow APIs (examId optional: when provided, returns subjects for that exam; else uses profile primary_exam)
+  getStudySubjects: async (examId = null) => {
+    const params = examId ? { exam_id: examId } : {}
+    const response = await api.get('/exams/study/subjects/', { params })
     return response.data
   },
 
