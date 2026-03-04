@@ -17,7 +17,8 @@ import Onboarding from './pages/auth/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Study from './pages/Study'
 import StudyChapters from './pages/StudyChapters'
-import StudyChapterDetail from './pages/StudyChapterDetail'
+import StudyChapterTopics from './pages/StudyChapterTopics'
+import StudyTopicContent from './pages/StudyTopicContent'
 import TopicView from './pages/TopicView'
 import ContentViewer from './pages/ContentViewer'
 import Quiz from './pages/Quiz'
@@ -115,7 +116,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/study" element={<Study />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />
-          <Route path="/study/chapter/:chapterId" element={<StudyChapterDetail />} />
+          <Route path="/study/chapter/:chapterId" element={<StudyChapterTopics />} />
+          <Route path="/study/chapter/:chapterId/topic/:topicId" element={<StudyTopicContent />} />
           <Route path="/topic/:topicId" element={<TopicView />} />
           <Route path="/content/:contentId" element={<ContentViewer />} />
           <Route path="/quiz" element={<Quiz />} />
