@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Exam, Subject, Topic, TopicExamRelevance, Chapter
+from .models import Exam, Subject, Topic, TopicExamRelevance, Chapter, ChapterTopic
 
 
 @admin.register(Exam)
@@ -33,10 +33,17 @@ class TopicExamRelevanceAdmin(admin.ModelAdmin):
     raw_id_fields = ['topic', 'exam']
 
 
+class ChapterTopicInline(admin.TabularInline):
+    model = ChapterTopic
+    extra = 0
+    raw_id_fields = ['topic']
+    ordering = ['order']
+
+
 @admin.register(Chapter)
 class ChapterAdmin(admin.ModelAdmin):
     list_display = ['name', 'subject', 'grade', 'estimated_hours', 'order']
     list_filter = ['subject', 'grade']
     search_fields = ['name', 'code']
-    filter_horizontal = ['topics']
+    inlines = [ChapterTopicInline]
 

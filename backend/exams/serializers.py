@@ -110,11 +110,15 @@ class ChapterSerializer(serializers.ModelSerializer):
 
 
 class ChapterDetailSerializer(ChapterSerializer):
-    """Detailed serializer with topics."""
-    topics = TopicSerializer(many=True, read_only=True)
-    
+    """Detailed serializer with topics in chapter order (via ChapterTopic)."""
+    topics = serializers.SerializerMethodField()
+
     class Meta(ChapterSerializer.Meta):
         fields = ChapterSerializer.Meta.fields + ['topics']
+
+    def get_topics(self, obj):
+        qs = obj.chapter_topics.select_related('topic').order_by('order')
+        return TopicSerializer([ct.topic for ct in qs], many=True).data
 
 
 class ExamDetailSerializer(ExamSerializer):

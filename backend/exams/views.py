@@ -178,7 +178,11 @@ class TenantContentExplorerView(APIView):
 # ──────────────────────────────────────────────────────────────────────────────
 
 class StudySubjectsView(APIView):
-    """Return subjects for the student's primary exam with completion progress."""
+    """
+    Return subjects for the selected exam with completion progress.
+    Flow: Study tab → select exam → this list of subjects.
+    Query params: exam_id (optional) — if omitted, uses student's primary_exam.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -186,7 +190,14 @@ class StudySubjectsView(APIView):
         from quiz.models import Quiz, QuizAttempt
 
         student = request.user.profile
-        exam = student.primary_exam
+        exam_id = request.query_params.get('exam_id')
+        if exam_id:
+            try:
+                exam = Exam.objects.get(pk=exam_id, status='active')
+            except Exam.DoesNotExist:
+                return Response({'error': 'Exam not found'}, status=404)
+        else:
+            exam = getattr(student, 'primary_exam', None)
         if not exam:
             return Response([])
 
@@ -242,7 +253,10 @@ class StudySubjectsView(APIView):
 
 
 class StudyChaptersView(APIView):
-    """Return chapters for a subject with completion progress."""
+    """
+    Return chapters for a subject with ordered topics in each chapter.
+    Flow: Subject → Chapters → each chapter has topics (ordered).
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, subject_id):
@@ -255,10 +269,23 @@ class StudyChaptersView(APIView):
         except Subject.DoesNotExist:
             return Response({'error': 'Subject not found'}, status=404)
 
-        chapters = subject.chapters.all().order_by('order')
+        chapters = subject.chapters.all().order_by('order').prefetch_related(
+            'chapter_topics__topic'
+        )
         result = []
         for ch in chapters:
-            topic_ids = ch.topics.values_list('id', flat=True)
+            # Ordered topics via ChapterTopic (prefetched)
+            chapter_topic_qs = ch.chapter_topics.select_related('topic').order_by('order')
+            topic_ids = []
+            topic_list = []
+            for ct in chapter_topic_qs:
+                topic_ids.append(ct.topic_id)
+                topic_list.append({
+                    'id': str(ct.topic.id),
+                    'name': ct.topic.name,
+                    'code': ct.topic.code,
+                    'order': ct.order,
+                })
 
             content_count = Content.objects.filter(
                 topic_id__in=topic_ids, status='published'
@@ -326,6 +353,7 @@ class StudyChaptersView(APIView):
                 'description': ch.description,
                 'estimated_hours': float(ch.estimated_hours),
                 'topics_count': len(topic_ids),
+                'topics': topic_list,
                 'order': ch.order,
                 'progress': progress,
                 'reading': {'total': reading_total, 'completed': reading_done},
@@ -345,7 +373,10 @@ class StudyChaptersView(APIView):
 
 
 class StudyChapterDetailView(APIView):
-    """Return full chapter detail: content items, quizzes, with per-item progress."""
+    """
+    Return chapter detail with topics; each topic has reading materials and quizzes.
+    Flow: Chapter → Topics → each topic has reading (content) + quizzes.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, chapter_id):
@@ -354,50 +385,44 @@ class StudyChapterDetailView(APIView):
 
         student = request.user.profile
         try:
-            chapter = Chapter.objects.select_related('subject').get(pk=chapter_id)
+            chapter = Chapter.objects.select_related('subject').prefetch_related(
+                'chapter_topics__topic'
+            ).get(pk=chapter_id)
         except Chapter.DoesNotExist:
             return Response({'error': 'Chapter not found'}, status=404)
 
-        topic_ids = list(chapter.topics.values_list('id', flat=True))
+        # Ordered topics in this chapter
+        chapter_topics = list(
+            chapter.chapter_topics.select_related('topic').order_by('order')
+        )
+        topic_ids = [ct.topic_id for ct in chapter_topics]
 
-        # Content items with progress
+        if not topic_ids:
+            return Response({
+                'chapter': {
+                    'id': str(chapter.id),
+                    'name': chapter.name,
+                    'code': chapter.code,
+                    'description': chapter.description,
+                    'subject_name': chapter.subject.name,
+                    'subject_id': str(chapter.subject.id),
+                    'estimated_hours': float(chapter.estimated_hours),
+                },
+                'topics': [],
+            })
+
         contents = Content.objects.filter(
             topic_id__in=topic_ids, status='published'
-        ).order_by('order')
+        ).order_by('topic_id', 'order')
         progress_map = {
             cp.content_id: cp
             for cp in ContentProgress.objects.filter(
                 student=student, content__in=contents
             )
         }
-        reading_items = []
-        video_items = []
-        for c in contents:
-            cp = progress_map.get(c.id)
-            item = {
-                'id': str(c.id),
-                'title': c.title,
-                'content_type': c.content_type,
-                'topic_name': c.topic.name,
-                'estimated_time_minutes': c.estimated_time_minutes,
-                'video_duration_minutes': c.video_duration_minutes,
-                'difficulty': c.difficulty,
-                'is_free': c.is_free,
-                'views_count': c.views_count,
-                'is_completed': cp.is_completed if cp else False,
-                'progress_percentage': cp.progress_percentage if cp else 0,
-                'video_position_seconds': cp.video_position_seconds if cp else 0,
-                'is_bookmarked': cp.is_bookmarked if cp else False,
-            }
-            if c.content_type == 'video':
-                video_items.append(item)
-            else:
-                reading_items.append(item)
-
-        # Quizzes with attempt info
         quizzes = Quiz.objects.filter(
             topic_id__in=topic_ids, status='published'
-        ).order_by('created_at')
+        ).prefetch_related('questions')
         attempt_map = {}
         for qa in QuizAttempt.objects.filter(
             student=student, quiz__in=quizzes, status='completed'
@@ -412,21 +437,68 @@ class StudyChapterDetailView(APIView):
                 'completed_at': qa.completed_at.isoformat() if qa.completed_at else None,
             })
 
-        quiz_items = []
+        # Build per-topic: reading (notes, revision, pdf, formula) + videos + quizzes
+        content_by_topic = {}
+        for c in contents:
+            tid = str(c.topic_id)
+            if tid not in content_by_topic:
+                content_by_topic[tid] = {'reading': [], 'videos': []}
+            cp = progress_map.get(c.id)
+            item = {
+                'id': str(c.id),
+                'title': c.title,
+                'content_type': c.content_type,
+                'estimated_time_minutes': c.estimated_time_minutes,
+                'video_duration_minutes': c.video_duration_minutes,
+                'difficulty': c.difficulty,
+                'is_free': c.is_free,
+                'views_count': c.views_count,
+                'is_completed': cp.is_completed if cp else False,
+                'progress_percentage': cp.progress_percentage if cp else 0,
+                'video_position_seconds': cp.video_position_seconds if cp else 0,
+                'is_bookmarked': cp.is_bookmarked if cp else False,
+            }
+            if c.content_type == 'video':
+                content_by_topic[tid]['videos'].append(item)
+            else:
+                content_by_topic[tid]['reading'].append(item)
+
+        quiz_by_topic = {}
         for q in quizzes:
+            tid = str(q.topic_id) if q.topic_id else None
+            if tid not in quiz_by_topic:
+                quiz_by_topic[tid] = []
             attempts = attempt_map.get(q.id, [])
             best = max((a['percentage'] for a in attempts), default=0) if attempts else 0
-            quiz_items.append({
+            quiz_by_topic[tid].append({
                 'id': str(q.id),
                 'title': q.title,
                 'quiz_type': q.quiz_type,
-                'topic_name': q.topic.name if q.topic else '',
                 'duration_minutes': q.duration_minutes,
                 'total_questions': q.questions.count(),
                 'is_free': q.is_free,
                 'attempts_count': len(attempts),
                 'best_score': best,
                 'last_attempt': attempts[0] if attempts else None,
+            })
+
+        topics_payload = []
+        for ct in chapter_topics:
+            t = ct.topic
+            tid = str(t.id)
+            topics_payload.append({
+                'topic': {
+                    'id': tid,
+                    'name': t.name,
+                    'code': t.code,
+                    'order': ct.order,
+                    'difficulty': t.difficulty,
+                    'importance': t.importance,
+                    'estimated_study_hours': float(t.estimated_study_hours),
+                },
+                'reading': content_by_topic.get(tid, {}).get('reading', []),
+                'videos': content_by_topic.get(tid, {}).get('videos', []),
+                'quizzes': quiz_by_topic.get(tid, []),
             })
 
         return Response({
@@ -439,9 +511,7 @@ class StudyChapterDetailView(APIView):
                 'subject_id': str(chapter.subject.id),
                 'estimated_hours': float(chapter.estimated_hours),
             },
-            'reading': reading_items,
-            'videos': video_items,
-            'quizzes': quiz_items,
+            'topics': topics_payload,
         })
 
 
@@ -464,7 +534,7 @@ class StudyLeaderboardView(APIView):
                 ch = Chapter.objects.get(pk=scope_id)
             except Chapter.DoesNotExist:
                 return Response([])
-            topic_ids = ch.topics.values_list('id', flat=True)
+            topic_ids = ch.chapter_topics.values_list('topic_id', flat=True)
         else:
             return Response([])
 

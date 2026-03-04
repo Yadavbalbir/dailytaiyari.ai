@@ -178,7 +178,7 @@ class TopicExamRelevance(TimeStampedModel):
 class Chapter(OrderedModel):
     """
     Chapters organize topics into a learning sequence.
-    Maps to textbook chapters for board exams.
+    Study flow: Exam → Subject → Chapter → Topic → (Content + Quizzes).
     """
     name = models.CharField(max_length=300)
     code = models.CharField(max_length=100)
@@ -186,9 +186,15 @@ class Chapter(OrderedModel):
     
     # Relationships
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='chapters')
-    topics = models.ManyToManyField(Topic, related_name='chapters')
+    topics = models.ManyToManyField(
+        Topic,
+        through='ChapterTopic',
+        through_fields=('chapter', 'topic'),
+        related_name='chapters',
+        blank=True,
+    )
     
-    # For board exams (e.g., CBSE)
+    # For board exams (e.g., CBSE) or syllabus grouping (e.g., class_11, algebra)
     grade = models.CharField(max_length=20, blank=True)
     book_reference = models.CharField(max_length=200, blank=True)
     
@@ -198,7 +204,26 @@ class Chapter(OrderedModel):
     class Meta:
         verbose_name = 'Chapter'
         verbose_name_plural = 'Chapters'
+        ordering = ['order', 'name']
 
     def __str__(self):
         return f"{self.subject.name} - {self.name}"
+
+
+class ChapterTopic(OrderedModel):
+    """
+    Through model: ordering of topics within a chapter.
+    Enables Study flow: Chapter → Topics (ordered) → each topic has Content + Quizzes.
+    """
+    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='chapter_topics')
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='chapter_topics')
+
+    class Meta:
+        unique_together = [['chapter', 'topic']]
+        verbose_name = 'Chapter Topic'
+        verbose_name_plural = 'Chapter Topics'
+        ordering = ['chapter', 'order']
+
+    def __str__(self):
+        return f"{self.chapter.name} → {self.topic.name}"
 
