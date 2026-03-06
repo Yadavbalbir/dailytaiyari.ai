@@ -4,18 +4,19 @@ from .models import Exam, Subject, Topic, TopicExamRelevance, Chapter, ChapterTo
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'exam_type', 'status', 'is_featured', 'total_students']
-    list_filter = ['exam_type', 'status', 'is_featured']
+    list_display = ['name', 'code', 'tenant', 'exam_type', 'status', 'is_featured', 'total_students']
+    list_filter = ['tenant', 'exam_type', 'status', 'is_featured']
     search_fields = ['name', 'code']
     prepopulated_fields = {'code': ('name',)}
+    raw_id_fields = ['tenant']
 
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'weightage', 'total_topics', 'total_questions', 'order']
-    list_filter = ['exams']
+    list_display = ['name', 'code', 'exam', 'weightage', 'total_topics', 'total_questions', 'order']
+    list_filter = ['exam']
     search_fields = ['name', 'code']
-    filter_horizontal = ['exams']
+    raw_id_fields = ['exam']
 
 
 @admin.register(Topic)

@@ -6,6 +6,12 @@ export const examService = {
     return response.data
   },
 
+  /** Exams for enrollment dropdown — includes tenant + platform exams so list is never empty */
+  getAvailableExamsForEnrollment: async () => {
+    const response = await api.get('/exams/available-for-enrollment/')
+    return response.data
+  },
+
   getExamDetails: async (examId) => {
     const response = await api.get(`/exams/${examId}/`)
     return response.data
@@ -26,7 +32,12 @@ export const examService = {
     return response.data
   },
 
-  // Study flow APIs (examId optional: when provided, returns subjects for that exam; else uses profile primary_exam)
+  // Study flow: exams (enrolled or active) then subjects
+  getStudyExams: async () => {
+    const response = await api.get('/exams/study/exams/')
+    return response.data
+  },
+
   getStudySubjects: async (examId = null) => {
     const params = examId ? { exam_id: examId } : {}
     const response = await api.get('/exams/study/subjects/', { params })
@@ -48,6 +59,19 @@ export const examService = {
       params: { scope, scope_id: scopeId },
     })
     return response.data
+  },
+
+  // Enrollments: list and enroll in an exam
+  getEnrollments: async () => {
+    const response = await api.get('/auth/enrollments/')
+    return response.data
+  },
+  enrollInExam: async (examId) => {
+    const response = await api.post('/auth/enrollments/', { exam: examId })
+    return response.data
+  },
+  unenroll: async (enrollmentId) => {
+    await api.delete(`/auth/enrollments/${enrollmentId}/`)
   },
 }
 

@@ -76,7 +76,7 @@ class SubjectViewSet(TenantAwareReadOnlyViewSet):
             try:
                 exam = self.request.user.profile.primary_exam
                 if exam and not self.request.query_params.get('exams'):
-                    queryset = queryset.filter(exams=exam)
+                    queryset = queryset.filter(exam=exam)
             except Exception:
                 pass
         return queryset
@@ -119,7 +119,7 @@ class TopicViewSet(TenantAwareReadOnlyViewSet):
             try:
                 exam = self.request.user.profile.primary_exam
                 if exam:
-                    queryset = queryset.filter(subject__exams=exam)
+                    queryset = queryset.filter(subject__exam=exam)
             except Exception:
                 pass
         return queryset
@@ -174,8 +174,66 @@ class TenantContentExplorerView(APIView):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Study Flow API — subjects/chapters/content with progress
+# Exams available for enrollment (dropdown / list) — not tenant-strict so list is never empty
 # ──────────────────────────────────────────────────────────────────────────────
+
+class AvailableExamsForEnrollmentView(APIView):
+    """
+    Return active exams for the enrollment dropdown. Exam must belong to the request tenant.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        qs = Exam.objects.filter(status='active').order_by('name')
+        if hasattr(request, 'tenant') and request.tenant:
+            qs = qs.filter(tenant=request.tenant)
+        exams = list(qs)
+        result = [
+            {
+                'id': str(e.id),
+                'name': e.name,
+                'code': e.code,
+                'color': getattr(e, 'color', None) or '#3B82F6',
+                'is_featured': getattr(e, 'is_featured', False),
+            }
+            for e in exams
+        ]
+        return Response(result)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Study Flow API — exams → subjects → chapters → content with progress
+# ──────────────────────────────────────────────────────────────────────────────
+
+class StudyExamsView(APIView):
+    """
+    Return only exams the user is enrolled/registered in for the Study tab.
+    No fallback to all exams — user sees only their enrolled exams.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from users.models import ExamEnrollment
+
+        student = request.user.profile
+        enrolled = ExamEnrollment.objects.filter(
+            student=student, is_active=True
+        ).select_related('exam').order_by('enrolled_at')
+
+        exams = [e.exam for e in enrolled if e.exam and e.exam.status == 'active']
+
+        result = [
+            {
+                'id': str(e.id),
+                'name': e.name,
+                'code': e.code,
+                'color': getattr(e, 'color', None) or '#3B82F6',
+                'is_featured': getattr(e, 'is_featured', False),
+            }
+            for e in exams
+        ]
+        return Response(result)
+
 
 class StudySubjectsView(APIView):
     """
@@ -201,7 +259,7 @@ class StudySubjectsView(APIView):
         if not exam:
             return Response([])
 
-        subjects = Subject.objects.filter(exams=exam).order_by('order')
+        subjects = Subject.objects.filter(exam=exam).order_by('order')
         result = []
         for subj in subjects:
             content_count = Content.objects.filter(

@@ -8,6 +8,7 @@ from core.models import TimeStampedModel, OrderedModel
 class Exam(TimeStampedModel):
     """
     Represents an exam category (e.g., NEET, IIT JEE, CBSE Class 10).
+    Every exam must belong to a tenant.
     """
     EXAM_TYPES = [
         ('competitive', 'Competitive Exam'),
@@ -22,6 +23,11 @@ class Exam(TimeStampedModel):
         ('inactive', 'Inactive'),
     ]
 
+    tenant = models.ForeignKey(
+        'core.Tenant',
+        on_delete=models.CASCADE,
+        related_name='exams',
+    )
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50, unique=True)  # e.g., 'neet', 'jee-main'
     description = models.TextField(blank=True)
@@ -61,7 +67,7 @@ class Exam(TimeStampedModel):
 class Subject(OrderedModel):
     """
     Subjects within an exam (e.g., Physics, Chemistry for NEET).
-    A subject can belong to multiple exams.
+    Each subject is linked to one and only one exam.
     """
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50)
@@ -71,8 +77,12 @@ class Subject(OrderedModel):
     icon = models.CharField(max_length=50, blank=True)  # Icon name
     color = models.CharField(max_length=7, default='#10B981')
     
-    # Exam relationship
-    exams = models.ManyToManyField(Exam, related_name='subjects')
+    # Exam relationship: one subject belongs to one exam
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name='subjects',
+    )
     
     # Importance for exam
     weightage = models.DecimalField(
@@ -88,6 +98,7 @@ class Subject(OrderedModel):
     class Meta:
         verbose_name = 'Subject'
         verbose_name_plural = 'Subjects'
+        unique_together = [['code', 'exam']]
 
     def __str__(self):
         return self.name
