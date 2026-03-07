@@ -25,10 +25,14 @@ class AnalyticsService:
         # Group answers by topic
         topic_stats = {}
         for answer in answers:
-            topic = answer.question.topic
+            question = getattr(answer, 'question', None)
+            if not question:
+                continue
+            topic = getattr(question, 'topic', None)
+            if not topic:
+                continue
             if topic.id not in topic_stats:
                 topic_stats[topic.id] = {'correct': 0, 'total': 0, 'time': 0}
-            
             topic_stats[topic.id]['total'] += 1
             if answer.is_correct:
                 topic_stats[topic.id]['correct'] += 1
