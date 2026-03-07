@@ -22,18 +22,11 @@ class GamificationService:
         
         student.total_xp += xp_amount
         new_level = student.calculate_level()
-        
         level_up = new_level > student.current_level
-        level_bonus = 0
         if level_up:
             student.current_level = new_level
-            # Award level up bonus
-            level_bonus = new_level * 50
-            student.total_xp += level_bonus
-        
         student.save()
-        
-        # Create transaction
+
         XPTransaction.objects.create(
             student=student,
             transaction_type=transaction_type,
@@ -42,28 +35,17 @@ class GamificationService:
             reference_id=reference_id,
             balance_after=student.total_xp
         )
-        
-        if level_up:
-            XPTransaction.objects.create(
-                student=student,
-                transaction_type='level_up',
-                xp_amount=level_bonus,
-                description=f'Level {new_level} reached!',
-                balance_after=student.total_xp
-            )
-        
-        # Update daily activity with XP (for leaderboard sync)
-        # Skip for quiz_complete since that's already tracked by the quiz submission
+
         if update_daily_activity and transaction_type not in ['quiz_complete', 'mock_complete']:
             today = timezone.now().date()
             activity, _ = DailyActivity.objects.get_or_create(
                 student=student,
                 date=today
             )
-            activity.xp_earned += xp_amount + level_bonus
+            activity.xp_earned += xp_amount
             activity.save(update_fields=['xp_earned'])
-        
-        return {'xp_awarded': xp_amount, 'level_up': level_up, 'new_level': new_level, 'level_bonus': level_bonus}
+
+        return {'xp_awarded': xp_amount, 'level_up': level_up, 'new_level': new_level, 'level_bonus': 0}
     
     @staticmethod
     def check_and_award_badges(student, context=None):
@@ -218,22 +200,11 @@ class GamificationService:
             # This prevents unknown badges from being awarded
             
             if qualified:
-                StudentBadge.objects.create(
-                    student=student,
-                    badge=badge
-                )
                 awarded_badges.append(badge)
-                
-                # Award badge XP
-                if badge.xp_reward > 0:
-                    GamificationService.award_xp(
-                        student,
-                        badge.xp_reward,
-                        'badge_earned',
-                        f'Earned badge: {badge.name}',
-                        badge.id
-                    )
         
+        for badge in awarded_badges:
+            StudentBadge.objects.create(student=student, badge=badge)
+        # No XP for earning badges
         return awarded_badges
     
     @staticmethod

@@ -338,13 +338,19 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         attempt.time_taken_seconds = serializer.validated_data['time_taken_seconds']
         attempt.calculate_results()
         
-        # Calculate XP
-        accuracy = attempt.percentage
-        xp = calculate_xp_for_quiz(
-            accuracy,
-            attempt.total_questions,
-            quiz.is_daily_challenge
-        )
+        # XP only on first completion (re-attempts earn 0 XP)
+        already_completed = QuizAttempt.objects.filter(
+            student=student, quiz=quiz, status='completed'
+        ).exclude(id=attempt.id).exists()
+        if already_completed:
+            xp = 0
+        else:
+            accuracy = attempt.percentage
+            xp = calculate_xp_for_quiz(
+                accuracy,
+                attempt.total_questions,
+                quiz.is_daily_challenge
+            )
         attempt.xp_earned = xp
         attempt.save()
         
@@ -353,14 +359,15 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         student.total_correct_answers += attempt.correct_answers
         student.save()
         
-        # Award XP through gamification service (creates XP transaction)
-        GamificationService.award_xp(
-            student,
-            xp,
-            'quiz_complete',
-            f'Completed quiz: {quiz.title}',
-            str(attempt.id)
-        )
+        # Award XP only on first completion
+        if xp > 0:
+            GamificationService.award_xp(
+                student,
+                xp,
+                'quiz_complete',
+                f'Completed quiz: {quiz.title}',
+                str(attempt.id)
+            )
         
         # Update daily activity (convert time_taken_seconds to minutes)
         study_minutes = max(1, attempt.time_taken_seconds // 60)  # At least 1 minute
@@ -369,7 +376,7 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
             study_time_minutes=study_minutes,
             questions_attempted=attempt.attempted_questions,
             questions_correct=attempt.correct_answers,
-            quizzes_completed=1,
+            quizzes_completed=1 if xp > 0 else 0,
             xp_earned=xp
         )
         
@@ -693,26 +700,38 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         attempt.time_taken_seconds = serializer.validated_data['time_taken_seconds']
         attempt.save()
         
-        # Calculate XP for mock test
-        xp = calculate_xp_for_quiz(
-            attempt.percentage,
-            attempt.total_questions,
-            is_daily_challenge=False
-        ) * 2  # Double XP for mock tests
+        # XP only on first completion (re-attempts earn 0 XP)
+        already_completed = MockTestAttempt.objects.filter(
+            student=student, mock_test=mock_test, status='completed'
+        ).exclude(id=attempt.id).exists()
+        if already_completed:
+            xp = 0
+        else:
+            xp = min(
+                calculate_xp_for_quiz(
+                    attempt.percentage,
+                    attempt.total_questions,
+                    is_daily_challenge=False
+                ) * 2,
+                50
+            )
+        attempt.xp_earned = xp
+        attempt.save(update_fields=['xp_earned'])
         
         # Update student profile
         student.total_questions_attempted += attempt.attempted_questions
         student.total_correct_answers += attempt.correct_answers
         student.save()
         
-        # Award XP through gamification service
-        GamificationService.award_xp(
-            student,
-            xp,
-            'mock_complete',
-            f'Completed mock test: {mock_test.title}',
-            str(attempt.id)
-        )
+        # Award XP only on first completion
+        if xp > 0:
+            GamificationService.award_xp(
+                student,
+                xp,
+                'mock_complete',
+                f'Completed mock test: {mock_test.title}',
+                str(attempt.id)
+            )
         
         # Update daily activity (convert time_taken_seconds to minutes)
         study_minutes = max(1, attempt.time_taken_seconds // 60)  # At least 1 minute
@@ -721,7 +740,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             study_time_minutes=study_minutes,
             questions_attempted=attempt.attempted_questions,
             questions_correct=attempt.correct_answers,
-            mock_tests_completed=1,
+            mock_tests_completed=1 if xp > 0 else 0,
             xp_earned=xp
         )
         

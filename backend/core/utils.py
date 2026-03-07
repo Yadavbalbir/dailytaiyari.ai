@@ -72,9 +72,9 @@ def get_mastery_level(accuracy):
         return ('Beginner', 1)
 
 
-# Per-quiz XP caps so one long quiz doesn't award hundreds of XP (e.g. 82 Q × 5 = 410)
-QUIZ_XP_CAP = 100
-QUIZ_XP_CAP_DAILY_CHALLENGE = 150
+# Per-quiz XP caps
+QUIZ_XP_CAP = 10
+QUIZ_XP_CAP_DAILY_CHALLENGE = 10
 
 
 def calculate_xp_for_quiz(accuracy, questions_count, is_daily_challenge=False):

@@ -342,17 +342,9 @@ class StudyTimerView(APIView):
             session.goal_achieved_at = timezone.now()
             goal_just_achieved = True
             
-            # Award XP for achieving daily goal
+            # Award XP for achieving daily goal (no bonus)
             if not session.goal_xp_awarded:
-                xp_awarded = 50  # Base XP for achieving daily goal
-                
-                # Bonus XP based on streak
-                streak = Streak.objects.filter(student=student).first()
-                if streak and streak.current_streak > 0:
-                    # Extra 5 XP per day of streak (max 50)
-                    streak_bonus = min(50, streak.current_streak * 5)
-                    xp_awarded += streak_bonus
-                
+                xp_awarded = 50
                 GamificationService.award_xp(
                     student,
                     xp_awarded,

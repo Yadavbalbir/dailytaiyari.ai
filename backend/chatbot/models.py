@@ -218,26 +218,11 @@ class AIQuizAttempt(TimeStampedModel):
         self.percentage = (correct / self.total_questions * 100) if self.total_questions > 0 else 0
     
     def calculate_xp(self):
-        """Calculate XP based on performance."""
+        """Calculate XP based on performance (no bonus)."""
         if self.total_questions == 0:
             return 0
-        
-        # Base XP: 5 per question
         base_xp = self.total_questions * 5
-        
-        # Accuracy multiplier
-        accuracy_multiplier = self.percentage / 100
-        
-        # Bonus for high accuracy
-        bonus = 0
-        if self.percentage == 100:
-            bonus = 50  # Perfect score bonus
-        elif self.percentage >= 80:
-            bonus = 25  # Good score bonus
-        elif self.percentage >= 60:
-            bonus = 10  # Passing bonus
-        
-        self.xp_earned = int(base_xp * accuracy_multiplier) + bonus
+        self.xp_earned = int(base_xp * (self.percentage / 100))
         return self.xp_earned
 
 

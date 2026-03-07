@@ -202,17 +202,17 @@ class ChallengeParticipationViewSet(TenantAwareReadOnlyViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Award XP
+        # Award XP (max 25)
         challenge = participation.challenge
+        xp = min(challenge.xp_reward, 25)
         GamificationService.award_xp(
             student,
-            challenge.xp_reward,
+            xp,
             'challenge_win',
             f'Completed challenge: {challenge.title}',
             challenge.id
         )
-        
-        participation.xp_claimed = challenge.xp_reward
+        participation.xp_claimed = xp
         
         # Award badge if applicable
         if challenge.badge_reward and not participation.badge_claimed:
