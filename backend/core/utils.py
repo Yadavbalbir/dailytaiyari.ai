@@ -72,19 +72,25 @@ def get_mastery_level(accuracy):
         return ('Beginner', 1)
 
 
+# Per-quiz XP caps so one long quiz doesn't award hundreds of XP (e.g. 82 Q × 5 = 410)
+QUIZ_XP_CAP = 100
+QUIZ_XP_CAP_DAILY_CHALLENGE = 150
+
+
 def calculate_xp_for_quiz(accuracy, questions_count, is_daily_challenge=False):
     """
     Calculate XP earned for completing a quiz.
-    Base XP + accuracy bonus + daily challenge bonus
+    Base: 5 XP per question × accuracy. Capped per quiz so one attempt doesn't award excessive XP.
     """
+    if questions_count <= 0:
+        return 0
     base_xp = questions_count * 5  # 5 XP per question
-    accuracy_multiplier = accuracy / 100
+    accuracy_multiplier = min(100, max(0, accuracy)) / 100
     xp = int(base_xp * accuracy_multiplier)
-    
     if is_daily_challenge:
         xp = int(xp * 1.5)  # 50% bonus for daily challenges
-    
-    return xp
+    cap = QUIZ_XP_CAP_DAILY_CHALLENGE if is_daily_challenge else QUIZ_XP_CAP
+    return min(xp, cap)
 
 
 def calculate_streak_bonus(streak_days):

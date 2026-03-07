@@ -19,9 +19,15 @@ class QuestionOptionSerializer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     """Serializer for questions."""
     options = QuestionOptionSerializer(many=True, read_only=True)
-    topic_name = serializers.CharField(source='topic.name', read_only=True)
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
-    
+    topic_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+
+    def get_topic_name(self, obj):
+        return obj.topic.name if obj and getattr(obj, 'topic', None) else None
+
+    def get_subject_name(self, obj):
+        return obj.subject.name if obj and getattr(obj, 'subject', None) else None
+
     class Meta:
         model = Question
         fields = [
@@ -43,14 +49,23 @@ class QuestionWithAnswerSerializer(QuestionSerializer):
         ]
     
     def get_options(self, obj):
-        options = obj.options.all()
-        return [{
-            'id': str(opt.id),
-            'option_text': opt.option_text,
-            'option_image': opt.option_image.url if opt.option_image else None,
-            'order': opt.order,
-            'is_correct': opt.is_correct
-        } for opt in options]
+        options = obj.options.all() if obj else []
+        result = []
+        for opt in options:
+            try:
+                img_url = None
+                if getattr(opt, 'option_image', None):
+                    img_url = getattr(opt.option_image, 'url', None)
+            except Exception:
+                img_url = None
+            result.append({
+                'id': str(opt.id),
+                'option_text': opt.option_text,
+                'option_image': img_url,
+                'order': opt.order,
+                'is_correct': opt.is_correct
+            })
+        return result
 
 
 class QuizSerializer(serializers.ModelSerializer):
@@ -242,8 +257,17 @@ class PreviousYearPaperDetailSerializer(MockTestDetailSerializer):
 
 class AnswerSerializer(serializers.ModelSerializer):
     """Serializer for answers."""
-    question_data = QuestionWithAnswerSerializer(source='question', read_only=True)
-    
+    question_data = serializers.SerializerMethodField()
+
+    def get_question_data(self, obj):
+        question = getattr(obj, 'question', None)
+        if not question:
+            return None
+        try:
+            return QuestionWithAnswerSerializer(question, context=self.context).data
+        except Exception:
+            return {'id': str(question.id), 'question_text': getattr(question, 'question_text', '')}
+
     class Meta:
         model = Answer
         fields = [

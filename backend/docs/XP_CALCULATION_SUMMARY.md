@@ -5,7 +5,9 @@
 | Source | Where it's awarded | Transaction type | Updates `profile.total_xp` | Creates `XPTransaction` | Updates `DailyActivity.xp_earned` |
 |--------|--------------------|------------------|----------------------------|-------------------------|-----------------------------------|
 | **Content completion** | `content/views.py` (progress complete) | `content_complete` | ✅ via `GamificationService.award_xp` | ✅ | ✅ inside `award_xp` |
-| **Quiz** | `quiz/views.py` (submit) | `quiz_complete` | ✅ via `award_xp` | ✅ | ✅ in view via `AnalyticsService.update_daily_activity(..., xp_earned=xp)` |
+| **Quiz** | `quiz/views.py` (submit) | `quiz_complete` | ✅ via `award_xp` | ✅ | ✅ in view via `AnalyticsService.update_daily_activity(..., xp_earned=xp)` (single award, no double-count) |
+
+**Quiz XP formula** (`core/utils.py`): `base = questions_count × 5`, `xp = min(int(base × accuracy/100), cap)`. Cap = 100 per quiz, 150 for daily challenge. So one long quiz (e.g. 82 questions at 100%) no longer awards 410 XP; it is capped at 100 (or 150 for daily).
 | **Mock test** | `quiz/views.py` (mock submit) | `mock_complete` | ✅ via `award_xp` | ✅ | ✅ in view via `update_daily_activity(..., xp_earned=xp)` |
 | **Community** | `community/views.py` → `CommunityXPService.award_xp` | `community` | ✅ (F() + refresh) | ✅ | ✅ **fixed**: now updates `DailyActivity` |
 | **AI Quiz (chatbot)** | `chatbot/views.py` (submit) | `ai_quiz` | ✅ via `award_xp` | ✅ **fixed**: now uses `GamificationService.award_xp` | ✅ in view via `update_daily_activity(..., xp_earned=xp)` |

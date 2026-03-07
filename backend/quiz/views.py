@@ -395,8 +395,41 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         # Update quiz statistics
         quiz.total_attempts += 1
         quiz.save(update_fields=['total_attempts'])
-        
-        return Response(QuizAttemptSerializer(attempt).data)
+
+        # Return full attempt data; on serialization error return summary or minimal payload so client never gets 500
+        try:
+            return Response(QuizAttemptSerializer(attempt).data)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception(
+                "Quiz submit: full serialization failed (attempt_id=%s), returning fallback: %s",
+                attempt.id, e
+            )
+            try:
+                return Response(
+                    QuizAttemptSummarySerializer(attempt).data,
+                    status=status.HTTP_200_OK
+                )
+            except Exception as e2:
+                logger.exception("Quiz submit: summary serialization also failed: %s", e2)
+                return Response(
+                    {
+                        'id': str(attempt.id),
+                        'quiz': str(attempt.quiz_id),
+                        'quiz_title': attempt.quiz.title,
+                        'status': attempt.status,
+                        'xp_earned': int(attempt.xp_earned),
+                        'percentage': float(attempt.percentage) if attempt.percentage is not None else 0,
+                        'marks_obtained': float(attempt.marks_obtained) if attempt.marks_obtained is not None else 0,
+                        'total_marks': float(attempt.total_marks) if attempt.total_marks is not None else 0,
+                        'correct_answers': attempt.correct_answers,
+                        'wrong_answers': attempt.wrong_answers,
+                        'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
+                        'answers': [],
+                    },
+                    status=status.HTTP_200_OK
+                )
     
     @action(detail=True, methods=['get'])
     def leaderboard(self, request, pk=None):
