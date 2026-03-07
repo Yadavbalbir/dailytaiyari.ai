@@ -581,6 +581,10 @@ class StudyLeaderboardView(APIView):
         from analytics.models import DailyActivity
         from users.models import StudentProfile
 
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response([])
+
         scope = request.query_params.get('scope', 'subject')
         scope_id = request.query_params.get('scope_id')
         student = request.user.profile
@@ -606,6 +610,7 @@ class StudyLeaderboardView(APIView):
             QuizAttempt.objects.filter(
                 quiz__topic_id__in=topic_ids,
                 status='completed',
+                student__user__tenant=tenant,
             )
             .values('student')
             .annotate(
@@ -624,16 +629,20 @@ class StudyLeaderboardView(APIView):
                 'avg_accuracy': entry['avg_accuracy'],
             }
             
-        # Get content and quiz IDs to filter XPTransactions
-        content_ids = Content.objects.filter(topic_id__in=topic_ids).values_list('id', flat=True)
-        quiz_ids = Quiz.objects.filter(topic_id__in=topic_ids).values_list('id', flat=True)
-        
-        # Convert UUIDs to strings for XPTransaction.reference_id (since reference_id might be stored as string or UUID depending on DB)
-        # XPTransaction.reference_id is UUIDField so we can filter directly by list of UUIDs
-        all_refs = list(content_ids) + list(quiz_ids)
+        # Get reference_ids for XPTransactions: content uses content.id; quiz_complete uses attempt.id (not quiz.id)
+        content_ids = list(Content.objects.filter(topic_id__in=topic_ids).values_list('id', flat=True))
+        quiz_attempt_ids = list(
+            QuizAttempt.objects.filter(
+                quiz__topic_id__in=topic_ids,
+                status='completed',
+                student__user__tenant=tenant,
+            ).values_list('id', flat=True)
+        )
+        all_refs = content_ids + quiz_attempt_ids
         
         xp_qs = XPTransaction.objects.filter(
-            reference_id__in=all_refs
+            reference_id__in=all_refs,
+            student__user__tenant=tenant,
         ).values('student').annotate(
             total_earned=Sum('xp_amount')
         )
@@ -657,7 +666,8 @@ class StudyLeaderboardView(APIView):
         profiles = {
             str(p.id): p
             for p in StudentProfile.objects.select_related('user').filter(
-                id__in=[sid for sid, stats in sorted_students]
+                id__in=[sid for sid, stats in sorted_students],
+                user__tenant=tenant,
             )
         }
 

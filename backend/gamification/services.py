@@ -54,7 +54,7 @@ class GamificationService:
         
         # Update daily activity with XP (for leaderboard sync)
         # Skip for quiz_complete since that's already tracked by the quiz submission
-        if update_daily_activity and transaction_type not in ['quiz_complete', 'mock_test']:
+        if update_daily_activity and transaction_type not in ['quiz_complete', 'mock_complete']:
             today = timezone.now().date()
             activity, _ = DailyActivity.objects.get_or_create(
                 student=student,
@@ -176,13 +176,13 @@ class GamificationService:
                 if context.get('comeback', False):
                     qualified = True
             
-            # Top 10 badge - check leaderboard rank
+            # Top 10 badge - check leaderboard rank (tenant-scoped)
             elif 'top_10' in requirements:
-                entry = LeaderboardEntry.objects.filter(
-                    student=student, rank__lte=10
-                ).first()
-                if entry:
-                    qualified = True
+                tenant = getattr(student.user, 'tenant', None)
+                if tenant:
+                    rank = GamificationService.get_student_rank(student, 'daily', None, tenant=tenant)
+                    if rank and rank <= 10:
+                        qualified = True
             
             # Subject mastery badges - check specific subject
             elif 'physics_mastery' in requirements:
@@ -236,9 +236,9 @@ class GamificationService:
         return awarded_badges
     
     @staticmethod
-    def update_leaderboard(period='daily', exam=None):
+    def update_leaderboard(period='daily', exam=None, tenant=None):
         """
-        Update leaderboard for a specific period.
+        Update leaderboard for a specific period. Scoped to tenant when provided.
         """
         from analytics.models import DailyActivity
         
@@ -259,11 +259,12 @@ class GamificationService:
             start_date = None
             end_date = None
         
-        # Aggregate student stats
+        # Aggregate student stats (tenant-scoped: only students belonging to this tenant)
         from users.models import StudentProfile
         
         query = StudentProfile.objects.all()
-        
+        if tenant:
+            query = query.filter(user__tenant=tenant)
         if exam:
             query = query.filter(enrollments__exam=exam)
         
@@ -330,9 +331,9 @@ class GamificationService:
         return len(student_stats)
     
     @staticmethod
-    def get_leaderboard(period='daily', exam=None, limit=50):
+    def get_leaderboard(period='daily', exam=None, limit=50, tenant=None):
         """
-        Get leaderboard data dynamically from DailyActivity.
+        Get leaderboard data dynamically from DailyActivity. Scoped to tenant when provided.
         """
         from analytics.models import DailyActivity
         from users.models import StudentProfile
@@ -353,8 +354,10 @@ class GamificationService:
             start_date = None
             end_date = None
         
-        # Get all students with activity
+        # Get students with activity (tenant-scoped)
         query = StudentProfile.objects.all()
+        if tenant:
+            query = query.filter(user__tenant=tenant)
         if exam:
             query = query.filter(enrollments__exam=exam)
         
@@ -407,9 +410,9 @@ class GamificationService:
         return result
     
     @staticmethod
-    def get_student_rank(student, period='daily', exam=None):
+    def get_student_rank(student, period='daily', exam=None, tenant=None):
         """
-        Get student's rank in leaderboard dynamically.
+        Get student's rank in leaderboard dynamically. Scoped to tenant when provided.
         """
         from analytics.models import DailyActivity
         from users.models import StudentProfile
@@ -430,8 +433,10 @@ class GamificationService:
             start_date = None
             end_date = None
         
-        # Get all students with their XP for ranking
+        # Get students for ranking (tenant-scoped)
         query = StudentProfile.objects.all()
+        if tenant:
+            query = query.filter(user__tenant=tenant)
         if exam:
             query = query.filter(enrollments__exam=exam)
         

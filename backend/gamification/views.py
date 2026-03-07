@@ -108,18 +108,22 @@ class LeaderboardView(APIView):
             from exams.models import Exam
             exam = Exam.objects.filter(id=exam_id).first()
         
-        # Get leaderboard entries (now returns list of dicts)
-        entries = GamificationService.get_leaderboard(period, exam, limit)
-        
-        # Get user's rank
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({
+                'entries': [],
+                'user_rank': None,
+                'total_participants': 0,
+                'detail': 'Tenant context is required for leaderboard.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        # Get leaderboard entries (tenant-scoped)
+        entries = GamificationService.get_leaderboard(period, exam, limit, tenant=tenant)
+        # Get user's rank (same tenant scope)
         student = request.user.profile
-        user_rank = GamificationService.get_student_rank(student, period, exam)
-        
-        # Total participants is the number of entries with activity
+        user_rank = GamificationService.get_student_rank(student, period, exam, tenant=tenant)
         total = len(entries)
-        
         return Response({
-            'entries': entries,  # Already in dict format
+            'entries': entries,
             'user_rank': user_rank,
             'total_participants': total
         })

@@ -331,27 +331,30 @@ class CommunityStatsViewSet(viewsets.GenericViewSet):
 
 class CommunityLeaderboardViewSet(viewsets.GenericViewSet):
     """
-    ViewSet for community leaderboard.
+    ViewSet for community leaderboard. Tenant-scoped: only students of the current tenant.
     """
     permission_classes = [IsAuthenticated]
     
+    def _tenant(self, request):
+        return getattr(request, 'tenant', None)
+    
     @action(detail=False, methods=['get'])
     def weekly(self, request):
-        """Get weekly leaderboard."""
-        entries = CommunityLeaderboardService.get_leaderboard('weekly', limit=50)
+        """Get weekly leaderboard (tenant-scoped)."""
+        entries = CommunityLeaderboardService.get_leaderboard('weekly', limit=50, tenant=self._tenant(request))
         serializer = CommunityLeaderboardSerializer(entries, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def monthly(self, request):
-        """Get monthly leaderboard."""
-        entries = CommunityLeaderboardService.get_leaderboard('monthly', limit=50)
+        """Get monthly leaderboard (tenant-scoped)."""
+        entries = CommunityLeaderboardService.get_leaderboard('monthly', limit=50, tenant=self._tenant(request))
         serializer = CommunityLeaderboardSerializer(entries, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def all_time(self, request):
-        """Get all-time leaderboard."""
-        entries = CommunityLeaderboardService.get_leaderboard('all_time', limit=50)
+        """Get all-time leaderboard (tenant-scoped)."""
+        entries = CommunityLeaderboardService.get_leaderboard('all_time', limit=50, tenant=self._tenant(request))
         serializer = CommunityLeaderboardSerializer(entries, many=True)
         return Response(serializer.data)

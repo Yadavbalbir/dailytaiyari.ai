@@ -326,15 +326,22 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         xp_earned = attempt.calculate_xp()
         attempt.save()
         
-        # Award XP to student profile
-        student.total_xp += xp_earned
-        student.save(update_fields=['total_xp'])
+        # Award XP via gamification (creates XPTransaction, updates profile.total_xp)
+        from gamification.services import GamificationService
+        GamificationService.award_xp(
+            student,
+            xp_earned,
+            'ai_quiz',
+            f'AI Quiz: {attempt.quiz_topic or "Practice"}',
+            reference_id=attempt.id,
+            update_daily_activity=False,
+        )
         
         # Update AI learning stats
         stats, created = AILearningStats.objects.get_or_create(student=student)
         stats.update_from_attempt(attempt)
         
-        # Update daily activity
+        # Update daily activity (quiz/mock flow: award_xp skips daily, we do it here)
         from analytics.services import AnalyticsService
         AnalyticsService.update_daily_activity(
             student,
@@ -344,7 +351,6 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         )
         
         # Check for badges
-        from gamification.services import GamificationService
         GamificationService.check_and_award_badges(student, context={
             'perfect_quiz': attempt.percentage == 100,
             'ai_quiz': True

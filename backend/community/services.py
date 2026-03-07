@@ -111,6 +111,17 @@ class CommunityXPService:
             # Update community stats
             cls._update_community_stats(user_profile, action, xp_amount)
             
+            # Update daily activity so leaderboard / weekly XP includes community XP
+            from analytics.models import DailyActivity
+            today = timezone.now().date()
+            activity, _ = DailyActivity.objects.get_or_create(
+                student=user_profile,
+                date=today,
+                defaults={}
+            )
+            activity.xp_earned = (activity.xp_earned or 0) + xp_amount
+            activity.save(update_fields=['xp_earned'])
+            
             return xp_transaction
     
     @classmethod
@@ -154,9 +165,10 @@ class CommunityLeaderboardService:
         )
     
     @classmethod
-    def update_leaderboard(cls, period: str = 'weekly'):
+    def update_leaderboard(cls, period: str = 'weekly', tenant=None):
         """
         Update leaderboard for the specified period using XPTransaction as source of truth.
+        Scoped to tenant when provided (only students of that tenant are included).
         """
         today = date.today()
         
@@ -174,12 +186,13 @@ class CommunityLeaderboardService:
         from users.models import StudentProfile
         from gamification.models import XPTransaction
         
-        # Get aggregate scores from XP transactions for the period
-        # We also need to get the counts for posts, answers, etc. for display
+        # Base queryset: only students in this tenant
+        base_profiles = StudentProfile.objects.all()
+        if tenant:
+            base_profiles = base_profiles.filter(user__tenant=tenant)
         
-        # Use a single query with annotations to get all data
-        # Note: We filter profiles that have ANY community activity in this period
-        profiles_with_activity = StudentProfile.objects.annotate(
+        # Get aggregate scores from XP transactions for the period
+        profiles_with_activity = base_profiles.annotate(
             period_xp=Sum(
                 'xp_transactions__xp_amount',
                 filter=Q(
@@ -220,11 +233,14 @@ class CommunityLeaderboardService:
         ).filter(period_xp__gt=0).order_by('-period_xp')
         
         with transaction.atomic():
-            # Delete old entries for this period
-            CommunityLeaderboard.objects.filter(
+            # Delete old entries for this period (tenant-scoped when tenant given)
+            delete_qs = CommunityLeaderboard.objects.filter(
                 period=period,
                 period_start=period_start
-            ).delete()
+            )
+            if tenant:
+                delete_qs = delete_qs.filter(user__user__tenant=tenant)
+            delete_qs.delete()
             
             # Create new entries
             # Limit to top 100 for storage efficiency per period
@@ -257,8 +273,8 @@ class CommunityLeaderboardService:
         return len(entries_to_create)
     
     @classmethod
-    def get_leaderboard(cls, period: str = 'weekly', limit: int = 50):
-        """Get current leaderboard, generating if needed or stale."""
+    def get_leaderboard(cls, period: str = 'weekly', limit: int = 50, tenant=None):
+        """Get current leaderboard, generating if needed or stale. Scoped to tenant when provided."""
         today = date.today()
         
         if period == 'weekly':
@@ -268,21 +284,19 @@ class CommunityLeaderboardService:
         else:
             period_start = date(2020, 1, 1)
         
-        # Check if we have recent entries
-        # If any entry is older than 5 minutes, refresh the whole leaderboard for this period
-        staleness_threshold = timezone.now() - timedelta(minutes=5)
-        
-        last_entry = CommunityLeaderboard.objects.filter(
+        base_filter = CommunityLeaderboard.objects.filter(
             period=period,
             period_start=period_start
-        ).order_by('-updated_at').first()
+        )
+        if tenant:
+            base_filter = base_filter.filter(user__user__tenant=tenant)
+        
+        # Check if we have recent entries
+        staleness_threshold = timezone.now() - timedelta(minutes=5)
+        last_entry = base_filter.order_by('-updated_at').first()
         
         if not last_entry or last_entry.updated_at < staleness_threshold:
-            cls.update_leaderboard(period)
+            cls.update_leaderboard(period, tenant=tenant)
         
-        entries = CommunityLeaderboard.objects.filter(
-            period=period,
-            period_start=period_start
-        ).select_related('user__user').order_by('rank')[:limit]
-        
+        entries = base_filter.select_related('user__user').order_by('rank')[:limit]
         return entries

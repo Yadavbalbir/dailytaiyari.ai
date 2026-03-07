@@ -400,16 +400,20 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
     
     @action(detail=True, methods=['get'])
     def leaderboard(self, request, pk=None):
-        """Get leaderboard for a specific quiz."""
+        """Get leaderboard for a specific quiz (tenant-scoped)."""
         quiz = self.get_object()
+        tenant = getattr(request, 'tenant', None)
         
-        # Get best attempt per student (highest marks)
+        # Get best attempt per student (highest marks), only for current tenant's students
         from django.db.models import Max, Min, F
         
-        attempts = QuizAttempt.objects.filter(
+        qs = QuizAttempt.objects.filter(
             quiz=quiz,
-            status='completed'
-        ).order_by('-marks_obtained', 'time_taken_seconds')
+            status='completed',
+        )
+        if tenant:
+            qs = qs.filter(student__user__tenant=tenant)
+        attempts = qs.order_by('-marks_obtained', 'time_taken_seconds')
         
         # Deduplicate: keep best attempt per student
         seen_students = set()
@@ -672,7 +676,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         GamificationService.award_xp(
             student,
             xp,
-            'mock_test',
+            'mock_complete',
             f'Completed mock test: {mock_test.title}',
             str(attempt.id)
         )
@@ -717,13 +721,17 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
     
     @action(detail=True, methods=['get'])
     def leaderboard(self, request, pk=None):
-        """Get leaderboard for a specific mock test."""
+        """Get leaderboard for a specific mock test (tenant-scoped)."""
         mock_test = self.get_object()
+        tenant = getattr(request, 'tenant', None)
         
-        attempts = MockTestAttempt.objects.filter(
+        qs = MockTestAttempt.objects.filter(
             mock_test=mock_test,
-            status='completed'
-        ).order_by('-marks_obtained', 'time_taken_seconds')
+            status='completed',
+        )
+        if tenant:
+            qs = qs.filter(student__user__tenant=tenant)
+        attempts = qs.order_by('-marks_obtained', 'time_taken_seconds')
         
         # Deduplicate: keep best attempt per student
         seen_students = set()

@@ -89,6 +89,8 @@ class XPTransaction(TimeStampedModel):
     TRANSACTION_TYPES = [
         ('quiz_complete', 'Quiz Completed'),
         ('mock_complete', 'Mock Test Completed'),
+        ('content_complete', 'Content Completed'),
+        ('ai_quiz', 'AI Quiz Completed'),
         ('daily_goal', 'Daily Goal Met'),
         ('streak_bonus', 'Streak Bonus'),
         ('badge_earned', 'Badge Earned'),

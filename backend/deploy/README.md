@@ -70,10 +70,20 @@ sudo docker compose version
     sudo docker compose exec web python manage.py collectstatic --noinput
     ```
 
-5.  **Create Superuser**:
-    ```bash
-    sudo docker compose exec web python manage.py createsuperuser
-    ```
+5.  **Create Superuser or seed data** (choose one):
+    - **Option A – Super admin via seed:** Run `python manage.py seed_data` to create the super admin and sample data.  
+      **Super admin login:** `balbir@dailytaiyari.in` / `SuperAdmin@2025`  
+      (Override password with env: `SUPERADMIN_PASSWORD`.)
+    - **Option B – Django superuser only:**  
+      `sudo docker compose exec web python manage.py createsuperuser`
+
+## Super Admin credentials (after seed_data)
+| Field    | Value                    |
+|----------|--------------------------|
+| Email    | `balbir@dailytaiyari.in` |
+| Password | `SuperAdmin@2025`       |
+
+Change the password in production (e.g. via Django admin or `SUPERADMIN_PASSWORD` in `.env` before running seed).
 
 ## Step 4: Verify Deployment
 Access your API at `http://your-ec2-ip/api/v1/exams/`.
