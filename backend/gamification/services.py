@@ -180,8 +180,9 @@ class GamificationService:
             elif 'top_10' in requirements:
                 tenant = getattr(student.user, 'tenant', None)
                 if tenant:
-                    rank = GamificationService.get_student_rank(student, 'daily', None, tenant=tenant)
-                    if rank and rank <= 10:
+                    rank_result = GamificationService.get_student_rank(student, 'daily', None, tenant=tenant)
+                    rank = rank_result.get('rank') if isinstance(rank_result, dict) else rank_result
+                    if rank is not None and rank <= 10:
                         qualified = True
             
             # Subject mastery badges - check specific subject
