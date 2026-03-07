@@ -79,7 +79,7 @@ class StudyPlanService:
         new_contents = Content.objects.filter(
             Q(exams=exam) | Q(topic__exams=exam),
             status='published',
-            content_type__in=['notes', 'video']
+            content_type__in=['notes', 'pdf', 'revision', 'formula']
         ).exclude(id__in=completed_content_ids).order_by('order')[:5]
         
         for content in new_contents:

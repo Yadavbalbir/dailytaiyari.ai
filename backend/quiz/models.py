@@ -133,6 +133,12 @@ class Quiz(TimeStampedModel):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     
     # Relationships
+    tenant = models.ForeignKey(
+        'core.Tenant',
+        on_delete=models.CASCADE,
+        related_name='quizzes',
+        help_text='Required: no quiz without tenant.',
+    )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='quizzes')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='quizzes')
     topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True, related_name='quizzes')
@@ -197,6 +203,12 @@ class MockTest(TimeStampedModel):
 
     title = models.CharField(max_length=300)
     description = models.TextField(blank=True)
+    tenant = models.ForeignKey(
+        'core.Tenant',
+        on_delete=models.CASCADE,
+        related_name='mock_tests',
+        help_text='Required: no mock test or PYP without tenant.',
+    )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='mock_tests')
     
     # Sections (for exams with multiple subjects)

@@ -13,7 +13,6 @@ class Content(OrderedModel):
     """
     CONTENT_TYPES = [
         ('notes', 'Notes'),
-        ('video', 'Video'),
         ('pdf', 'PDF'),
         ('interactive', 'Interactive'),
         ('revision', 'Revision Notes'),
