@@ -1,9 +1,0 @@
-{
-    "name": "dailytaiyari-frontends",
-    "private": true,
-    "workspaces": [
-        "exam-frontend",
-        "landing-page/main",
-        "landing-page/shared"
-    ]
-}
