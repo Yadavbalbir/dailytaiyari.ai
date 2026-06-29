@@ -12,6 +12,6 @@ class Command(BaseCommand):
         parser.add_argument('--tenant', default='Test Academy')
 
     def handle(self, *args, **opts):
-        s, c, t, n, q = seed_syllabus(opts['exam_code'], 'IIT JEE Main', opts['tenant'], SUBJECTS)
+        s, c, t, n, q, m = seed_syllabus(opts['exam_code'], 'IIT JEE Main', opts['tenant'], SUBJECTS)
         self.stdout.write(self.style.SUCCESS(
-            f"JEE Main: {s} subjects, {c} chapters, {t} topics, {n} content items, {q} quizzes."))
+            f"JEE Main: {s} subjects, {c} chapters, {t} topics, {n} content items, {q} quizzes, {m} mock tests."))

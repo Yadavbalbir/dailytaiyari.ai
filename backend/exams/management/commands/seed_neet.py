@@ -12,6 +12,6 @@ class Command(BaseCommand):
         parser.add_argument('--tenant', default='Test Academy')
 
     def handle(self, *args, **opts):
-        s, c, t, n, q = seed_syllabus(opts['exam_code'], 'NEET', opts['tenant'], SUBJECTS)
+        s, c, t, n, q, m = seed_syllabus(opts['exam_code'], 'NEET', opts['tenant'], SUBJECTS)
         self.stdout.write(self.style.SUCCESS(
-            f"NEET: {s} subjects, {c} chapters, {t} topics, {n} content items, {q} quizzes."))
+            f"NEET: {s} subjects, {c} chapters, {t} topics, {n} content items, {q} quizzes, {m} mock tests."))

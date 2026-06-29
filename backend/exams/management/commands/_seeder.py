@@ -5,7 +5,7 @@ from django.db import transaction
 from core.models import Tenant
 from exams.models import Exam, Subject, Topic, Chapter, ChapterTopic
 from content.models import Content
-from quiz.models import Quiz, Question, QuestionOption, QuizQuestion
+from quiz.models import Quiz, Question, QuestionOption, QuizQuestion, MockTest, MockTestQuestion
 
 KEY_FACTS = {
     'Projectile motion': "Range $R=\\dfrac{u^2\\sin 2\\theta}{g}$, max height $H=\\dfrac{u^2\\sin^2\\theta}{2g}$, time of flight $T=\\dfrac{2u\\sin\\theta}{g}$.",
@@ -105,6 +105,37 @@ def seed_topic_quiz(topic, subject, exam, tenant, exam_name):
 
 
 @transaction.atomic
+def seed_mock_tests(exam, tenant, exam_name, count=2, per_subject=15):
+    """Build full-length mock tests by sampling published questions across subjects."""
+    subjects = list(Subject.objects.filter(exam=exam).order_by('order'))
+    n_mock = 0
+    for i in range(1, count + 1):
+        sections, all_qs = [], []
+        for s_idx, subj in enumerate(subjects):
+            q_ids = list(Question.objects.filter(subject=subj, status='published')
+                         .order_by('id').values_list('id', flat=True))
+            if not q_ids:
+                continue
+            chunk = q_ids[(i - 1) * per_subject:(i - 1) * per_subject + per_subject] or q_ids[:per_subject]
+            sections.append({'subject_id': str(subj.id), 'name': subj.name,
+                             'questions_count': len(chunk), 'marks': len(chunk) * 4})
+            all_qs.extend((s_idx, qid) for qid in chunk)
+        total = len(all_qs)
+        mock, _ = MockTest.objects.update_or_create(
+            exam=exam, title=f"{exam_name} Full Mock Test {i}",
+            defaults={'tenant': tenant, 'description': f"Full-length {exam_name} simulation #{i}.",
+                      'sections': sections, 'duration_minutes': 180,
+                      'total_marks': total * 4, 'negative_marking': True,
+                      'status': 'published', 'is_free': True})
+        MockTestQuestion.objects.filter(mock_test=mock).delete()
+        for order, (sec, qid) in enumerate(all_qs):
+            MockTestQuestion.objects.create(mock_test=mock, question_id=qid, section=sec,
+                                            order=order, marks_override=4, negative_marks_override=1)
+        n_mock += 1
+    return n_mock
+
+
+@transaction.atomic
 def seed_syllabus(exam_code, exam_name, tenant_name, subjects, color='#f97316'):
     tenant = Tenant.objects.filter(name=tenant_name).first()
     if not tenant:
@@ -147,4 +178,5 @@ def seed_syllabus(exam_code, exam_name, tenant_name, subjects, color='#f97316'):
                     c.exams.add(exam)
                     n_cnt += 1
                 n_quiz += seed_topic_quiz(topic, subject, exam, tenant, exam_name)
-    return n_sub, n_ch, n_top, n_cnt, n_quiz
+    n_mock = seed_mock_tests(exam, tenant, exam_name)
+    return n_sub, n_ch, n_top, n_cnt, n_quiz, n_mock
