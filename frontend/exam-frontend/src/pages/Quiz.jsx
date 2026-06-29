@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +27,7 @@ const Quiz = () => {
 
   // Filter state
   const [filters, setFilters] = useState({
+    exam: localStorage.getItem('study:lastExamId') || '',
     quiz_type: '',
     subject: '',
     topic: '',
@@ -38,6 +39,7 @@ const Quiz = () => {
   // Build query params
   const queryParams = useMemo(() => {
     const params = {}
+    if (filters.exam) params.exam = filters.exam
     if (filters.quiz_type) params.quiz_type = filters.quiz_type
     if (filters.subject) params.subject = filters.subject
     if (filters.topic) params.topic = filters.topic
@@ -67,12 +69,35 @@ const Quiz = () => {
     queryFn: () => quizService.getRecentAttempts(),
   })
 
-  // Filter topics based on selected subject
+  // Default the exam to the shared selection (or first available) and persist it.
+  useEffect(() => {
+    const exams = filterOptions?.exams
+    if (!exams?.length) return
+    const isValid = (id) => id && exams.some((e) => e.id === id)
+    if (isValid(filters.exam)) return
+    const stored = localStorage.getItem('study:lastExamId')
+    setFilters((prev) => ({ ...prev, exam: (isValid(stored) && stored) || exams[0].id }))
+  }, [filterOptions?.exams, filters.exam])
+
+  useEffect(() => {
+    if (filters.exam) localStorage.setItem('study:lastExamId', filters.exam)
+  }, [filters.exam])
+
+  // Subjects scoped to selected exam
+  const examSubjects = useMemo(() => {
+    if (!filterOptions?.subjects) return []
+    if (!filters.exam) return filterOptions.subjects
+    return filterOptions.subjects.filter((s) => s.exam_id === filters.exam)
+  }, [filterOptions?.subjects, filters.exam])
+
+  // Filter topics based on selected exam + subject
   const filteredTopics = useMemo(() => {
     if (!filterOptions?.topics) return []
-    if (!filters.subject) return filterOptions.topics
-    return filterOptions.topics.filter(t => t.subject_id === filters.subject)
-  }, [filterOptions?.topics, filters.subject])
+    let topics = filterOptions.topics
+    if (filters.exam) topics = topics.filter((t) => t.exam_id === filters.exam)
+    if (filters.subject) topics = topics.filter((t) => t.subject_id === filters.subject)
+    return topics
+  }, [filterOptions?.topics, filters.exam, filters.subject])
 
   const handleStartQuiz = async (quizId) => {
     try {
@@ -86,8 +111,12 @@ const Quiz = () => {
   const updateFilter = (key, value) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value }
-      // Reset topic when subject changes
+      // Reset dependent filters
       if (key === 'subject') {
+        newFilters.topic = ''
+      }
+      if (key === 'exam') {
+        newFilters.subject = ''
         newFilters.topic = ''
       }
       return newFilters
@@ -95,17 +124,19 @@ const Quiz = () => {
   }
 
   const clearFilters = () => {
-    setFilters({
+    setFilters((prev) => ({
+      exam: prev.exam, // keep exam context
       quiz_type: '',
       subject: '',
       topic: '',
       attempted: '',
       difficulty: '',
       search: '',
-    })
+    }))
   }
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length
+  const activeFilterCount = Object.entries(filters)
+    .filter(([k, v]) => k !== 'exam' && Boolean(v)).length
 
   const quizTypeIcons = {
     topic: <Book size={18} />,
@@ -209,6 +240,27 @@ const Quiz = () => {
                 </div>
               </div>
 
+              {/* Exam Filter */}
+              {filterOptions?.exams?.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Exam</label>
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions.exams.map((exam) => (
+                      <button
+                        key={exam.id}
+                        onClick={() => updateFilter('exam', exam.id)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === exam.id
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                          }`}
+                      >
+                        {exam.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Quick Filters - Attempt Status */}
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
@@ -296,7 +348,7 @@ const Quiz = () => {
                     className="input w-full"
                   >
                     <option value="">All Subjects</option>
-                    {filterOptions?.subjects?.map((subject) => (
+                    {examSubjects.map((subject) => (
                       <option key={subject.id} value={subject.id}>
                         {subject.name}
                       </option>

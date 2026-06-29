@@ -147,12 +147,12 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         # Get subjects that have quizzes for this exam
         subjects_with_quizzes = Subject.objects.filter(
             quizzes__in=quiz_qs
-        ).distinct().values('id', 'name')
+        ).distinct().values('id', 'name', 'exam_id')
         
         # Get topics that have quizzes for this exam
         topics_with_quizzes = Topic.objects.filter(
             quizzes__in=quiz_qs
-        ).distinct().values('id', 'name', 'subject_id', 'subject__name')
+        ).distinct().values('id', 'name', 'subject_id', 'subject__name', 'subject__exam_id')
         
         # Get exams that have quizzes
         exams_with_quizzes = Exam.objects.filter(
@@ -179,9 +179,14 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
             attempted_count = len(set(attempted_quiz_ids))
             non_attempted_count = total_quizzes - attempted_count
         
+        topics_list = [
+            {'id': t['id'], 'name': t['name'], 'subject_id': t['subject_id'],
+             'subject__name': t['subject__name'], 'exam_id': t['subject__exam_id']}
+            for t in topics_with_quizzes
+        ]
         return Response({
             'subjects': list(subjects_with_quizzes),
-            'topics': list(topics_with_quizzes),
+            'topics': topics_list,
             'exams': list(exams_with_quizzes),
             'quiz_types': [
                 {'value': 'topic', 'label': 'Topic Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'topic'), 0)},

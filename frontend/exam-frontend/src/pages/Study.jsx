@@ -7,7 +7,7 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
-  ChevronRight, GraduationCap, ChevronDown, Clock, UserCog
+  ChevronRight, GraduationCap, Clock, UserCog
 } from 'lucide-react'
 
 const iconMap = {
@@ -23,7 +23,9 @@ const Study = () => {
   const { profile } = useAuthStore()
   const primaryExamId = profile?.primary_exam ?? null
 
-  const [selectedExamId, setSelectedExamId] = useState(primaryExamId || '')
+  const [selectedExamId, setSelectedExamId] = useState(
+    () => primaryExamId || localStorage.getItem('study:lastExamId') || ''
+  )
 
   const { data: studyData = { exams: [], pending: [] }, isLoading: examsLoading } = useQuery({
     queryKey: ['studyExams'],
@@ -38,19 +40,25 @@ const Study = () => {
     enabled: !!selectedExamId,
   })
 
+  // Persist selection so it is remembered across visits.
   useEffect(() => {
-    if (primaryExamId && !selectedExamId) setSelectedExamId(primaryExamId)
-  }, [primaryExamId, selectedExamId])
+    if (selectedExamId) localStorage.setItem('study:lastExamId', selectedExamId)
+  }, [selectedExamId])
 
+  // Ensure an exam is always selected once exams load: prefer the current
+  // selection (if still valid), then primary exam, then last-used, then first.
   useEffect(() => {
-    if (exams?.length === 1 && !selectedExamId) setSelectedExamId(exams[0].id)
-  }, [exams, selectedExamId])
-
-  useEffect(() => {
-    if (exams?.length && selectedExamId && !exams.some((e) => e.id === selectedExamId)) {
-      setSelectedExamId(exams[0]?.id || '')
-    }
-  }, [exams, selectedExamId])
+    if (!exams?.length) return
+    const isValid = (id) => id && exams.some((e) => e.id === id)
+    if (isValid(selectedExamId)) return
+    const stored = localStorage.getItem('study:lastExamId')
+    const next =
+      (isValid(primaryExamId) && primaryExamId) ||
+      (isValid(stored) && stored) ||
+      exams[0]?.id ||
+      ''
+    setSelectedExamId(next)
+  }, [exams, selectedExamId, primaryExamId])
 
   const selectedExam = exams?.find((e) => e.id === selectedExamId)
 
@@ -111,23 +119,33 @@ const Study = () => {
         <p className="text-surface-500 mt-1">Choose exam and subject to start learning</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
         <span className="text-sm font-medium text-surface-600 dark:text-surface-400">Exam</span>
-        <select
-          value={selectedExamId || ''}
-          onChange={(e) => setSelectedExamId(e.target.value || '')}
-          className="input py-2.5 pl-3 pr-10 text-sm min-w-[200px] max-w-xs"
-        >
-          <option value="">Select exam</option>
-          {exams.map((exam) => (
-            <option key={exam.id} value={exam.id}>{exam.name}</option>
-          ))}
-        </select>
-        <ChevronDown size={18} className="text-surface-400 -ml-8 pointer-events-none hidden sm:block" />
+        <div className="flex items-center gap-2 flex-wrap">
+          {exams.map((exam) => {
+            const active = exam.id === selectedExamId
+            return (
+              <button
+                key={exam.id}
+                type="button"
+                onClick={() => setSelectedExamId(exam.id)}
+                aria-pressed={active}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                  active
+                    ? 'bg-primary-500 border-primary-500 text-white shadow-sm'
+                    : 'bg-white dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-surface-700 dark:text-surface-200 hover:border-primary-400'
+                }`}
+                style={active && exam.color ? { backgroundColor: exam.color, borderColor: exam.color } : undefined}
+              >
+                {exam.name}
+              </button>
+            )
+          })}
+        </div>
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="btn secondary inline-flex items-center gap-2 text-sm"
+          className="btn secondary inline-flex items-center gap-2 text-sm sm:ml-auto"
         >
           <UserCog size={18} />
           Manage exams

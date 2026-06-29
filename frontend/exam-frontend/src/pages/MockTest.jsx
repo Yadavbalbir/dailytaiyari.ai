@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -11,7 +11,6 @@ import {
   Sparkles,
   BadgePercent,
   Star,
-  BookOpen,
   ClipboardList,
   ChevronRight,
   TrendingUp,
@@ -25,7 +24,7 @@ const MockTest = () => {
 
   // Filter state
   const [filters, setFilters] = useState({
-    exam: '',
+    exam: localStorage.getItem('study:lastExamId') || '',
     attempted: '', // '', 'true', 'false'
     is_free: '',
     search: '',
@@ -56,6 +55,20 @@ const MockTest = () => {
     queryFn: () => quizService.getMockAttempts(),
   })
 
+  // Default the exam to the shared selection (or first available) and persist it.
+  useEffect(() => {
+    const exams = filterOptions?.exams
+    if (!exams?.length) return
+    const isValid = (id) => id && exams.some((e) => e.id === id)
+    if (isValid(filters.exam)) return
+    const stored = localStorage.getItem('study:lastExamId')
+    setFilters((prev) => ({ ...prev, exam: (isValid(stored) && stored) || exams[0].id }))
+  }, [filterOptions?.exams, filters.exam])
+
+  useEffect(() => {
+    if (filters.exam) localStorage.setItem('study:lastExamId', filters.exam)
+  }, [filters.exam])
+
   const handleStartTest = async (testId) => {
     try {
       await quizService.startMockTest(testId)
@@ -70,15 +83,16 @@ const MockTest = () => {
   }
 
   const clearFilters = () => {
-    setFilters({
-      exam: '',
+    setFilters((prev) => ({
+      exam: prev.exam, // keep exam context
       attempted: '',
       is_free: '',
       search: '',
-    })
+    }))
   }
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length
+  const activeFilterCount = Object.entries(filters)
+    .filter(([k, v]) => k !== 'exam' && Boolean(v)).length
 
   const tests = mockTests?.results || mockTests || []
 
@@ -196,25 +210,16 @@ const MockTest = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Exam</label>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => updateFilter('exam', '')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === ''
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                      }`}
-                  >
-                    All Exams
-                  </button>
                   {filterOptions?.exams?.map((exam) => (
                     <button
                       key={exam.id}
-                      onClick={() => updateFilter('exam', filters.exam === exam.id ? '' : exam.id)}
+                      onClick={() => updateFilter('exam', exam.id)}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === exam.id
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                         }`}
                     >
-                      {exam.short_name || exam.name}
+                      {exam.name}
                     </button>
                   ))}
                 </div>
@@ -284,12 +289,6 @@ const MockTest = () => {
             <span className="badge badge-warning flex items-center gap-1">
               <Sparkles size={12} /> Not Attempted
               <button onClick={() => updateFilter('attempted', '')} className="ml-1 hover:text-white">×</button>
-            </span>
-          )}
-          {filters.exam && (
-            <span className="badge badge-primary flex items-center gap-1">
-              <BookOpen size={12} /> {filterOptions?.exams?.find(e => e.id === filters.exam)?.name}
-              <button onClick={() => updateFilter('exam', '')} className="ml-1 hover:text-white">×</button>
             </span>
           )}
           {filters.is_free === 'true' && (
