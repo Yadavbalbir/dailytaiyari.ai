@@ -77,6 +77,11 @@ const Dashboard = () => {
     return navigate('/study')
   }
 
+  const planItems = studyPlan?.items || []
+  const pendingItems = planItems.filter((i) => i.status !== 'completed')
+  const completedCount = planItems.length - pendingItems.length
+  const allDone = planItems.length > 0 && pendingItems.length === 0
+
   const { data: weakTopics } = useQuery({
     queryKey: ['weakTopics'],
     queryFn: () => analyticsService.getWeakTopics(),
@@ -351,7 +356,7 @@ const Dashboard = () => {
           />
           <QuickActionButton
             title="Resume Study"
-            subtitle={studyPlan?.items?.[0]?.title || 'Start learning'}
+            subtitle={pendingItems[0]?.title || 'Start learning'}
             icon={<BookOpen className="text-primary-500" />}
             to="/study"
           />
@@ -407,49 +412,60 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {studyPlan?.items?.length > 0 ? (
+          {pendingItems.length > 0 ? (
             <div className="space-y-3">
-              {studyPlan.items.slice(0, 4).map((item, index) => {
-                const isCompleted = item.status === 'completed'
-                return (
-                  <div
-                    key={item.id || index}
-                    onClick={() => goToPlanItem(item)}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 cursor-pointer transition-colors"
+              {completedCount > 0 && (
+                <p className="text-xs text-surface-500">
+                  {completedCount} of {planItems.length} done — keep going!
+                </p>
+              )}
+              {pendingItems.slice(0, 4).map((item, index) => (
+                <div
+                  key={item.id || index}
+                  onClick={() => goToPlanItem(item)}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 cursor-pointer transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      completeItem.mutate(item.id)
+                    }}
+                    disabled={completeItem.isPending}
+                    title="Mark as done"
+                    className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary-100 dark:bg-primary-900/30 hover:bg-success-100 dark:hover:bg-success-900/30 group"
                   >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!isCompleted) completeItem.mutate(item.id)
-                      }}
-                      title={isCompleted ? 'Completed' : 'Mark as done'}
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-100 dark:bg-success-900/30' : 'bg-primary-100 dark:bg-primary-900/30'}`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 size={18} className="text-success-600" />
-                      ) : (
-                        <BookOpen size={18} className="text-primary-600" />
-                      )}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium truncate ${isCompleted ? 'line-through text-surface-400' : ''}`}>
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-surface-500 capitalize">
-                        {item.item_type} • {item.estimated_minutes || 15} min
-                      </p>
-                    </div>
-                    <ChevronRight size={18} className="text-surface-300 shrink-0" />
+                    <BookOpen size={18} className="text-primary-600 group-hover:hidden" />
+                    <CheckCircle2 size={18} className="text-success-600 hidden group-hover:block" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{item.title}</p>
+                    <p className="text-xs text-surface-500 capitalize">
+                      {item.item_type} • {item.estimated_minutes || 15} min
+                    </p>
                   </div>
-                )
-              })}
+                  <ChevronRight size={18} className="text-surface-300 shrink-0" />
+                </div>
+              ))}
               <button
                 onClick={() => generatePlan.mutate()}
                 disabled={generatePlan.isPending}
                 className="btn-secondary w-full text-sm mt-1"
               >
                 {generatePlan.isPending ? 'Regenerating…' : 'Regenerate Plan'}
+              </button>
+            </div>
+          ) : allDone ? (
+            <div className="text-center py-8 text-surface-500">
+              <PartyPopper size={36} className="mx-auto mb-3 text-success-500" />
+              <p className="font-medium text-surface-700 dark:text-surface-200">All done for today!</p>
+              <p className="text-sm mt-1">You completed all {planItems.length} tasks. 🎉</p>
+              <button
+                onClick={() => generatePlan.mutate()}
+                disabled={generatePlan.isPending}
+                className="btn-secondary mt-4 text-sm"
+              >
+                {generatePlan.isPending ? 'Generating…' : 'Generate New Plan'}
               </button>
             </div>
           ) : (
