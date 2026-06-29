@@ -6,6 +6,7 @@ import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
 import ImageCropper from '../components/common/ImageCropper'
+import MyExams from '../components/profile/MyExams'
 
 import {
   Camera,
@@ -453,6 +454,9 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {/* My Exams — request enrollment & approval status */}
+      <MyExams />
 
       {/* Location */}
       <div className="card p-6">

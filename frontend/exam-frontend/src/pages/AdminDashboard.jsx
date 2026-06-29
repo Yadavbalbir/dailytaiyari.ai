@@ -27,7 +27,10 @@ import {
     ChevronDown,
     Book,
     Layers,
-    FileText
+    FileText,
+    Clock,
+    XCircle,
+    Check
 } from 'lucide-react'
 
 const StatCard = ({ title, value, icon: Icon, color, description }) => (
@@ -611,6 +614,111 @@ const ContentManagement = () => {
     )
 }
 
+const EnrollmentRequests = () => {
+    const queryClient = useQueryClient()
+    const [filter, setFilter] = useState('pending')
+    const [busyId, setBusyId] = useState(null)
+
+    const { data: requests = [], isLoading } = useQuery({
+        queryKey: ['enrollmentRequests', filter],
+        queryFn: () => tenantAdminService.getEnrollmentRequests(filter === 'all' ? {} : { status: filter }),
+    })
+    const list = Array.isArray(requests) ? requests : (requests?.results || [])
+
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ['enrollmentRequests'] })
+
+    const approve = async (id) => {
+        setBusyId(id)
+        try { await tenantAdminService.approveEnrollment(id); refresh() }
+        catch { /* ignore */ } finally { setBusyId(null) }
+    }
+    const reject = async (id) => {
+        const reason = window.prompt('Reason for rejection (optional):', '') ?? ''
+        setBusyId(id)
+        try { await tenantAdminService.rejectEnrollment(id, reason); refresh() }
+        catch { /* ignore */ } finally { setBusyId(null) }
+    }
+
+    const badge = {
+        pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
+        approved: 'bg-green-100 dark:bg-green-900/30 text-green-600',
+        rejected: 'bg-red-100 dark:bg-red-900/30 text-red-600',
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-primary-500" /> Enrollment Requests
+                </h2>
+                <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg">
+                    {['pending', 'approved', 'rejected', 'all'].map((f) => (
+                        <button key={f} onClick={() => setFilter(f)}
+                            className={`px-4 py-1.5 rounded-md text-sm font-semibold capitalize transition-all ${filter === f ? 'bg-white dark:bg-surface-700 text-primary-600 shadow-sm' : 'text-surface-500'}`}>
+                            {f}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {isLoading ? (
+                <p className="text-surface-500">Loading…</p>
+            ) : list.length === 0 ? (
+                <div className="card p-10 text-center text-surface-500">
+                    <Clock className="w-10 h-10 mx-auto mb-3 text-surface-300" />
+                    No {filter !== 'all' ? filter : ''} requests.
+                </div>
+            ) : (
+                <div className="card overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-surface-50 dark:bg-surface-800 text-xs uppercase text-surface-500">
+                            <tr>
+                                <th className="px-4 py-3">Student</th>
+                                <th className="px-4 py-3">Exam</th>
+                                <th className="px-4 py-3">Status</th>
+                                <th className="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
+                            {list.map((r) => (
+                                <tr key={r.id}>
+                                    <td className="px-4 py-3">
+                                        <p className="font-medium">{r.student_name || '—'}</p>
+                                        <p className="text-xs text-surface-500">{r.student_email}</p>
+                                    </td>
+                                    <td className="px-4 py-3">{r.exam_name} <span className="text-xs text-surface-400">{r.exam_code}</span></td>
+                                    <td className="px-4 py-3">
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${badge[r.status]}`}>{r.status}</span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {r.status === 'pending' ? (
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button onClick={() => approve(r.id)} disabled={busyId === r.id}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-50">
+                                                    <Check size={14} /> Approve
+                                                </button>
+                                                <button onClick={() => reject(r.id)} disabled={busyId === r.id}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50">
+                                                    <XCircle size={14} /> Reject
+                                                </button>
+                                            </div>
+                                        ) : r.status === 'rejected' ? (
+                                            <button onClick={() => approve(r.id)} disabled={busyId === r.id}
+                                                className="text-sm text-green-600 hover:underline">Approve anyway</button>
+                                        ) : (
+                                            <span className="text-sm text-surface-400">—</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    )
+}
+
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview')
 
@@ -657,6 +765,7 @@ const AdminDashboard = () => {
                 {[
                     { id: 'overview', label: 'Overview', icon: TrendingUp },
                     { id: 'students', label: 'User Management', icon: Users },
+                    { id: 'enrollments', label: 'Enrollment Requests', icon: GraduationCap },
                     { id: 'performance', label: 'Performance Reports', icon: BarChart3 },
                     { id: 'content', label: 'Content Explorer', icon: Library },
                 ].map((tab) => (
@@ -817,6 +926,7 @@ const AdminDashboard = () => {
                     )}
 
                     {activeTab === 'students' && <StudentManagement />}
+                    {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <ContentManagement />}
                 </motion.div>

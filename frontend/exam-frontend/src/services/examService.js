@@ -35,7 +35,10 @@ export const examService = {
   // Study flow: exams (enrolled or active) then subjects
   getStudyExams: async () => {
     const response = await api.get('/exams/study/exams/')
-    return response.data
+    const d = response.data
+    // Backend returns { exams: [...], pending: [...] }; keep back-compat with array
+    if (Array.isArray(d)) return { exams: d, pending: [] }
+    return { exams: d.exams || [], pending: d.pending || [] }
   },
 
   getStudySubjects: async (examId = null) => {
