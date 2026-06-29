@@ -60,8 +60,8 @@ const Quiz = () => {
   })
 
   const { data: dailyChallenge } = useQuery({
-    queryKey: ['dailyChallenge'],
-    queryFn: () => quizService.getDailyChallenge(),
+    queryKey: ['dailyChallenge', filters.exam],
+    queryFn: () => quizService.getDailyChallenge(filters.exam || undefined),
   })
 
   const { data: recentAttempts } = useQuery({

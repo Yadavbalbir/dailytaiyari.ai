@@ -88,8 +88,8 @@ const Dashboard = () => {
   })
 
   const { data: dailyChallenge } = useQuery({
-    queryKey: ['dailyChallenge'],
-    queryFn: () => quizService.getDailyChallenge(),
+    queryKey: ['dailyChallenge', selectedExamId],
+    queryFn: () => quizService.getDailyChallenge(selectedExamId || undefined),
   })
 
   if (statsLoading) return <Loading fullScreen />

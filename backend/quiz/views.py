@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.db.models import Q, Count, F
 
 from .models import (
-    Question, Quiz, MockTest, MockTestQuestion, QuizAttempt, MockTestAttempt, Answer, QuestionReport
+    Question, Quiz, QuizQuestion, MockTest, MockTestQuestion, QuizAttempt, MockTestAttempt, Answer, QuestionReport
 )
 from .serializers import (
     QuestionSerializer, QuestionWithAnswerSerializer,
@@ -104,6 +104,11 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         request = self.request
+        
+        # Keep daily challenges out of the regular quiz listing; they are
+        # surfaced through the dedicated daily_challenge endpoint/banner.
+        if self.action == 'list' and 'is_daily_challenge' not in request.query_params:
+            queryset = queryset.filter(is_daily_challenge=False)
         
         # Auto-filter by student's primary exam (unless explicit exam filter is provided)
         if not request.query_params.get('exam'):
@@ -208,34 +213,85 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
 
     @action(detail=False, methods=['get'])
     def daily_challenge(self, request):
-        """Get today's daily challenge with fallback to latest available."""
-        exam_id = request.query_params.get('exam_id')
+        """Get today's daily challenge, auto-generating one if needed.
+
+        A fresh challenge of ~10 questions is built per exam per day. The
+        question set rotates daily (deterministic, so every student on the same
+        exam gets the same challenge for the day).
+        """
         today = timezone.now().date()
-        
-        # Primary search: Today's specific challenge
-        quiz_qs = self.get_queryset().filter(is_daily_challenge=True)
-        
-        quiz = quiz_qs.filter(challenge_date=today)
+        student = getattr(request.user, 'profile', None)
+
+        # Resolve a usable exam: requested -> primary -> first approved enrollment
+        exam_id = request.query_params.get('exam_id')
+        if not exam_id and student:
+            exam_id = student.primary_exam_id
+        if not exam_id and student:
+            enr = student.enrollments.filter(
+                status='approved', is_active=True
+            ).order_by('created_at').first()
+            exam_id = enr.exam_id if enr else None
+
+        # 1. Existing challenge for today (scoped to exam when known)
+        existing = self.get_queryset().filter(is_daily_challenge=True, challenge_date=today)
         if exam_id:
-            quiz = quiz.filter(exam_id=exam_id)
-        
-        quiz = quiz.first()
-        
-        # Fallback search: Latest available challenge if today's is missing
+            existing = existing.filter(exam_id=exam_id)
+        quiz = existing.first()
+
+        # 2. Auto-generate today's challenge from the exam question pool
+        if not quiz and exam_id and getattr(request, 'tenant', None):
+            quiz = self._build_daily_challenge(request.tenant, exam_id, today)
+
+        # 3. Fallback: most recent challenge available
         if not quiz:
-            fallback_qs = quiz_qs
+            fallback = self.get_queryset().filter(is_daily_challenge=True)
             if exam_id:
-                fallback_qs = fallback_qs.filter(exam_id=exam_id)
-            
-            quiz = fallback_qs.order_by('-challenge_date').first()
-            
+                fallback = fallback.filter(exam_id=exam_id)
+            quiz = fallback.order_by('-challenge_date').first()
+
         if not quiz:
             return Response(
-                {'error': 'No daily challenge available for this exam. Please check back later!'},
+                {'error': 'No daily challenge available yet. Please check back later!'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        return Response(QuizDetailSerializer(quiz).data)
+
+        return Response(QuizDetailSerializer(quiz, context={'request': request}).data)
+
+    def _build_daily_challenge(self, tenant, exam_id, today, size=10):
+        """Create (idempotently) a daily challenge quiz for an exam/date."""
+        from exams.models import Exam
+
+        question_ids = list(
+            Question.objects.filter(
+                exams__id=exam_id, status='published'
+            ).order_by('id').values_list('id', flat=True)
+        )
+        if not question_ids:
+            return None
+
+        # Deterministic daily rotation through the pool.
+        total = len(question_ids)
+        offset = today.toordinal() % total
+        rotated = question_ids[offset:] + question_ids[:offset]
+        picked = rotated[:min(size, total)]
+
+        exam = Exam.objects.filter(id=exam_id).first()
+        title = f"Daily Challenge — {today.strftime('%b %d, %Y')}"
+        quiz, created = Quiz.objects.get_or_create(
+            exam_id=exam_id, is_daily_challenge=True, challenge_date=today,
+            defaults={
+                'tenant': tenant, 'title': title, 'quiz_type': 'daily',
+                'status': 'published', 'is_free': True,
+                'description': f"Today's mixed challenge for {exam.name if exam else 'your exam'}.",
+                'duration_minutes': max(5, len(picked) * 1),
+                'total_marks': len(picked), 'shuffle_questions': True,
+            }
+        )
+        if created or quiz.questions.count() == 0:
+            QuizQuestion.objects.filter(quiz=quiz).delete()
+            for order, qid in enumerate(picked):
+                QuizQuestion.objects.create(quiz=quiz, question_id=qid, order=order)
+        return quiz
 
     @action(detail=True, methods=['get'])
     def my_attempts(self, request, pk=None):
