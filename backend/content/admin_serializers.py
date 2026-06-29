@@ -1,0 +1,68 @@
+"""
+Writable serializer for admin content management in the Content Builder.
+"""
+from django.utils.text import slugify
+from rest_framework import serializers
+
+from .models import Content
+from exams.models import Exam
+
+
+class AdminContentSerializer(serializers.ModelSerializer):
+    """Full CRUD serializer for Content with automatic slug handling."""
+    topic_name = serializers.CharField(source='topic.name', read_only=True)
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exams = serializers.PrimaryKeyRelatedField(
+        queryset=Exam.objects.all(), many=True, required=False
+    )
+
+    class Meta:
+        model = Content
+        fields = [
+            'id', 'title', 'slug', 'description', 'content_type',
+            'topic', 'topic_name', 'subject', 'subject_name', 'exams',
+            'content_html', 'video_url', 'video_duration_minutes',
+            'difficulty', 'status', 'is_free', 'is_premium',
+            'estimated_time_minutes', 'order', 'author_name',
+            'views_count', 'likes_count', 'bookmarks_count',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'slug', 'views_count', 'likes_count', 'bookmarks_count',
+            'created_at', 'updated_at',
+        ]
+
+    def _unique_slug(self, title, instance=None):
+        base = slugify(title) or 'content'
+        slug = base
+        i = 1
+        qs = Content.objects.all()
+        if instance is not None:
+            qs = qs.exclude(pk=instance.pk)
+        while qs.filter(slug=slug).exists():
+            i += 1
+            slug = f"{base}-{i}"
+        return slug
+
+    def _default_exams(self, validated_data):
+        """If no exams supplied, inherit from the subject's exam."""
+        subject = validated_data.get('subject')
+        if subject and getattr(subject, 'exam_id', None):
+            return [subject.exam]
+        return []
+
+    def create(self, validated_data):
+        exams = validated_data.pop('exams', None)
+        validated_data['slug'] = self._unique_slug(validated_data.get('title', ''))
+        content = super().create(validated_data)
+        content.exams.set(exams if exams else self._default_exams(validated_data))
+        return content
+
+    def update(self, instance, validated_data):
+        exams = validated_data.pop('exams', None)
+        if 'title' in validated_data and validated_data['title'] != instance.title:
+            validated_data['slug'] = self._unique_slug(validated_data['title'], instance)
+        content = super().update(instance, validated_data)
+        if exams is not None:
+            content.exams.set(exams)
+        return content

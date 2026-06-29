@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { analyticsService } from '../services/analyticsService'
 import { tenantAdminService } from '../services/tenantAdminService'
 import { examService } from '../services/examService'
+import ContentBuilder from '../components/admin/ContentBuilder'
 import {
     Users,
     GraduationCap,
@@ -1169,7 +1170,7 @@ const TABS = [
     { id: 'students', label: 'Student Records', icon: Users },
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
-    { id: 'content', label: 'Content', icon: Library },
+    { id: 'content', label: 'Content Builder', icon: Library },
 ]
 
 const AdminDashboard = () => {
@@ -1249,7 +1250,7 @@ const AdminDashboard = () => {
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'performance' && <PerformanceReports />}
-                    {activeTab === 'content' && <ContentManagement />}
+                    {activeTab === 'content' && <ContentBuilder />}
                 </motion.div>
             </AnimatePresence>
         </div>

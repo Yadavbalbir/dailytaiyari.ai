@@ -8,6 +8,16 @@ from .views import (
     StudyExamsView, StudySubjectsView, StudyChaptersView, StudyChapterDetailView,
     StudyLeaderboardView, TenantContentExplorerView, AvailableExamsForEnrollmentView
 )
+from .admin_views import (
+    AdminExamViewSet, AdminSubjectViewSet, AdminChapterViewSet, AdminTopicViewSet,
+)
+
+# Admin Content Builder router (full CRUD, tenant-admin only)
+admin_router = DefaultRouter()
+admin_router.register(r'exams', AdminExamViewSet, basename='admin-exam')
+admin_router.register(r'subjects', AdminSubjectViewSet, basename='admin-subject')
+admin_router.register(r'chapters', AdminChapterViewSet, basename='admin-chapter')
+admin_router.register(r'topics', AdminTopicViewSet, basename='admin-topic')
 
 router = DefaultRouter()
 router.register(r'', ExamViewSet, basename='exam')
@@ -16,6 +26,7 @@ router.register(r'topics', TopicViewSet, basename='topic')
 router.register(r'chapters', ChapterViewSet, basename='chapter')
 
 urlpatterns = [
+    path('admin/', include(admin_router.urls)),
     path('available-for-enrollment/', AvailableExamsForEnrollmentView.as_view(), name='exams-available-for-enrollment'),
     path('study/exams/', StudyExamsView.as_view(), name='study-exams'),
     path('study/subjects/', StudySubjectsView.as_view(), name='study-subjects'),
