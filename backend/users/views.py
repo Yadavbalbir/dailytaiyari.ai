@@ -17,6 +17,7 @@ from .serializers import (
     UserSerializer,
     StudentProfileSerializer,
     ExamEnrollmentSerializer,
+    AdminEnrollmentRequestSerializer,
     OnboardingSerializer
 )
 from exams.models import Exam
@@ -102,11 +103,11 @@ class OnboardingView(APIView):
 
         profile.save()
 
-        # Create exam enrollments
+        # Create exam enrollments — primary exam auto-approved at onboarding
         ExamEnrollment.objects.get_or_create(
             student=profile,
             exam=primary_exam,
-            defaults={'is_active': True}
+            defaults={'is_active': True, 'status': 'approved', 'reviewed_at': timezone.now()}
         )
 
         for exam_id in data.get('additional_exam_ids', []):
@@ -115,7 +116,7 @@ class OnboardingView(APIView):
                 ExamEnrollment.objects.get_or_create(
                     student=profile,
                     exam=exam,
-                    defaults={'is_active': True}
+                    defaults={'is_active': True, 'status': 'pending'}
                 )
             except Exam.DoesNotExist:
                 pass
@@ -132,15 +133,37 @@ class OnboardingView(APIView):
 
 
 class ExamEnrollmentListView(generics.ListCreateAPIView):
-    """List and create exam enrollments for current user."""
+    """List enrollment requests and request enrollment in an exam (pending admin approval)."""
     serializer_class = ExamEnrollmentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ExamEnrollment.objects.filter(student=self.request.user.profile)
+        return ExamEnrollment.objects.filter(
+            student=self.request.user.profile
+        ).select_related('exam').order_by('-created_at')
+
+    def create(self, request, *args, **kwargs):
+        student = request.user.profile
+        exam = request.data.get('exam')
+        existing = ExamEnrollment.objects.filter(student=student, exam_id=exam).first()
+        if existing:
+            if existing.status == 'rejected':
+                # Allow re-request after rejection: reopen as pending
+                existing.status = 'pending'
+                existing.is_active = True
+                existing.rejection_reason = ''
+                existing.reviewed_at = None
+                existing.reviewed_by = None
+                existing.save()
+                return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+            return Response(
+                {'exam': ['You have already requested or are enrolled in this exam.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user.profile)
+        serializer.save(student=self.request.user.profile, status='pending', is_active=True)
 
 
 class ExamEnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -214,3 +237,43 @@ class TenantStudentViewSet(TenantAwareViewSet):
             'is_active': user.is_active,
             'is_suspended': user.is_suspended
         })
+
+class TenantEnrollmentRequestViewSet(TenantAwareViewSet):
+    """
+    Tenant admins review and approve/reject student exam enrollment requests.
+    """
+    serializer_class = AdminEnrollmentRequestSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        tenant = self.request.tenant
+        qs = ExamEnrollment.objects.filter(
+            student__user__tenant=tenant
+        ).select_related('student__user', 'exam', 'reviewed_by').order_by('-created_at')
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        enrollment = self.get_object()
+        enrollment.status = 'approved'
+        enrollment.is_active = True
+        enrollment.rejection_reason = ''
+        enrollment.reviewed_at = timezone.now()
+        enrollment.reviewed_by = request.user
+        enrollment.save()
+        return Response(self.get_serializer(enrollment).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        enrollment = self.get_object()
+        enrollment.status = 'rejected'
+        enrollment.is_active = False
+        enrollment.rejection_reason = request.data.get('reason', '')
+        enrollment.reviewed_at = timezone.now()
+        enrollment.reviewed_by = request.user
+        enrollment.save()
+        return Response(self.get_serializer(enrollment).data)

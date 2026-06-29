@@ -159,10 +159,31 @@ class ExamEnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamEnrollment
         fields = [
-            'id', 'exam', 'exam_name', 'exam_code', 'is_active',
-            'enrolled_at', 'exam_xp', 'exam_rank', 'target_score', 'target_rank'
+            'id', 'exam', 'exam_name', 'exam_code', 'is_active', 'status',
+            'rejection_reason', 'reviewed_at', 'enrolled_at', 'exam_xp',
+            'exam_rank', 'target_score', 'target_rank'
         ]
-        read_only_fields = ['id', 'enrolled_at', 'exam_xp', 'exam_rank']
+        read_only_fields = [
+            'id', 'enrolled_at', 'exam_xp', 'exam_rank', 'status',
+            'rejection_reason', 'reviewed_at'
+        ]
+
+
+class AdminEnrollmentRequestSerializer(serializers.ModelSerializer):
+    """Serializer for tenant admins to review enrollment requests."""
+    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    exam_code = serializers.CharField(source='exam.code', read_only=True)
+    student_name = serializers.CharField(source='student.user.full_name', read_only=True)
+    student_email = serializers.CharField(source='student.user.email', read_only=True)
+    reviewed_by_email = serializers.CharField(source='reviewed_by.email', read_only=True)
+
+    class Meta:
+        model = ExamEnrollment
+        fields = [
+            'id', 'exam', 'exam_name', 'exam_code', 'student_name', 'student_email',
+            'status', 'rejection_reason', 'reviewed_at', 'reviewed_by_email', 'created_at'
+        ]
+        read_only_fields = fields
 
 
 class OnboardingSerializer(serializers.Serializer):

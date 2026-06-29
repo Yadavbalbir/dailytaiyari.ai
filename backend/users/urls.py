@@ -13,11 +13,13 @@ from .views import (
     ExamEnrollmentListView,
     ExamEnrollmentDetailView,
     TenantStudentViewSet,
+    TenantEnrollmentRequestViewSet,
 )
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'tenant-students', TenantStudentViewSet, basename='tenant-students')
+router.register(r'enrollment-requests', TenantEnrollmentRequestViewSet, basename='enrollment-requests')
 
 
 urlpatterns = [

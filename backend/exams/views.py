@@ -207,8 +207,9 @@ class AvailableExamsForEnrollmentView(APIView):
 
 class StudyExamsView(APIView):
     """
-    Return only exams the user is enrolled/registered in for the Study tab.
-    No fallback to all exams — user sees only their enrolled exams.
+    Return the user's enrolled exams for the Study tab.
+    Only approved + active exams are usable; pending requests are returned
+    separately so the UI can show them as awaiting admin approval.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -217,22 +218,28 @@ class StudyExamsView(APIView):
 
         student = request.user.profile
         enrolled = ExamEnrollment.objects.filter(
-            student=student, is_active=True
-        ).select_related('exam').order_by('enrolled_at')
+            student=student
+        ).exclude(status='rejected').select_related('exam').order_by('enrolled_at')
 
-        exams = [e.exam for e in enrolled if e.exam and e.exam.status == 'active']
-
-        result = [
-            {
-                'id': str(e.id),
-                'name': e.name,
-                'code': e.code,
-                'color': getattr(e, 'color', None) or '#3B82F6',
-                'is_featured': getattr(e, 'is_featured', False),
+        approved = []
+        pending = []
+        for e in enrolled:
+            if not e.exam or e.exam.status != 'active':
+                continue
+            item = {
+                'id': str(e.exam.id),
+                'name': e.exam.name,
+                'code': e.exam.code,
+                'color': getattr(e.exam, 'color', None) or '#3B82F6',
+                'is_featured': getattr(e.exam, 'is_featured', False),
+                'enrollment_status': e.status,
             }
-            for e in exams
-        ]
-        return Response(result)
+            if e.status == 'approved':
+                approved.append(item)
+            elif e.status == 'pending':
+                pending.append(item)
+
+        return Response({'exams': approved, 'pending': pending})
 
 
 class StudySubjectsView(APIView):
@@ -258,6 +265,15 @@ class StudySubjectsView(APIView):
             exam = getattr(student, 'primary_exam', None)
         if not exam:
             return Response([])
+
+        # Block access unless the student has an approved enrollment for this exam
+        from users.models import ExamEnrollment
+        if not ExamEnrollment.objects.filter(
+            student=student, exam=exam, status='approved'
+        ).exists():
+            return Response(
+                {'error': 'Enrollment pending admin approval'}, status=403
+            )
 
         subjects = Subject.objects.filter(exam=exam).order_by('order')
         result = []

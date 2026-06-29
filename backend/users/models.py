@@ -221,12 +221,27 @@ class ExamEnrollment(TimeStampedModel):
     Tracks which exams a student is preparing for.
     Allows multiple exam preparations simultaneously.
     """
+    STATUS_CHOICES = [
+        ('pending', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
     exam = models.ForeignKey('exams.Exam', on_delete=models.CASCADE, related_name='enrollments')
     
     # Status
     is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     enrolled_at = models.DateTimeField(auto_now_add=True)
+
+    # Approval workflow
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_enrollments'
+    )
+    rejection_reason = models.CharField(max_length=255, blank=True, default='')
     
     # Exam-specific stats
     exam_xp = models.PositiveIntegerField(default=0)
