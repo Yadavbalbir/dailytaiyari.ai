@@ -3,7 +3,11 @@ import api from './api'
 export const tenantAdminService = {
     // Student Management
     getStudents: async (params = {}) => {
-        const response = await api.get('/auth/tenant-students/', { params })
+        // Pull the full institution roster (high page_size) so search, filters
+        // and CSV export operate over every student, not just the first page.
+        const response = await api.get('/auth/tenant-students/', {
+            params: { page_size: 5000, ...params },
+        })
         return response.data
     },
 

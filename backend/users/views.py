@@ -1,10 +1,11 @@
 """
 Views for user authentication and profile management.
 """
-from rest_framework import status, generics, permissions
+from rest_framework import status, generics, permissions, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -26,6 +27,19 @@ from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
 User = get_user_model()
+
+
+class StudentRecordsPagination(PageNumberPagination):
+    """
+    Pagination for the tenant admin student-records view.
+
+    Defaults to a high page size so admins can search/filter/export across
+    the whole institution, while still allowing an explicit ?page_size=
+    override (capped) for clients that want true pagination.
+    """
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 5000
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -183,10 +197,38 @@ class TenantStudentViewSet(TenantAwareViewSet):
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+    pagination_class = StudentRecordsPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'user__email', 'user__first_name', 'user__last_name', 'user__phone',
+        'school', 'coaching', 'city', 'state',
+    ]
+    ordering_fields = [
+        'user__first_name', 'user__email', 'total_xp', 'current_level',
+        'total_questions_attempted', 'created_at',
+    ]
+    ordering = ['user__first_name']
 
     def get_queryset(self):
         tenant = self.request.tenant
-        return StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_exam')
+        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_exam')
+
+        # Optional explicit filters (used by the admin dashboard).
+        role = self.request.query_params.get('role')
+        if role:
+            qs = qs.filter(user__role=role)
+
+        status_param = self.request.query_params.get('status')
+        if status_param == 'active':
+            qs = qs.filter(user__is_suspended=False)
+        elif status_param == 'suspended':
+            qs = qs.filter(user__is_suspended=True)
+
+        primary_exam = self.request.query_params.get('primary_exam')
+        if primary_exam:
+            qs = qs.filter(primary_exam_id=primary_exam)
+
+        return qs
 
     @action(detail=True, methods=['post'])
     def reset_progress(self, request, pk=None):
