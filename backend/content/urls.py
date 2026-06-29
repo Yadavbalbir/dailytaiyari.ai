@@ -7,6 +7,10 @@ from .views import (
     ContentViewSet, ContentProgressViewSet,
     StudyPlanViewSet, StudyPlanItemViewSet
 )
+from .admin_views import AdminContentViewSet
+
+admin_router = DefaultRouter()
+admin_router.register(r'contents', AdminContentViewSet, basename='admin-content')
 
 router = DefaultRouter()
 router.register(r'', ContentViewSet, basename='content')
@@ -15,6 +19,7 @@ router.register(r'study-plans', StudyPlanViewSet, basename='study-plan')
 router.register(r'study-plan-items', StudyPlanItemViewSet, basename='study-plan-item')
 
 urlpatterns = [
+    path('admin/', include(admin_router.urls)),
     path('', include(router.urls)),
 ]
 
