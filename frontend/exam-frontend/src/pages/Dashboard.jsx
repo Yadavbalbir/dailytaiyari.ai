@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../context/authStore'
 import { analyticsService } from '../services/analyticsService'
 import { contentService } from '../services/contentService'
@@ -38,6 +38,8 @@ import {
 const Dashboard = () => {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
+  const queryClient = useQueryClient()
+  const selectedExamId = (typeof localStorage !== 'undefined' && localStorage.getItem('study:lastExamId')) || ''
 
   // Fetch dashboard data
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
@@ -46,9 +48,34 @@ const Dashboard = () => {
   })
 
   const { data: studyPlan, isLoading: planLoading } = useQuery({
-    queryKey: ['todayStudyPlan'],
-    queryFn: () => contentService.getTodayStudyPlan(),
+    queryKey: ['todayStudyPlan', selectedExamId],
+    queryFn: () => contentService.getTodayStudyPlan(selectedExamId || undefined),
   })
+
+  // Create / regenerate today's study plan
+  const generatePlan = useMutation({
+    mutationFn: () => contentService.generateStudyPlan({
+      ...(selectedExamId ? { exam_id: selectedExamId } : {}),
+      target_minutes: profile?.daily_study_goal_minutes || 60,
+      include_revision: true,
+      focus_weak_topics: true,
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todayStudyPlan'] }),
+  })
+
+  // Mark a plan item complete (optimistic refetch)
+  const completeItem = useMutation({
+    mutationFn: (itemId) => contentService.updateStudyPlanItem(itemId, 'complete'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['todayStudyPlan'] }),
+  })
+
+  const goToPlanItem = (item) => {
+    if (item.item_type === 'mock') return navigate('/mock-test')
+    if (item.item_type === 'quiz') return navigate('/quiz')
+    if (item.content) return navigate(`/content/${item.content}`)
+    if (item.topic) return navigate(`/topic/${item.topic}`)
+    return navigate('/study')
+  }
 
   const { data: weakTopics } = useQuery({
     queryKey: ['weakTopics'],
@@ -382,40 +409,68 @@ const Dashboard = () => {
 
           {studyPlan?.items?.length > 0 ? (
             <div className="space-y-3">
-              {studyPlan.items.slice(0, 3).map((item, index) => (
-                <div
-                  key={item.id || index}
-                  onClick={() => navigate(`/study/${item.content_type}/${item.content_id}`)}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 cursor-pointer transition-colors"
-                >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${item.is_completed ? 'bg-success-100 dark:bg-success-900/30' : 'bg-primary-100 dark:bg-primary-900/30'
-                    }`}>
-                    {item.is_completed ? (
-                      <CheckCircle2 size={18} className="text-success-600" />
-                    ) : (
-                      <BookOpen size={18} className="text-primary-600" />
-                    )}
+              {studyPlan.items.slice(0, 4).map((item, index) => {
+                const isCompleted = item.status === 'completed'
+                return (
+                  <div
+                    key={item.id || index}
+                    onClick={() => goToPlanItem(item)}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-700 cursor-pointer transition-colors"
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!isCompleted) completeItem.mutate(item.id)
+                      }}
+                      title={isCompleted ? 'Completed' : 'Mark as done'}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isCompleted ? 'bg-success-100 dark:bg-success-900/30' : 'bg-primary-100 dark:bg-primary-900/30'}`}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 size={18} className="text-success-600" />
+                      ) : (
+                        <BookOpen size={18} className="text-primary-600" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium truncate ${isCompleted ? 'line-through text-surface-400' : ''}`}>
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-surface-500 capitalize">
+                        {item.item_type} • {item.estimated_minutes || 15} min
+                      </p>
+                    </div>
+                    <ChevronRight size={18} className="text-surface-300 shrink-0" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${item.is_completed ? 'line-through text-surface-400' : ''}`}>
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-surface-500">
-                      {item.estimated_time || '15 min'} • {item.xp || 50} XP
-                    </p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
+              <button
+                onClick={() => generatePlan.mutate()}
+                disabled={generatePlan.isPending}
+                className="btn-secondary w-full text-sm mt-1"
+              >
+                {generatePlan.isPending ? 'Regenerating…' : 'Regenerate Plan'}
+              </button>
             </div>
           ) : (
             <div className="text-center py-8 text-surface-500">
-              <p>No study plan for today</p>
-              <button
-                onClick={() => navigate('/study')}
-                className="btn-primary mt-4"
-              >
-                Create Study Plan
-              </button>
+              <p>{studyPlan?.no_exam ? 'Enroll in an exam to get a study plan' : 'No study plan for today'}</p>
+              {studyPlan?.no_exam ? (
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="btn-primary mt-4"
+                >
+                  Manage Exams
+                </button>
+              ) : (
+                <button
+                  onClick={() => generatePlan.mutate()}
+                  disabled={generatePlan.isPending}
+                  className="btn-primary mt-4"
+                >
+                  {generatePlan.isPending ? 'Creating…' : 'Create Study Plan'}
+                </button>
+              )}
             </div>
           )}
         </div>

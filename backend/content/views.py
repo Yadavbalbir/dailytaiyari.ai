@@ -211,13 +211,41 @@ class StudyPlanViewSet(TenantAwareViewSet):
     def get_queryset(self):
         return StudyPlan.objects.filter(student=self.request.user.profile)
 
+    @staticmethod
+    def _resolve_exam_id(student, requested_exam_id=None):
+        """Resolve a usable exam for the student's study plan.
+
+        Order: explicitly requested -> primary exam -> first approved/active
+        enrollment. Returns None if the student has no usable exam.
+        """
+        candidates = [requested_exam_id, student.primary_exam_id]
+        for exam_id in candidates:
+            if exam_id and student.enrollments.filter(
+                exam_id=exam_id, status='approved', is_active=True
+            ).exists():
+                return exam_id
+        enrollment = student.enrollments.filter(
+            status='approved', is_active=True
+        ).order_by('created_at').first()
+        return enrollment.exam_id if enrollment else (
+            requested_exam_id or student.primary_exam_id
+        )
+
     @action(detail=False, methods=['get'])
     def today(self, request):
         """Get today's study plan."""
         student = request.user.profile
         today = timezone.now().date()
-        exam_id = request.query_params.get('exam_id', student.primary_exam_id)
-        
+        requested = request.query_params.get('exam_id')
+        exam_id = self._resolve_exam_id(student, requested)
+
+        if not exam_id:
+            return Response({
+                'items': [],
+                'no_exam': True,
+                'detail': 'Enroll in an exam to get a personalised study plan.',
+            })
+
         plan, created = StudyPlan.objects.get_or_create(
             student=student,
             exam_id=exam_id,
@@ -242,10 +270,17 @@ class StudyPlanViewSet(TenantAwareViewSet):
         
         student = request.user.profile
         today = timezone.now().date()
-        
+        exam_id = self._resolve_exam_id(student, serializer.validated_data.get('exam_id'))
+
+        if not exam_id:
+            return Response(
+                {'detail': 'Enroll in an exam before creating a study plan.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         plan, created = StudyPlan.objects.get_or_create(
             student=student,
-            exam_id=serializer.validated_data['exam_id'],
+            exam_id=exam_id,
             date=today,
             defaults={
                 'target_study_minutes': serializer.validated_data['target_minutes']
