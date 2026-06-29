@@ -8,7 +8,7 @@ from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 
 from .models import (
     Question, Quiz, MockTest, MockTestQuestion, QuizAttempt, MockTestAttempt, Answer, QuestionReport
@@ -157,7 +157,7 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         # Get exams that have quizzes
         exams_with_quizzes = Exam.objects.filter(
             quizzes__status='published'
-        ).distinct().values('id', 'name', 'short_name')
+        ).distinct().annotate(short_name=F('code')).values('id', 'name', 'short_name')
         
         # Get quiz type counts (scoped to exam)
         quiz_types = quiz_qs.values('quiz_type').annotate(
@@ -548,7 +548,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         # Get exams that have mock tests
         exams_with_tests = Exam.objects.filter(
             mock_tests__status='published'
-        ).distinct().values('id', 'name', 'short_name')
+        ).distinct().annotate(short_name=F('code')).values('id', 'name', 'short_name')
         
         # Get attempted/non-attempted counts for the user (scoped to exam)
         attempted_count = 0
