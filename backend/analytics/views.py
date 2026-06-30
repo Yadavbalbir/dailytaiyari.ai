@@ -342,23 +342,29 @@ class StudyTimerView(APIView):
             session.goal_achieved_at = timezone.now()
             goal_just_achieved = True
             
-            # Award XP for achieving daily goal (no bonus)
+            # Award XP for achieving daily goal: 25 base + streak bonus (3/day, max +25)
             if not session.goal_xp_awarded:
-                xp_awarded = 50
+                # Update streak first so the bonus reflects today's achievement
+                AnalyticsService.update_streak(student, today, None)
+                streak_updated = True
+
+                from analytics.models import Streak
+                streak_obj = Streak.objects.filter(student=student).order_by('-current_streak').first()
+                current_streak = streak_obj.current_streak if streak_obj else 0
+                streak_bonus = min(25, current_streak * 3)
+                xp_awarded = 25 + streak_bonus
+
                 GamificationService.award_xp(
                     student,
                     xp_awarded,
                     'daily_goal',
-                    f'Achieved daily study goal of {session.goal_seconds // 60} minutes',
+                    f'Achieved daily study goal of {session.goal_seconds // 60} minutes'
+                    + (f' (+{streak_bonus} streak bonus)' if streak_bonus else ''),
                     str(session.id),
                     update_daily_activity=True
                 )
                 session.goal_xp_awarded = True
-                
-                # Update streak based on goal achievement
-                AnalyticsService.update_streak(student, today, None)
-                streak_updated = True
-                
+
                 # Mark daily activity goal as met
                 DailyActivity.objects.filter(
                     student=student,

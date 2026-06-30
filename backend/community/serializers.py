@@ -113,7 +113,7 @@ class CommentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        return Like.objects.filter(user=request.user.profile, comment=obj).exists()
+        return Like.objects.filter(user=request.user.profile, comment=obj, is_active=True).exists()
     
     def validate_content(self, value):
         result = ContentModerationService.validate_content(content=value)
@@ -171,7 +171,7 @@ class PostSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        return Like.objects.filter(user=request.user.profile, post=obj).exists()
+        return Like.objects.filter(user=request.user.profile, post=obj, is_active=True).exists()
     
     def get_user_poll_vote(self, obj):
         if obj.post_type != 'poll':

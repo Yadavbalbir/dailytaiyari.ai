@@ -324,18 +324,33 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         # Calculate results and XP
         attempt.calculate_results()
         xp_earned = attempt.calculate_xp()
+
+        # Enforce a daily cap on AI-quiz XP so quizzes can't be farmed endlessly.
+        from .models import AI_QUIZ_XP_DAILY_CAP
+        from gamification.models import XPTransaction
+        from django.db.models import Sum
+        today = timezone.now().date()
+        used_today = XPTransaction.objects.filter(
+            student=student,
+            transaction_type='ai_quiz',
+            created_at__date=today,
+        ).aggregate(total=Sum('xp_amount'))['total'] or 0
+        remaining = max(0, AI_QUIZ_XP_DAILY_CAP - used_today)
+        xp_earned = min(xp_earned, remaining)
+        attempt.xp_earned = xp_earned
         attempt.save()
         
         # Award XP via gamification (creates XPTransaction, updates profile.total_xp)
         from gamification.services import GamificationService
-        GamificationService.award_xp(
-            student,
-            xp_earned,
-            'ai_quiz',
-            f'AI Quiz: {attempt.quiz_topic or "Practice"}',
-            reference_id=attempt.id,
-            update_daily_activity=False,
-        )
+        if xp_earned > 0:
+            GamificationService.award_xp(
+                student,
+                xp_earned,
+                'ai_quiz',
+                f'AI Quiz: {attempt.quiz_topic or "Practice"}',
+                reference_id=attempt.id,
+                update_daily_activity=False,
+            )
         
         # Update AI learning stats
         stats, created = AILearningStats.objects.get_or_create(student=student)

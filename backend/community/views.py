@@ -98,24 +98,35 @@ class PostViewSet(TenantAwareViewSet):
     
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
-        """Toggle like on a post."""
+        """Toggle like on a post (soft-toggle; XP awarded at most once, never to self)."""
         post = self.get_object()
         user = request.user.profile
         
-        like, created = Like.objects.get_or_create(user=user, post=post)
+        like, created = Like.objects.get_or_create(
+            user=user, post=post,
+            defaults={'is_active': True}
+        )
         
-        if created:
+        if created or not like.is_active:
+            # Becoming liked
+            if not created:
+                like.is_active = True
             Post.objects.filter(pk=post.pk).update(likes_count=F('likes_count') + 1)
-            # Award XP to post author
-            CommunityXPService.award_xp(
-                post.author,
-                'receive_like_post',
-                reference_id=post.id,
-                description=f"Like received on: {post.title[:50]}"
-            )
+            # Award XP to post author once, and never for liking your own post
+            if not like.xp_awarded and post.author_id != user.id:
+                CommunityXPService.award_xp(
+                    post.author,
+                    'receive_like_post',
+                    reference_id=post.id,
+                    description=f"Like received on: {post.title[:50]}"
+                )
+                like.xp_awarded = True
+            like.save(update_fields=['is_active', 'xp_awarded'])
             return Response({'liked': True, 'likes_count': post.likes_count + 1})
         else:
-            like.delete()
+            # Unlike: deactivate (keep row so XP can't be re-awarded later)
+            like.is_active = False
+            like.save(update_fields=['is_active'])
             Post.objects.filter(pk=post.pk).update(likes_count=F('likes_count') - 1)
             return Response({'liked': False, 'likes_count': post.likes_count - 1})
     
@@ -174,13 +185,16 @@ class PostViewSet(TenantAwareViewSet):
         post.is_solved = True
         post.save()
         
-        # Award XP to answer author
-        CommunityXPService.award_xp(
-            comment.author,
-            'best_answer',
-            reference_id=comment.id,
-            description=f"Best answer on: {post.title[:50]}"
-        )
+        # Award XP to answer author once per comment, and never for answering your own question
+        if (not comment.best_answer_xp_awarded
+                and comment.author_id != post.author_id):
+            CommunityXPService.award_xp(
+                comment.author,
+                'best_answer',
+                reference_id=comment.id,
+                description=f"Best answer on: {post.title[:50]}"
+            )
+            Comment.objects.filter(pk=comment.pk).update(best_answer_xp_awarded=True)
         
         return Response({'best_answer': comment.id, 'is_solved': True})
     
@@ -257,35 +271,47 @@ class CommentViewSet(TenantAwareViewSet):
             comments_count=F('comments_count') + 1
         )
         
-        # Award XP for answering (only top-level comments)
-        if comment.parent is None:
+        # Award XP for answering (only top-level comments, once, never on your own question)
+        if (comment.parent is None
+                and not comment.answer_xp_awarded
+                and comment.author_id != comment.post.author_id):
             CommunityXPService.award_xp(
                 self.request.user.profile,
                 'answer_question',
                 reference_id=comment.id,
                 description=f"Answered: {comment.post.title[:50]}"
             )
+            Comment.objects.filter(pk=comment.pk).update(answer_xp_awarded=True)
     
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
-        """Toggle like on a comment."""
+        """Toggle like on a comment (soft-toggle; XP awarded at most once, never to self)."""
         comment = self.get_object()
         user = request.user.profile
         
-        like, created = Like.objects.get_or_create(user=user, comment=comment)
+        like, created = Like.objects.get_or_create(
+            user=user, comment=comment,
+            defaults={'is_active': True}
+        )
         
-        if created:
+        if created or not like.is_active:
+            if not created:
+                like.is_active = True
             Comment.objects.filter(pk=comment.pk).update(likes_count=F('likes_count') + 1)
-            # Award XP to comment author
-            CommunityXPService.award_xp(
-                comment.author,
-                'receive_like_comment',
-                reference_id=comment.id,
-                description="Like received on comment"
-            )
+            # Award XP to comment author once, and never for liking your own comment
+            if not like.xp_awarded and comment.author_id != user.id:
+                CommunityXPService.award_xp(
+                    comment.author,
+                    'receive_like_comment',
+                    reference_id=comment.id,
+                    description="Like received on comment"
+                )
+                like.xp_awarded = True
+            like.save(update_fields=['is_active', 'xp_awarded'])
             return Response({'liked': True, 'likes_count': comment.likes_count + 1})
         else:
-            like.delete()
+            like.is_active = False
+            like.save(update_fields=['is_active'])
             Comment.objects.filter(pk=comment.pk).update(likes_count=F('likes_count') - 1)
             return Response({'liked': False, 'likes_count': comment.likes_count - 1})
 

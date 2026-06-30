@@ -1,6 +1,7 @@
 """
 Analytics service layer for complex calculations.
 """
+from django.db import transaction
 from django.db.models import Sum, Avg, Count, F, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -87,30 +88,34 @@ class AnalyticsService:
     def update_daily_activity(student, **kwargs):
         """
         Update daily activity record.
+
+        Wrapped in a transaction with a row lock so concurrent updates
+        (e.g. quiz submit + study heartbeat) accumulate instead of clobbering.
         """
         today = timezone.now().date()
-        activity, created = DailyActivity.objects.get_or_create(
-            student=student,
-            date=today
-        )
-        
-        for field, value in kwargs.items():
-            if hasattr(activity, field):
-                current_value = getattr(activity, field)
-                if isinstance(current_value, int):
-                    setattr(activity, field, current_value + value)
-                else:
-                    setattr(activity, field, value)
-        
-        # Check if daily goal met
-        if activity.study_time_minutes >= student.daily_study_goal_minutes:
-            activity.daily_goal_met = True
-        
-        activity.save()
-        
+        with transaction.atomic():
+            DailyActivity.objects.get_or_create(student=student, date=today)
+            activity = DailyActivity.objects.select_for_update().get(
+                student=student, date=today
+            )
+
+            for field, value in kwargs.items():
+                if hasattr(activity, field):
+                    current_value = getattr(activity, field)
+                    if isinstance(current_value, int):
+                        setattr(activity, field, current_value + value)
+                    else:
+                        setattr(activity, field, value)
+
+            # Check if daily goal met
+            if activity.study_time_minutes >= student.daily_study_goal_minutes:
+                activity.daily_goal_met = True
+
+            activity.save()
+
         # Update streak
         AnalyticsService.update_streak(student, today)
-        
+
         return activity
     
     @staticmethod

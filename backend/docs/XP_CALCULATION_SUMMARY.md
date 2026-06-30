@@ -7,7 +7,7 @@
 | **Content completion** | `content/views.py` (progress complete) | `content_complete` | ✅ via `GamificationService.award_xp` | ✅ | ✅ inside `award_xp` |
 | **Quiz** | `quiz/views.py` (submit) | `quiz_complete` | ✅ via `award_xp` | ✅ | ✅ in view via `AnalyticsService.update_daily_activity(..., xp_earned=xp)` (single award, no double-count) |
 
-**Quiz XP formula** (`core/utils.py`): `base = questions_count × 5`, `xp = min(int(base × accuracy/100), cap)`. Cap = 100 per quiz, 150 for daily challenge. So one long quiz (e.g. 82 questions at 100%) no longer awards 410 XP; it is capped at 100 (or 150 for daily).
+**Quiz XP formula** (`core/utils.py`): `base = questions_count × 5`, `xp = min(int(base × accuracy/100), cap)`. Cap = 25 per quiz, 40 for daily challenge (lean economy). So one long quiz (e.g. 82 questions at 100%) no longer awards 410 XP; it is capped at 25 (or 40 for daily).
 | **Mock test** | `quiz/views.py` (mock submit) | `mock_complete` | ✅ via `award_xp` | ✅ | ✅ in view via `update_daily_activity(..., xp_earned=xp)` |
 | **Community** | `community/views.py` → `CommunityXPService.award_xp` | `community` | ✅ (F() + refresh) | ✅ | ✅ **fixed**: now updates `DailyActivity` |
 | **AI Quiz (chatbot)** | `chatbot/views.py` (submit) | `ai_quiz` | ✅ via `award_xp` | ✅ **fixed**: now uses `GamificationService.award_xp` | ✅ in view via `update_daily_activity(..., xp_earned=xp)` |
@@ -96,3 +96,26 @@ So: **global XP** = `profile.total_xp`. **Period XP** (e.g. weekly) = sum of `Da
 - **Global XP**: Ensure every place that gives XP either calls `GamificationService.award_xp` or (for community) `CommunityXPService.award_xp` and that both update `profile.total_xp` and create an `XPTransaction`.
 - **Period XP**: Ensure every such path also updates `DailyActivity.xp_earned` for the current day (either inside `award_xp` or in the view with `update_daily_activity(..., xp_earned=...)`).
 - **Study leaderboard**: Ensure XP is aggregated by `reference_id` in the set of content IDs and quiz attempt IDs for the scope, not quiz IDs.
+
+## Round 2 fixes (gamification audit)
+
+These address logic gaps, doc/code mismatches, exploits, and concurrency:
+
+1. **Quiz/mock caps (lean economy).** `core/utils.py` caps were `10/10` (so the per-question formula and the 1.5× daily bonus were both dead). Set to `QUIZ_XP_CAP=25`, `QUIZ_XP_CAP_DAILY_CHALLENGE=40`; mock now pays `capped(25) × 2 = 50` max (removed the stray `min(..., 50)`).
+2. **Content XP by type.** `content/views.py` now awards notes/revision/formula = 5, video/interactive = 8, pdf = 6 (was flat 10).
+3. **AI quiz bonus + caps.** `AIQuizAttempt.calculate_xp` adds the accuracy bonus (+10/+5/+2) and a 25/attempt cap; the view enforces a 75 XP/day cap — stops unlimited AI-quiz farming.
+4. **Daily-goal streak bonus.** `analytics/views.py` now awards `25 + min(25, streak×3)` (was flat 50).
+5. **Badges award XP.** `check_and_award_badges` now grants the configured `Badge.xp_reward` (was a no-op); subject-mastery badges honor their requirement value instead of a hardcoded `>= 5`.
+6. **Challenge XP.** `gamification/views.py` claim uses `challenge.xp_reward` (removed the `min(..., 25)` clamp).
+7. **Level-up bonus implemented.** `award_xp` now grants level N × 20 and writes a `level_up` transaction when a level is gained (previously documented but never implemented).
+8. **Concurrency / integrity.** `award_xp` locks the profile row (`select_for_update`); `update_daily_activity` locks the activity row; community/daily bumps use `F()`. `total_xp` and `DailyActivity.xp_earned` are clamped non-negative.
+9. **Community anti-farming.** Likes are soft-toggled (`Like.is_active` + `xp_awarded`) so re-liking can't re-award; self-like / self-answer / self-best-answer award nothing; best-answer and answer XP are once-per-comment (`Comment.best_answer_xp_awarded`, `answer_xp_awarded`).
+
+### Round 2 files changed
+- `core/utils.py`, `content/views.py`, `quiz/views.py`, `analytics/views.py`, `analytics/services.py`
+- `chatbot/models.py`, `chatbot/views.py`
+- `gamification/services.py`, `gamification/views.py`
+- `community/models.py`, `community/views.py`, `community/services.py`, `community/serializers.py`
+- `community/migrations/0004_comment_answer_xp_awarded_and_more.py`
+- Tests: `gamification/tests.py`, `community/tests.py`
+

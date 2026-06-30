@@ -153,9 +153,17 @@ class ContentProgressViewSet(TenantAwareViewSet):
             progress.time_spent_minutes = int(request.data['time_spent_minutes'])
         progress.save()
         
-        # XP per content (notes, video, PDF all 10)
+        # XP per content, by type (lean: notes/revision/formula 5, video/interactive 8, pdf 6)
         content = progress.content
-        xp_amount = 10
+        content_xp_map = {
+            'notes': 5,
+            'revision': 5,
+            'formula': 5,
+            'video': 8,
+            'interactive': 8,
+            'pdf': 6,
+        }
+        xp_amount = content_xp_map.get(content.content_type, 5)
         
         # Award XP
         GamificationService.award_xp(
