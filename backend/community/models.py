@@ -116,6 +116,9 @@ class Comment(TimeStampedModel):
     
     # XP tracking
     xp_awarded = models.PositiveIntegerField(default=0)
+    # Idempotency guards so XP can't be farmed by repeating actions
+    answer_xp_awarded = models.BooleanField(default=False)
+    best_answer_xp_awarded = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Comment'
@@ -147,6 +150,11 @@ class Like(TimeStampedModel):
         null=True, blank=True,
         related_name='likes'
     )
+
+    # Soft-toggle state: unliking deactivates the row instead of deleting it, so
+    # re-liking cannot re-award XP (anti-farming). xp_awarded latches the first award.
+    is_active = models.BooleanField(default=True)
+    xp_awarded = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Like'

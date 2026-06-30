@@ -768,14 +768,12 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         if already_completed:
             xp = 0
         else:
-            xp = min(
-                calculate_xp_for_quiz(
-                    attempt.percentage,
-                    attempt.total_questions,
-                    is_daily_challenge=False
-                ) * 2,
-                50
-            )
+            # Base quiz formula is capped at 100; mock tests pay double (effective max 200).
+            xp = calculate_xp_for_quiz(
+                attempt.percentage,
+                attempt.total_questions,
+                is_daily_challenge=False
+            ) * 2
         attempt.xp_earned = xp
         attempt.save(update_fields=['xp_earned'])
         

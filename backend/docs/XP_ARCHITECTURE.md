@@ -73,7 +73,8 @@ There are two services that add XP:
 | `chatbot/views.py` (submit) | User completes an AI-generated quiz | `base_xp = total_questions × 5`<br>`xp = int(base_xp × accuracy/100) + bonus`<br>**Bonus:** 100% → +50, ≥80% → +25, ≥60% → +10 | `ai_quiz` |
 
 - Implemented in `chatbot/models.py` → `AIQuizAttempt.calculate_xp()`.
-- No per-quiz cap in code (could be added similarly to study quiz if desired).
+- **Per-attempt cap:** 100 XP (`AI_QUIZ_XP_CAP_PER_ATTEMPT`).
+- **Daily cap:** 300 XP/day across all AI quizzes (`AI_QUIZ_XP_DAILY_CAP`), enforced in the view by summing today's `ai_quiz` transactions — prevents unlimited XP farming by repeating AI quizzes.
 - View calls `GamificationService.award_xp(..., update_daily_activity=False)` then `AnalyticsService.update_daily_activity(..., xp_earned=xp_earned)`.
 
 ---
@@ -195,8 +196,8 @@ There are two services that add XP:
 | Content (PDF) | 12 | No |
 | Quiz (topic) | 5 per question × accuracy%, then cap | Yes: 100 (150 daily) |
 | Mock test | Same as quiz × 2 | Yes: 200 |
-| AI quiz | 5 per question × accuracy% + bonus (e.g. +50 perfect) | No cap in code |
-| Community (per action) | 2–50 (see table above) | No |
+| AI quiz | 5 per question × accuracy% + bonus (e.g. +50 perfect) | Yes: 100/attempt, 300/day |
+| Community (per action) | 2–50 (see table above) | Idempotent (see §8) |
 | Badges | Sum of earned badges (50–5000 each) | One batch per check |
 | Level up | level × 50 | N/A |
 | Daily goal | 50 + streak (max +50) = 50–100 | Once per day |
@@ -217,3 +218,20 @@ There are two services that add XP:
 - **Leaderboards:** `gamification/services.py` (`get_leaderboard`, `get_student_rank`), `exams/views.py` (`StudyLeaderboardView`), `community/services.py` (`CommunityLeaderboardService`).
 
 For historical bugs and fixes (transaction types, daily activity, study leaderboard), see **XP_CALCULATION_SUMMARY.md**.
+
+---
+
+## 8. Integrity & anti-abuse guarantees
+
+These rules keep XP totals correct and prevent farming:
+
+- **Concurrency-safe awards.** `GamificationService.award_xp` locks the `StudentProfile` row (`select_for_update`) before reading/writing `total_xp`, so simultaneous awards (e.g. quiz submit + a community like) cannot lose updates. `AnalyticsService.update_daily_activity` and the `DailyActivity.xp_earned` bumps use row locks / `F()` expressions for the same reason.
+- **Non-negative balances.** `total_xp` is clamped at 0 on deductions; `DailyActivity.xp_earned` is clamped with `Greatest(..., 0)`.
+- **Level-up bonus.** When an award raises the student's level, a separate `level_up` transaction (level N × 50) is created and also counted toward period leaderboards.
+- **Community idempotency (no farming):**
+  - Likes are **soft-toggled** (`Like.is_active`) instead of deleted; XP is latched with `Like.xp_awarded`, so like → unlike → re-like awards XP only once.
+  - **No self-XP:** liking/answering/best-answering your own post or comment awards nothing.
+  - Best-answer XP is granted once per comment (`Comment.best_answer_xp_awarded`); answer XP once per comment (`Comment.answer_xp_awarded`).
+- **AI quiz caps:** 100 XP/attempt and 300 XP/day (see §3.4).
+- **Quiz / mock:** capped per attempt and awarded only on first completion (re-attempts earn 0).
+

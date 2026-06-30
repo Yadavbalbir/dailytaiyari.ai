@@ -114,13 +114,10 @@ class CommunityXPService:
             # Update daily activity so leaderboard / weekly XP includes community XP
             from analytics.models import DailyActivity
             today = timezone.now().date()
-            activity, _ = DailyActivity.objects.get_or_create(
-                student=user_profile,
-                date=today,
-                defaults={}
-            )
-            activity.xp_earned = (activity.xp_earned or 0) + xp_amount
-            activity.save(update_fields=['xp_earned'])
+            DailyActivity.objects.get_or_create(student=user_profile, date=today)
+            DailyActivity.objects.filter(
+                student=user_profile, date=today
+            ).update(xp_earned=F('xp_earned') + xp_amount)
             
             return xp_transaction
     
@@ -250,6 +247,7 @@ class CommunityLeaderboardService:
                 # Since we are only doing this for top 100, it's fine
                 likes = Like.objects.filter(
                     Q(post__author=profile) | Q(comment__author=profile),
+                    is_active=True,
                     created_at__date__gte=period_start,
                     created_at__date__lte=period_end
                 ).count()
