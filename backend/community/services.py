@@ -70,17 +70,17 @@ class CommunityXPService:
     Service for awarding XP for community activities.
     """
     
-    # XP reward values
+    # XP reward values (lean economy)
     XP_REWARDS = {
-        'ask_question': 10,
-        'create_poll': 10,
-        'create_quiz': 15,
-        'answer_question': 15,
-        'best_answer': 50,
+        'ask_question': 5,
+        'create_poll': 5,
+        'create_quiz': 8,
+        'answer_question': 8,
+        'best_answer': 20,
         'receive_like_post': 2,
         'receive_like_comment': 2,
         'vote_poll': 2,
-        'quiz_correct': 5,
+        'quiz_correct': 3,
     }
     
     @classmethod

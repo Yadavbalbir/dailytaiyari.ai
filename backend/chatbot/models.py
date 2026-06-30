@@ -5,9 +5,9 @@ from django.db import models
 from core.models import TimeStampedModel
 from exams.models import Topic, Subject
 
-# Anti-farming caps for AI-generated quizzes.
-AI_QUIZ_XP_CAP_PER_ATTEMPT = 100
-AI_QUIZ_XP_DAILY_CAP = 300
+# Anti-farming caps for AI-generated quizzes (lean economy).
+AI_QUIZ_XP_CAP_PER_ATTEMPT = 25
+AI_QUIZ_XP_DAILY_CAP = 75
 
 
 class ChatSession(TimeStampedModel):
@@ -226,7 +226,7 @@ class AIQuizAttempt(TimeStampedModel):
         Calculate XP based on performance.
 
         Base: 5 XP/question scaled by accuracy, plus an accuracy bonus
-        (100% -> +50, >=80% -> +25, >=60% -> +10), capped per attempt so a
+        (100% -> +10, >=80% -> +5, >=60% -> +2), capped per attempt so a
         single AI quiz cannot award an unbounded amount of XP.
         """
         if self.total_questions == 0:
@@ -235,11 +235,11 @@ class AIQuizAttempt(TimeStampedModel):
         base_xp = self.total_questions * 5
         xp = int(base_xp * (self.percentage / 100))
         if self.percentage >= 100:
-            xp += 50
-        elif self.percentage >= 80:
-            xp += 25
-        elif self.percentage >= 60:
             xp += 10
+        elif self.percentage >= 80:
+            xp += 5
+        elif self.percentage >= 60:
+            xp += 2
         self.xp_earned = min(xp, AI_QUIZ_XP_CAP_PER_ATTEMPT)
         return self.xp_earned
 

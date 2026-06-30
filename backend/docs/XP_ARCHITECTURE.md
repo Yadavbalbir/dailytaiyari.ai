@@ -37,7 +37,7 @@ There are two services that add XP:
 
 | Where | Trigger | Amount | Transaction type |
 |-------|--------|--------|-------------------|
-| `content/views.py` (mark progress complete) | User completes a content item (notes/video/pdf) | **Notes:** 10 XP<br>**Video:** 15 XP<br>**PDF:** 12 XP | `content_complete` |
+| `content/views.py` (mark progress complete) | User completes a content item (notes/video/pdf) | **Notes:** 5 XP<br>**Video:** 8 XP<br>**PDF:** 6 XP | `content_complete` |
 
 - One award per content item (no double award if already completed).
 - `GamificationService.award_xp` is called with default `update_daily_activity=True`, so daily activity is updated automatically.
@@ -48,7 +48,7 @@ There are two services that add XP:
 
 | Where | Trigger | Formula | Cap | Transaction type |
 |-------|--------|--------|-----|-------------------|
-| `quiz/views.py` (submit) | User submits a topic quiz | `base = questions_count × 5`<br>`xp = int(base × accuracy / 100)`<br>Daily challenge: `xp × 1.5` | **100** (normal)<br>**150** (daily challenge) | `quiz_complete` |
+| `quiz/views.py` (submit) | User submits a topic quiz | `base = questions_count × 5`<br>`xp = int(base × accuracy / 100)`<br>Daily challenge: `xp × 1.5` | **25** (normal)<br>**40** (daily challenge) | `quiz_complete` |
 
 - **Formula:** `core/utils.py` → `calculate_xp_for_quiz(accuracy, questions_count, is_daily_challenge)`.
 - Capped so one long quiz cannot give hundreds of XP.
@@ -60,9 +60,9 @@ There are two services that add XP:
 
 | Where | Trigger | Formula | Cap | Transaction type |
 |-------|--------|--------|-----|-------------------|
-| `quiz/views.py` (mock submit) | User completes a mock test | Same as quiz: `calculate_xp_for_quiz(%, total_questions, False)` **× 2** | 100 × 2 = **200** max | `mock_complete` |
+| `quiz/views.py` (mock submit) | User completes a mock test | Same as quiz: `calculate_xp_for_quiz(%, total_questions, False)` **× 2** | 25 × 2 = **50** max | `mock_complete` |
 
-- Same base formula as quiz, doubled; then same cap logic applies to the pre-doubled value (cap 100), so effective max is 200.
+- Same base formula as quiz, doubled; then same cap logic applies to the pre-doubled value (cap 25), so effective max is 50.
 
 ---
 
@@ -70,11 +70,11 @@ There are two services that add XP:
 
 | Where | Trigger | Formula | Transaction type |
 |-------|--------|--------|-------------------|
-| `chatbot/views.py` (submit) | User completes an AI-generated quiz | `base_xp = total_questions × 5`<br>`xp = int(base_xp × accuracy/100) + bonus`<br>**Bonus:** 100% → +50, ≥80% → +25, ≥60% → +10 | `ai_quiz` |
+| `chatbot/views.py` (submit) | User completes an AI-generated quiz | `base_xp = total_questions × 5`<br>`xp = int(base_xp × accuracy/100) + bonus`<br>**Bonus:** 100% → +10, ≥80% → +5, ≥60% → +2 | `ai_quiz` |
 
 - Implemented in `chatbot/models.py` → `AIQuizAttempt.calculate_xp()`.
-- **Per-attempt cap:** 100 XP (`AI_QUIZ_XP_CAP_PER_ATTEMPT`).
-- **Daily cap:** 300 XP/day across all AI quizzes (`AI_QUIZ_XP_DAILY_CAP`), enforced in the view by summing today's `ai_quiz` transactions — prevents unlimited XP farming by repeating AI quizzes.
+- **Per-attempt cap:** 25 XP (`AI_QUIZ_XP_CAP_PER_ATTEMPT`).
+- **Daily cap:** 75 XP/day across all AI quizzes (`AI_QUIZ_XP_DAILY_CAP`), enforced in the view by summing today's `ai_quiz` transactions — prevents unlimited XP farming by repeating AI quizzes.
 - View calls `GamificationService.award_xp(..., update_daily_activity=False)` then `AnalyticsService.update_daily_activity(..., xp_earned=xp_earned)`.
 
 ---
@@ -89,15 +89,15 @@ There are two services that add XP:
 
 | Action | XP | When |
 |--------|----|------|
-| `ask_question` | 10 | Create a question post |
-| `create_poll` | 10 | Create a poll post |
-| `create_quiz` | 15 | Create a quiz post |
-| `answer_question` | 15 | Add top-level answer (comment) |
-| `best_answer` | 50 | Author’s answer marked best |
+| `ask_question` | 5 | Create a question post |
+| `create_poll` | 5 | Create a poll post |
+| `create_quiz` | 8 | Create a quiz post |
+| `answer_question` | 8 | Add top-level answer (comment) |
+| `best_answer` | 20 | Author’s answer marked best |
 | `receive_like_post` | 2 | Someone likes your post |
 | `receive_like_comment` | 2 | Someone likes your comment |
 | `vote_poll` | 2 | Vote on a poll |
-| `quiz_correct` | 5 | Correct answer on community quiz (if used) |
+| `quiz_correct` | 3 | Correct answer on community quiz (if used) |
 
 - All go through `CommunityXPService.award_xp`, which updates `total_xp`, creates `XPTransaction`, and updates `DailyActivity.xp_earned` for the day.
 
@@ -118,7 +118,7 @@ There are two services that add XP:
 
 | Where | Trigger | Formula | Transaction type |
 |-------|--------|--------|-------------------|
-| `gamification/services.py` → `award_xp` (internal) | Any award that pushes `total_xp` past the next level threshold | **Level N bonus = N × 50** (e.g. level 1 → 50, level 2 → 100) | `level_up` |
+| `gamification/services.py` → `award_xp` (internal) | Any award that pushes `total_xp` past the next level threshold | **Level N bonus = N × 20** (e.g. level 1 → 20, level 2 → 40) | `level_up` |
 
 - Level is derived from `StudentProfile.total_xp` via `calculate_level()` (see Levels below).
 - When `new_level > current_level`, bonus is added to `total_xp` and a second `XPTransaction` is created with type `level_up`.
@@ -129,10 +129,10 @@ There are two services that add XP:
 
 | Where | Trigger | Amount | Transaction type |
 |-------|--------|--------|-------------------|
-| `analytics/views.py` (study session heartbeat) | User’s study session reaches daily goal (e.g. minutes) | **50** base + **streak bonus** (5 XP per streak day, max +50) = **50–100** | `daily_goal` |
+| `analytics/views.py` (study session heartbeat) | User’s study session reaches daily goal (e.g. minutes) | **25** base + **streak bonus** (3 XP per streak day, max +25) = **25–50** | `daily_goal` |
 
 - Awarded once per day when goal is first achieved (`session.goal_xp_awarded`).
-- Streak bonus: `min(50, current_streak * 5)`.
+- Streak bonus: `min(25, current_streak * 3)`.
 
 ---
 
@@ -153,7 +153,7 @@ There are two services that add XP:
   - 1–6: `streak_days × 10`  
   - 7–29: `70 + (streak_days - 7) × 15`  
   - 30+: `415 + (streak_days - 30) × 20`  
-- This is **not** used as a standalone XP award in the current code. Streak is used **inside daily goal** (extra 5 XP per streak day, max 50) in `analytics/views.py`. So “streak bonus” in practice = daily goal streak component.
+- This is **not** used as a standalone XP award in the current code. Streak is used **inside daily goal** (extra 3 XP per streak day, max 25) in `analytics/views.py`. So “streak bonus” in practice = daily goal streak component.
 
 ---
 
@@ -164,7 +164,7 @@ There are two services that add XP:
   - Level 1 starts at 0 XP.
   - Each level requires **100 × 1.5^(level-1)** XP within that level (cumulative total increases).
   - Algorithm: subtract level thresholds from `total_xp` until remaining XP is less than next threshold; level = number of steps + 1.
-- **Level-up bonus:** When level increases, bonus = `new_level * 50` added to `total_xp` and recorded as `level_up` transaction.
+- **Level-up bonus:** When level increases, bonus = `new_level * 20` added to `total_xp` and recorded as `level_up` transaction.
 - **Next level progress:** `xp_for_next_level` = XP remaining until the next level threshold (for progress bars).
 
 ---
@@ -191,16 +191,16 @@ There are two services that add XP:
 
 | Source | Typical / max amount | Capped? |
 |--------|----------------------|--------|
-| Content (notes) | 10 | No |
-| Content (video) | 15 | No |
-| Content (PDF) | 12 | No |
-| Quiz (topic) | 5 per question × accuracy%, then cap | Yes: 100 (150 daily) |
-| Mock test | Same as quiz × 2 | Yes: 200 |
-| AI quiz | 5 per question × accuracy% + bonus (e.g. +50 perfect) | Yes: 100/attempt, 300/day |
-| Community (per action) | 2–50 (see table above) | Idempotent (see §8) |
+| Content (notes) | 5 | No |
+| Content (video) | 8 | No |
+| Content (PDF) | 6 | No |
+| Quiz (topic) | 5 per question × accuracy%, then cap | Yes: 25 (40 daily) |
+| Mock test | Same as quiz × 2 | Yes: 50 |
+| AI quiz | 5 per question × accuracy% + bonus (e.g. +10 perfect) | Yes: 25/attempt, 75/day |
+| Community (per action) | 2–20 (see table above) | Idempotent (see §8) |
 | Badges | Sum of earned badges (50–5000 each) | One batch per check |
-| Level up | level × 50 | N/A |
-| Daily goal | 50 + streak (max +50) = 50–100 | Once per day |
+| Level up | level × 20 | N/A |
+| Daily goal | 25 + streak (max +25) = 25–50 | Once per day |
 | Challenge | Per challenge (e.g. 100) | Once per challenge |
 
 ---
@@ -227,11 +227,11 @@ These rules keep XP totals correct and prevent farming:
 
 - **Concurrency-safe awards.** `GamificationService.award_xp` locks the `StudentProfile` row (`select_for_update`) before reading/writing `total_xp`, so simultaneous awards (e.g. quiz submit + a community like) cannot lose updates. `AnalyticsService.update_daily_activity` and the `DailyActivity.xp_earned` bumps use row locks / `F()` expressions for the same reason.
 - **Non-negative balances.** `total_xp` is clamped at 0 on deductions; `DailyActivity.xp_earned` is clamped with `Greatest(..., 0)`.
-- **Level-up bonus.** When an award raises the student's level, a separate `level_up` transaction (level N × 50) is created and also counted toward period leaderboards.
+- **Level-up bonus.** When an award raises the student's level, a separate `level_up` transaction (level N × 20) is created and also counted toward period leaderboards.
 - **Community idempotency (no farming):**
   - Likes are **soft-toggled** (`Like.is_active`) instead of deleted; XP is latched with `Like.xp_awarded`, so like → unlike → re-like awards XP only once.
   - **No self-XP:** liking/answering/best-answering your own post or comment awards nothing.
   - Best-answer XP is granted once per comment (`Comment.best_answer_xp_awarded`); answer XP once per comment (`Comment.answer_xp_awarded`).
-- **AI quiz caps:** 100 XP/attempt and 300 XP/day (see §3.4).
+- **AI quiz caps:** 25 XP/attempt and 75 XP/day (see §3.4).
 - **Quiz / mock:** capped per attempt and awarded only on first completion (re-attempts earn 0).
 

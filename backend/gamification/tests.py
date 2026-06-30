@@ -34,8 +34,8 @@ class AIQuizXPTests(TestCase):
         return a
 
     def test_bonus_applied(self):
-        a = self._attempt(4, 100)  # base 20 + 50 bonus = 70
-        self.assertEqual(a.calculate_xp(), 70)
+        a = self._attempt(2, 100)  # base 10 + 10 bonus = 20 (below cap)
+        self.assertEqual(a.calculate_xp(), 20)
 
     def test_per_attempt_cap(self):
         a = self._attempt(100, 100)  # raw huge -> capped
@@ -55,10 +55,10 @@ class AwardXPTests(TestCase):
     def test_level_up_creates_bonus_transaction(self):
         result = GamificationService.award_xp(self.profile, 100, 'manual', 'test')
         self.profile.refresh_from_db()
-        # 100 XP -> level 2; bonus = level 2 * 50 = 100
+        # 100 XP -> level 2; bonus = level 2 * 20 = 40
         self.assertTrue(result['level_up'])
-        self.assertEqual(result['level_bonus'], 100)
-        self.assertEqual(self.profile.total_xp, 200)
+        self.assertEqual(result['level_bonus'], 40)
+        self.assertEqual(self.profile.total_xp, 140)
         self.assertTrue(
             XPTransaction.objects.filter(student=self.profile, transaction_type='level_up').exists()
         )

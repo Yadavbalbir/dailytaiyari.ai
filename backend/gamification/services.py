@@ -7,8 +7,8 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import Badge, StudentBadge, XPTransaction, LeaderboardEntry, Challenge, ChallengeParticipation
 
-# Bonus XP granted each time the student reaches a new level: level N -> N * 50.
-LEVEL_UP_BONUS_PER_LEVEL = 50
+# Bonus XP granted each time the student reaches a new level: level N -> N * 20.
+LEVEL_UP_BONUS_PER_LEVEL = 20
 # Transaction types that update DailyActivity themselves in the view layer (so we skip here to avoid double counting).
 _SKIP_DAILY_ACTIVITY_TYPES = ('quiz_complete', 'mock_complete')
 
