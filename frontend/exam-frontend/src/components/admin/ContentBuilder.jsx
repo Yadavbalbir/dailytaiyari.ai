@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import {
     Plus, Pencil, Trash2, X, ChevronDown, ChevronRight, Loader2, Save,
     GraduationCap, Book, Layers, FileText, Hash, AlertTriangle, Search,
+    ListChecks, CheckCircle2, Circle,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
 
@@ -15,9 +16,17 @@ const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government']
 const EXAM_STATUS = ['active', 'coming_soon', 'inactive']
 const DIFFICULTY = ['easy', 'medium', 'hard']
 const IMPORTANCE = ['low', 'medium', 'high', 'critical']
-const CONTENT_TYPES = ['notes', 'pdf', 'interactive', 'revision', 'formula']
+const CONTENT_TYPES = ['notes', 'video', 'pdf', 'interactive', 'revision', 'formula']
 const CONTENT_DIFFICULTY = ['beginner', 'intermediate', 'advanced']
 const CONTENT_STATUS = ['draft', 'published', 'archived']
+const QUIZ_TYPES = ['topic', 'subject', 'chapter', 'daily', 'custom', 'pyq']
+const QUIZ_STATUS = ['draft', 'published', 'archived']
+const QUESTION_TYPES = ['mcq', 'true_false', 'numerical', 'fill_blank']
+const QUESTION_STATUS = ['draft', 'review', 'published', 'archived']
+const QTYPE_LABEL = {
+    mcq: 'Multiple Choice', true_false: 'True / False',
+    numerical: 'Numerical', fill_blank: 'Fill in the Blank',
+}
 
 const opt = (arr) => arr.map((v) => ({ value: v, label: v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) }))
 
@@ -89,6 +98,26 @@ const SCHEMAS = {
             { name: 'description', label: 'Description', type: 'textarea', full: true },
             { name: 'content_html', label: 'Content (HTML)', type: 'textarea', full: true, rows: 10 },
         ],
+    },
+    quiz: {
+        title: 'Quiz',
+        fields: [
+            { name: 'title', label: 'Title', type: 'text', required: true, full: true },
+            { name: 'quiz_type', label: 'Type', type: 'select', options: opt(QUIZ_TYPES), default: 'topic' },
+            { name: 'status', label: 'Status', type: 'select', options: opt(QUIZ_STATUS), default: 'draft' },
+            { name: 'duration_minutes', label: 'Duration (min)', type: 'number', default: 15 },
+            { name: 'passing_marks', label: 'Passing Marks', type: 'number', step: '0.01' },
+            { name: 'is_free', label: 'Free', type: 'checkbox' },
+            { name: 'shuffle_questions', label: 'Shuffle Questions', type: 'checkbox', default: true },
+            { name: 'shuffle_options', label: 'Shuffle Options', type: 'checkbox', default: true },
+            { name: 'description', label: 'Description', type: 'textarea', full: true },
+        ],
+    },
+    question: {
+        // Questions use a dedicated modal (QuestionModal); this entry only
+        // supplies a title for delete/confirm toasts.
+        title: 'Question',
+        fields: [],
     },
 }
 
@@ -305,6 +334,368 @@ const ContentList = ({ topic, subjectId, openModal, askDelete }) => {
 }
 
 /* ===========================================================================
+ * Question editor modal (dynamic by question type)
+ * ========================================================================= */
+const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
+    const isEdit = !!instance
+    const initType = instance?.question_type || 'mcq'
+
+    const initOptions = () => {
+        if (instance?.options?.length) {
+            return [...instance.options]
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((o) => ({ option_text: o.option_text }))
+        }
+        return [{ option_text: '' }, { option_text: '' }]
+    }
+    const initCorrect = () => {
+        const n = Number(instance?.correct_answer)
+        return Number.isInteger(n) && n >= 0 ? n : 0
+    }
+
+    const [v, setV] = useState(() => ({
+        question_text: instance?.question_text || '',
+        question_type: initType,
+        difficulty: instance?.difficulty || 'medium',
+        status: instance?.status || 'published',
+        marks: instance?.marks ?? 1,
+        negative_marks: instance?.negative_marks ?? 0,
+        explanation: instance?.explanation || '',
+        numerical_answer: instance?.numerical_answer ?? '',
+        numerical_tolerance: instance?.numerical_tolerance ?? 0.01,
+        fill_answer: initType === 'fill_blank' ? (instance?.correct_answer || '') : '',
+    }))
+    const [options, setOptions] = useState(initOptions)
+    const [correctIndex, setCorrectIndex] = useState(initCorrect)
+
+    const set = (k, val) => setV((p) => ({ ...p, [k]: val }))
+    const type = v.question_type
+
+    const setOption = (i, text) => setOptions((p) => p.map((o, idx) => (idx === i ? { option_text: text } : o)))
+    const addOption = () => setOptions((p) => [...p, { option_text: '' }])
+    const removeOption = (i) => {
+        setOptions((p) => p.filter((_, idx) => idx !== i))
+        setCorrectIndex((c) => (c === i ? 0 : c > i ? c - 1 : c))
+    }
+
+    const handleSubmit = (e) => {
+        e.preventDefault()
+        if (!v.question_text.trim()) return toast.error('Question text is required')
+
+        const base = {
+            question_text: v.question_text.trim(),
+            question_type: type,
+            difficulty: v.difficulty,
+            status: v.status,
+            marks: Number(v.marks) || 0,
+            negative_marks: Number(v.negative_marks) || 0,
+            explanation: v.explanation,
+        }
+
+        if (type === 'mcq') {
+            const cleaned = options
+                .map((o, i) => ({ option_text: o.option_text.trim(), is_correct: i === correctIndex }))
+                .filter((o) => o.option_text !== '')
+            if (cleaned.length < 2) return toast.error('Add at least two options')
+            let ci = cleaned.findIndex((o) => o.is_correct)
+            if (ci < 0) ci = 0
+            base.options = cleaned.map((o, i) => ({ option_text: o.option_text, is_correct: i === ci }))
+            base.correct_answer = String(ci)
+        } else if (type === 'true_false') {
+            base.options = [
+                { option_text: 'True', is_correct: correctIndex === 0 },
+                { option_text: 'False', is_correct: correctIndex === 1 },
+            ]
+            base.correct_answer = String(correctIndex)
+        } else if (type === 'numerical') {
+            if (v.numerical_answer === '' || v.numerical_answer === null)
+                return toast.error('Numerical answer is required')
+            base.numerical_answer = Number(v.numerical_answer)
+            base.numerical_tolerance = Number(v.numerical_tolerance) || 0
+            base.correct_answer = String(v.numerical_answer)
+            base.options = []
+        } else if (type === 'fill_blank') {
+            if (!v.fill_answer.trim()) return toast.error('Expected answer is required')
+            base.correct_answer = v.fill_answer.trim()
+            base.options = []
+        }
+        onSubmit(base)
+    }
+
+    const tfIndex = correctIndex === 1 ? 1 : 0
+
+    return (
+        <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                className="card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+                initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+            >
+                <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">{isEdit ? 'Edit' : 'New'} Question</h3>
+                    <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1.5">Question<span className="text-rose-500"> *</span></label>
+                        <textarea className="input" rows={3} value={v.question_text} onChange={(e) => set('question_text', e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Type</label>
+                            <select className="input" value={type} onChange={(e) => { set('question_type', e.target.value); setCorrectIndex(0) }}>
+                                {QUESTION_TYPES.map((t) => <option key={t} value={t}>{QTYPE_LABEL[t]}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Difficulty</label>
+                            <select className="input" value={v.difficulty} onChange={(e) => set('difficulty', e.target.value)}>
+                                {DIFFICULTY.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Status</label>
+                            <select className="input" value={v.status} onChange={(e) => set('status', e.target.value)}>
+                                {QUESTION_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Type-specific answer editor */}
+                    {type === 'mcq' && (
+                        <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-surface-500">Options <span className="text-surface-400 font-normal">(select the correct one)</span></label>
+                            {options.map((o, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <button type="button" onClick={() => setCorrectIndex(i)} title="Mark correct" className="shrink-0">
+                                        {correctIndex === i
+                                            ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            : <Circle className="w-5 h-5 text-surface-300 hover:text-surface-400" />}
+                                    </button>
+                                    <input className="input" placeholder={`Option ${i + 1}`} value={o.option_text} onChange={(e) => setOption(i, e.target.value)} />
+                                    {options.length > 2 && (
+                                        <button type="button" onClick={() => removeOption(i)} className="btn-icon text-surface-400 hover:text-rose-500"><X className="w-4 h-4" /></button>
+                                    )}
+                                </div>
+                            ))}
+                            <button type="button" onClick={addOption} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Add Option</button>
+                        </div>
+                    )}
+
+                    {type === 'true_false' && (
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Correct Answer</label>
+                            <div className="flex gap-2">
+                                {['True', 'False'].map((lbl, i) => (
+                                    <button key={lbl} type="button" onClick={() => setCorrectIndex(i)}
+                                        className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all ${tfIndex === i ? 'bg-primary-500 text-white border-primary-500' : 'bg-white dark:bg-surface-900 text-surface-600 dark:text-surface-300 border-surface-200 dark:border-surface-700'}`}>
+                                        {lbl}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {type === 'numerical' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-surface-500 mb-1.5">Answer<span className="text-rose-500"> *</span></label>
+                                <input type="number" step="any" className="input" value={v.numerical_answer} onChange={(e) => set('numerical_answer', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-surface-500 mb-1.5">Tolerance (±)</label>
+                                <input type="number" step="any" className="input" value={v.numerical_tolerance} onChange={(e) => set('numerical_tolerance', e.target.value)} />
+                            </div>
+                        </div>
+                    )}
+
+                    {type === 'fill_blank' && (
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Expected Answer<span className="text-rose-500"> *</span></label>
+                            <input className="input" value={v.fill_answer} onChange={(e) => set('fill_answer', e.target.value)} />
+                            <p className="text-[11px] text-surface-400 mt-1">Matched case-insensitively, ignoring leading/trailing spaces.</p>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Marks</label>
+                            <input type="number" step="0.01" className="input" value={v.marks} onChange={(e) => set('marks', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">Negative Marks</label>
+                            <input type="number" step="0.01" className="input" value={v.negative_marks} onChange={(e) => set('negative_marks', e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1.5">Explanation</label>
+                        <textarea className="input" rows={2} value={v.explanation} onChange={(e) => set('explanation', e.target.value)} />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+                        <button type="submit" disabled={saving} className="btn-primary">
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {isEdit ? 'Save Changes' : 'Create'}
+                        </button>
+                    </div>
+                </form>
+            </motion.div>
+        </motion.div>
+    )
+}
+
+/* ===========================================================================
+ * Questions inside a quiz
+ * ========================================================================= */
+const QuestionList = ({ quiz, topicId, subjectId, askDelete }) => {
+    const queryClient = useQueryClient()
+    const [qModal, setQModal] = useState(null) // { instance } | null
+    const { data: questions = [], isLoading } = useQuery({
+        queryKey: ['cb-questions', quiz.id],
+        queryFn: () => svc.getQuestions(quiz.id),
+    })
+
+    const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['cb-questions', quiz.id] })
+        queryClient.invalidateQueries({ queryKey: ['cb-quizzes'] })
+    }
+
+    const saveMutation = useMutation({
+        mutationFn: ({ instance, payload }) =>
+            instance
+                ? svc.updateQuestion(instance.id, payload)
+                : svc.createQuestion({ ...payload, quiz: quiz.id, topic: topicId, subject: subjectId }),
+        onSuccess: (_d, vars) => {
+            toast.success(`Question ${vars.instance ? 'updated' : 'created'}`)
+            refresh()
+            setQModal(null)
+        },
+        onError: (err) => {
+            const data = err?.response?.data
+            toast.error(data && typeof data === 'object'
+                ? Object.entries(data).map(([k, val]) => `${k}: ${Array.isArray(val) ? val.join(', ') : val}`).join(' | ')
+                : 'Something went wrong')
+        },
+    })
+
+    return (
+        <div className="pl-6 sm:pl-9 py-2 space-y-1">
+            <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-surface-400">Questions</span>
+                <button onClick={() => setQModal({ instance: null })} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add Question
+                </button>
+            </div>
+            {isLoading ? (
+                <div className="py-3 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-surface-400" /></div>
+            ) : questions.length === 0 ? (
+                <p className="text-xs text-surface-400 italic px-2 py-2">No questions yet.</p>
+            ) : (
+                questions.map((q, idx) => (
+                    <div key={q.id} className="group flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800/50">
+                        <div className="flex items-start gap-2 min-w-0">
+                            <span className="text-[11px] font-bold text-surface-400 mt-0.5 shrink-0">{idx + 1}.</span>
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-surface-700 dark:text-surface-200 line-clamp-2">{q.question_text}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{QTYPE_LABEL[q.question_type] || q.question_type}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 capitalize">{q.difficulty}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{q.marks} mk</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <RowActions
+                                onEdit={() => setQModal({ instance: q })}
+                                onDelete={() => askDelete('question', q, q.question_text?.slice(0, 40) || 'question')}
+                            />
+                        </div>
+                    </div>
+                ))
+            )}
+
+            <AnimatePresence>
+                {qModal && (
+                    <QuestionModal
+                        instance={qModal.instance}
+                        saving={saveMutation.isPending}
+                        onClose={() => setQModal(null)}
+                        onSubmit={(payload) => saveMutation.mutate({ instance: qModal.instance, payload })}
+                    />
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+/* ===========================================================================
+ * Quizzes under a topic
+ * ========================================================================= */
+const QuizList = ({ topic, subjectId, openModal, askDelete }) => {
+    const [expanded, setExpanded] = useState(null)
+    const { data: quizzes = [], isLoading } = useQuery({
+        queryKey: ['cb-quizzes', topic.id],
+        queryFn: () => svc.getQuizzes(topic.id),
+    })
+
+    return (
+        <div className="pl-6 sm:pl-9 py-2 space-y-1">
+            <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-surface-400">Quizzes</span>
+                <button
+                    onClick={() => openModal('quiz', null, { topic: topic.id, subject: subjectId })}
+                    className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Add Quiz
+                </button>
+            </div>
+            {isLoading ? (
+                <div className="py-3 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-surface-400" /></div>
+            ) : quizzes.length === 0 ? (
+                <p className="text-xs text-surface-400 italic px-2 py-2">No quizzes yet.</p>
+            ) : (
+                quizzes.map((qz) => (
+                    <div key={qz.id} className="rounded-lg border border-surface-100 dark:border-surface-800 overflow-hidden">
+                        <div
+                            className="group flex items-center justify-between gap-2 px-2 py-2 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/50"
+                            onClick={() => setExpanded(expanded === qz.id ? null : qz.id)}
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                {expanded === qz.id ? <ChevronDown className="w-3.5 h-3.5 text-surface-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-surface-400 shrink-0" />}
+                                <ListChecks className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                                <span className="text-sm font-medium text-surface-700 dark:text-surface-200 truncate">{qz.title}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 shrink-0">{qz.questions_count ?? 0} Q</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize shrink-0 ${qz.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{qz.status}</span>
+                            </div>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <RowActions
+                                    onEdit={() => openModal('quiz', qz, { topic: topic.id, subject: subjectId })}
+                                    onDelete={() => askDelete('quiz', qz, qz.title)}
+                                />
+                            </div>
+                        </div>
+                        <AnimatePresence>
+                            {expanded === qz.id && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-surface-50/40 dark:bg-surface-900/30 border-t border-surface-100 dark:border-surface-800">
+                                    <QuestionList quiz={qz} topicId={topic.id} subjectId={subjectId} askDelete={askDelete} />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                ))
+            )}
+        </div>
+    )
+}
+
+/* ===========================================================================
  * Topic rows (under a chapter)
  * ========================================================================= */
 const TopicList = ({ chapter, subjectId, openModal, askDelete }) => {
@@ -353,6 +744,7 @@ const TopicList = ({ chapter, subjectId, openModal, askDelete }) => {
                             {expanded === tp.id && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-surface-50/40 dark:bg-surface-900/30 border-t border-surface-100 dark:border-surface-800">
                                     <ContentList topic={tp} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />
+                                    <QuizList topic={tp} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -491,6 +883,8 @@ const SERVICE_MAP = {
     chapter: { create: svc.createChapter, update: svc.updateChapter, remove: svc.deleteChapter },
     topic: { create: svc.createTopic, update: svc.updateTopic, remove: svc.deleteTopic },
     content: { create: svc.createContent, update: svc.updateContent, remove: svc.deleteContent },
+    quiz: { create: svc.createQuiz, update: svc.updateQuiz, remove: svc.deleteQuiz },
+    question: { create: svc.createQuestion, update: svc.updateQuestion, remove: svc.deleteQuestion },
 }
 
 const ContentBuilder = () => {
@@ -509,7 +903,7 @@ const ContentBuilder = () => {
     if (!activeExam && exams.length) setTimeout(() => setActiveExam(exams[0].id), 0)
 
     const invalidateAll = () => {
-        ['cb-exams', 'cb-subjects', 'cb-chapters', 'cb-topics', 'cb-contents'].forEach((k) =>
+        ['cb-exams', 'cb-subjects', 'cb-chapters', 'cb-topics', 'cb-contents', 'cb-quizzes', 'cb-questions'].forEach((k) =>
             queryClient.invalidateQueries({ queryKey: [k] })
         )
     }
@@ -563,7 +957,7 @@ const ContentBuilder = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-bold text-surface-900 dark:text-white">Content Builder</h2>
-                    <p className="text-sm text-surface-500">Create and manage exams, subjects, chapters, topics &amp; content</p>
+                    <p className="text-sm text-surface-500">Create and manage exams, subjects, chapters, topics, content &amp; quizzes</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">

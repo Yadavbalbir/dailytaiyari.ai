@@ -8,6 +8,7 @@ from .views import (
     PreviousYearPaperViewSet,
     QuizAttemptViewSet, MockTestAttemptViewSet, QuestionReportViewSet
 )
+from .admin_views import AdminQuizViewSet, AdminQuestionViewSet
 
 router = DefaultRouter()
 router.register(r'questions', QuestionViewSet, basename='question')
@@ -18,7 +19,12 @@ router.register(r'attempts', QuizAttemptViewSet, basename='quiz-attempt')
 router.register(r'mock-attempts', MockTestAttemptViewSet, basename='mock-attempt')
 router.register(r'reports', QuestionReportViewSet, basename='question-report')
 
+admin_router = DefaultRouter()
+admin_router.register(r'quizzes', AdminQuizViewSet, basename='admin-quiz')
+admin_router.register(r'questions', AdminQuestionViewSet, basename='admin-question')
+
 urlpatterns = [
+    path('admin/', include(admin_router.urls)),
     path('', include(router.urls)),
 ]
 
