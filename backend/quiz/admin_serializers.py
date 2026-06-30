@@ -47,6 +47,25 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
             'correct_answer': {'required': False, 'allow_blank': True},
         }
 
+    def _tenant(self):
+        request = self.context.get('request')
+        return getattr(request, 'tenant', None)
+
+    def validate(self, attrs):
+        """Reject relations that belong to another tenant (cross-tenant linking)."""
+        tenant = self._tenant()
+        if tenant is not None:
+            quiz = attrs.get('quiz')
+            if quiz is not None and getattr(quiz.exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'quiz': 'Quiz not found for this tenant.'})
+            topic = attrs.get('topic')
+            if topic is not None and getattr(topic.subject.exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'topic': 'Topic not found for this tenant.'})
+            subject = attrs.get('subject')
+            if subject is not None and getattr(subject.exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'subject': 'Subject not found for this tenant.'})
+        return attrs
+
     def _sync_options(self, question, options):
         """Replace the question's options with the supplied list (ordered)."""
         question.options.all().delete()
@@ -138,4 +157,16 @@ class AdminQuizSerializer(serializers.ModelSerializer):
                 attrs['quiz_type'] = 'subject'
             else:
                 attrs['quiz_type'] = 'custom'
+
+        # Reject relations that belong to another tenant.
+        request = self.context.get('request')
+        tenant = getattr(request, 'tenant', None)
+        if tenant is not None:
+            exam = attrs.get('exam')
+            if exam is not None and getattr(exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'exam': 'Exam not found for this tenant.'})
+            if attrs.get('subject') is not None and getattr(attrs['subject'].exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'subject': 'Subject not found for this tenant.'})
+            if topic is not None and getattr(topic.subject.exam, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'topic': 'Topic not found for this tenant.'})
         return attrs

@@ -4,6 +4,8 @@ Admin CRUD views for the Quiz Builder.
 Tenant-scoped, tenant-admin only. Quizzes scope via ``exam__tenant`` and
 Questions via ``subject__exam__tenant`` (legacy rows may have a null tenant).
 """
+from django.db.models import Case, When
+
 from exams.admin_views import TenantAdminModelViewSet
 
 from .models import Quiz, Question, QuizQuestion
@@ -38,7 +40,13 @@ class AdminQuestionViewSet(TenantAdminModelViewSet):
                 .order_by('order')
                 .values_list('question_id', flat=True)
             )
-            qs = qs.filter(id__in=ordered_ids)
+            if not ordered_ids:
+                return qs.none()
+            # Preserve the quiz's question order (IN does not guarantee order),
+            # and stop the OrderingFilter default from re-sorting by created_at.
+            self.ordering = None
+            preserved = Case(*[When(id=pk, then=pos) for pos, pk in enumerate(ordered_ids)])
+            qs = qs.filter(id__in=ordered_ids).order_by(preserved)
         return qs
 
     def perform_destroy(self, instance):
