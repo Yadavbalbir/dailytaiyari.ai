@@ -50,6 +50,20 @@ export const contentBuilderService = {
   createContent: async (data) => (await api.post('/content/admin/contents/', data)).data,
   updateContent: async (id, data) => (await api.patch(`/content/admin/contents/${id}/`, data)).data,
   deleteContent: async (id) => api.delete(`/content/admin/contents/${id}/`),
+
+  // ---- Quizzes ----
+  getQuizzes: async (topicId) =>
+    list(await api.get('/quiz/admin/quizzes/', { params: { topic: topicId, ...PAGE } })),
+  createQuiz: async (data) => (await api.post('/quiz/admin/quizzes/', data)).data,
+  updateQuiz: async (id, data) => (await api.patch(`/quiz/admin/quizzes/${id}/`, data)).data,
+  deleteQuiz: async (id) => api.delete(`/quiz/admin/quizzes/${id}/`),
+
+  // ---- Questions ----
+  getQuestions: async (quizId) =>
+    list(await api.get('/quiz/admin/questions/', { params: { quiz: quizId, ...PAGE } })),
+  createQuestion: async (data) => (await api.post('/quiz/admin/questions/', data)).data,
+  updateQuestion: async (id, data) => (await api.patch(`/quiz/admin/questions/${id}/`, data)).data,
+  deleteQuestion: async (id) => api.delete(`/quiz/admin/questions/${id}/`),
 }
 
 export default contentBuilderService
