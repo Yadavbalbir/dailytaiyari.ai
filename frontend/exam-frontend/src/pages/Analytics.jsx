@@ -11,8 +11,7 @@ import {
   PenTool,
   Timer,
   Crown,
-  PartyPopper,
-  BarChart3
+  PartyPopper
 } from 'lucide-react'
 
 const Analytics = () => {
@@ -36,11 +35,6 @@ const Analytics = () => {
   const { data: strongTopics } = useQuery({
     queryKey: ['strongTopics'],
     queryFn: () => analyticsService.getStrongTopics(),
-  })
-
-  const { data: weeklyReport } = useQuery({
-    queryKey: ['weeklyReport'],
-    queryFn: () => analyticsService.getLatestReport(),
   })
 
   if (statsLoading) return <Loading fullScreen />
@@ -273,33 +267,6 @@ const Analytics = () => {
           </div>
         </div>
       </div>
-
-      {/* Weekly Report */}
-      {weeklyReport && (
-        <div className="card p-6 bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 size={20} className="text-primary-500" /> Weekly Summary
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-surface-500">Study Time</p>
-              <p className="text-2xl font-bold">{Math.round(weeklyReport.total_study_minutes / 60)}h</p>
-            </div>
-            <div>
-              <p className="text-sm text-surface-500">Questions</p>
-              <p className="text-2xl font-bold">{weeklyReport.questions_attempted}</p>
-            </div>
-            <div>
-              <p className="text-sm text-surface-500">Accuracy</p>
-              <p className="text-2xl font-bold">{Math.round(weeklyReport.accuracy)}%</p>
-            </div>
-            <div>
-              <p className="text-sm text-surface-500">XP Earned</p>
-              <p className="text-2xl font-bold text-primary-600">{weeklyReport.xp_earned}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
