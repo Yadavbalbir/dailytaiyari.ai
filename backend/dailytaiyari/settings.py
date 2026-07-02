@@ -99,6 +99,13 @@ WSGI_APPLICATION = 'dailytaiyari.wsgi.application'
 
 # Database
 if config('DB_HOST', default=''):
+    # Azure Database for PostgreSQL (Flexible Server) requires SSL.
+    # Set DB_SSLMODE=require (or verify-full) via env for Azure.
+    _db_options = {}
+    _db_sslmode = config('DB_SSLMODE', default='')
+    if _db_sslmode:
+        _db_options['sslmode'] = _db_sslmode
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -107,6 +114,8 @@ if config('DB_HOST', default=''):
             'PASSWORD': config('DB_PASSWORD'),
             'HOST': config('DB_HOST'),
             'PORT': config('DB_PORT', default='5432'),
+            'OPTIONS': _db_options,
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
         }
     }
 else:
@@ -140,10 +149,55 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
-# Storage Configuration (S3 for production, FileSystem for dev)
-USE_S3 = config('USE_S3', default=True, cast=bool)
+# Storage Configuration
+# STORAGE_BACKEND selects where user-uploaded media is stored:
+#   - "azure" : Azure Blob Storage (production on Azure)
+#   - "s3"    : AWS S3 (legacy/production on AWS)
+#   - "local" : local filesystem (development)
+# Backward compatible: USE_S3=True still forces the S3 backend.
+STORAGE_BACKEND = config('STORAGE_BACKEND', default='').lower()
+USE_S3 = config('USE_S3', default=False, cast=bool)
 
-if USE_S3:
+if not STORAGE_BACKEND:
+    STORAGE_BACKEND = 's3' if USE_S3 else 'local'
+
+if STORAGE_BACKEND == 'azure':
+    # Azure Blob Storage settings
+    AZURE_ACCOUNT_NAME = config('AZURE_ACCOUNT_NAME')
+    AZURE_ACCOUNT_KEY = config('AZURE_ACCOUNT_KEY', default=None) or None
+    AZURE_CONTAINER = config('AZURE_CONTAINER', default='media')
+    # Custom domain / endpoint (defaults to the standard blob endpoint)
+    AZURE_CUSTOM_DOMAIN = config(
+        'AZURE_CUSTOM_DOMAIN',
+        default=f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net',
+    )
+    # Serve permanent (non-expiring) URLs for public containers.
+    AZURE_URL_EXPIRATION_SECS = config(
+        'AZURE_URL_EXPIRATION_SECS', default=None,
+        cast=lambda v: int(v) if v else None,
+    )
+    AZURE_OVERWRITE_FILES = False
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.azure_storage.AzureStorage",
+            "OPTIONS": {
+                "account_name": AZURE_ACCOUNT_NAME,
+                "account_key": AZURE_ACCOUNT_KEY,
+                "azure_container": AZURE_CONTAINER,
+                "expiration_secs": AZURE_URL_EXPIRATION_SECS,
+                "overwrite_files": False,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+    MEDIA_URL = f'https://{AZURE_CUSTOM_DOMAIN}/{AZURE_CONTAINER}/'
+
+elif STORAGE_BACKEND == 's3':
+    USE_S3 = True
     # AWS Settings - Keys can be None to use EC2 IAM Roles
     AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None) or None
     AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None) or None

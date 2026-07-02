@@ -24,12 +24,20 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=${DB_HOST}
-      - DB_PORT=5432
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_SSLMODE=${DB_SSLMODE:-}
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Storage backend selector: azure | s3 | local
+      - STORAGE_BACKEND=${STORAGE_BACKEND:-}
+      # Azure Blob Storage
+      - AZURE_ACCOUNT_NAME=${AZURE_ACCOUNT_NAME:-}
+      - AZURE_ACCOUNT_KEY=${AZURE_ACCOUNT_KEY:-}
+      - AZURE_CONTAINER=${AZURE_CONTAINER:-media}
+      # AWS S3 (legacy)
       - USE_S3=${USE_S3:-False}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
