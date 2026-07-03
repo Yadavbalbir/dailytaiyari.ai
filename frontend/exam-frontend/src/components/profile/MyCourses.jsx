@@ -91,7 +91,7 @@ const MyCourses = () => {
           type="button"
           onClick={() => requestEnroll(selectedCourse)}
           disabled={!selectedCourse || submitting}
-          className="btn primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
+          className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <PlusCircle size={18} />
           Request enrollment
