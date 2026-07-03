@@ -62,56 +62,77 @@ const Courses = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {available.map((course, index) => {
             const status = statusById[course.id]
+            const color = course.color || '#f97316'
             return (
               <motion.div
                 key={course.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.06 }}
-                className="card p-6 flex flex-col"
+                className="group card-hover overflow-hidden flex flex-col"
               >
-                <div className="flex items-start gap-3 mb-4">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
-                    style={{ backgroundColor: course.color || '#3B82F6' }}
-                  >
-                    {course.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-lg font-semibold truncate">{course.name}</h3>
-                      {course.is_featured && <Star size={15} className="text-amber-400 fill-amber-400 shrink-0" />}
-                    </div>
-                    {course.code && <p className="text-xs text-surface-500 mt-0.5">{course.code}</p>}
-                  </div>
-                </div>
+                <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
 
-                <div className="mt-auto">
-                  {status === 'approved' ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/study/course/${course.id}`)}
-                      className="btn primary w-full inline-flex items-center justify-center gap-2"
+                <div className="p-5 flex flex-col flex-1">
+                  <div className="flex items-start gap-3.5 mb-5">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shrink-0 transition-transform duration-200 group-hover:scale-105"
+                      style={{ backgroundColor: color, boxShadow: `0 10px 22px -8px ${color}` }}
                     >
-                      <CheckCircle2 size={18} />
-                      Enrolled · Enter course
-                      <ArrowRight size={16} />
-                    </button>
-                  ) : status === 'pending' ? (
-                    <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      <Clock size={16} />
-                      Awaiting approval
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => requestEnroll(course.id)}
-                      className="btn secondary w-full inline-flex items-center justify-center gap-2"
-                    >
-                      <PlusCircle size={18} />
-                      Request enrollment
-                    </button>
-                  )}
+                      {course.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-lg font-semibold truncate">{course.name}</h3>
+                        {course.is_featured && <Star size={15} className="text-amber-400 fill-amber-400 shrink-0" />}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                        {course.code && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
+                            {course.code}
+                          </span>
+                        )}
+                        {status === 'approved' && (
+                          <span className="badge-success">
+                            <CheckCircle2 size={12} /> Enrolled
+                          </span>
+                        )}
+                        {status === 'pending' && (
+                          <span className="badge-warning">
+                            <Clock size={12} /> Pending
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto pt-1">
+                    {status === 'approved' ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/study/course/${course.id}`)}
+                        className="btn-primary w-full group/btn"
+                        style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}` }}
+                      >
+                        Enter course
+                        <ArrowRight size={16} className="transition-transform group-hover/btn:translate-x-0.5" />
+                      </button>
+                    ) : status === 'pending' ? (
+                      <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                        <Clock size={16} />
+                        Awaiting admin approval
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => requestEnroll(course.id)}
+                        className="btn-secondary w-full border border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700 hover:text-primary-600 dark:hover:text-primary-400"
+                      >
+                        <PlusCircle size={18} />
+                        Request enrollment
+                      </button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )

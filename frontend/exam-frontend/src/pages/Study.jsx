@@ -48,7 +48,7 @@ const Study = () => {
         <button
           type="button"
           onClick={() => navigate('/courses')}
-          className="btn secondary inline-flex items-center gap-2 text-sm"
+          className="btn-secondary inline-flex items-center gap-2 text-sm"
         >
           <Compass size={18} />
           Browse all courses
@@ -67,7 +67,7 @@ const Study = () => {
           <button
             type="button"
             onClick={() => navigate('/courses')}
-            className="btn primary inline-flex items-center gap-2"
+            className="btn-primary inline-flex items-center gap-2"
           >
             <Compass size={20} />
             Explore courses
@@ -75,38 +75,48 @@ const Study = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {courses.map((course, index) => (
+          {courses.map((course, index) => {
+            const color = course.color || '#f97316'
+            return (
             <motion.div
               key={course.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.07 }}
-              className="card p-6 flex flex-col hover:shadow-lg transition-all"
+              className="group card-hover overflow-hidden flex flex-col"
             >
-              <div className="flex items-start gap-3 mb-4">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
-                  style={{ backgroundColor: course.color || '#3B82F6' }}
-                >
-                  {course.name.charAt(0)}
+              <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
+              <div className="p-5 flex flex-col flex-1">
+                <div className="flex items-start gap-3.5 mb-5">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shrink-0 transition-transform duration-200 group-hover:scale-105"
+                    style={{ backgroundColor: color, boxShadow: `0 10px 22px -8px ${color}` }}
+                  >
+                    {course.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold truncate">{course.name}</h3>
+                    {course.code && (
+                      <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
+                        {course.code}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold truncate">{course.name}</h3>
-                  {course.code && <p className="text-xs text-surface-500 mt-0.5">{course.code}</p>}
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => navigate(`/study/course/${course.id}`)}
-                className="btn primary mt-auto w-full inline-flex items-center justify-center gap-2"
-                style={course.color ? { backgroundColor: course.color, borderColor: course.color } : undefined}
-              >
-                Enter course
-                <ArrowRight size={18} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/study/course/${course.id}`)}
+                  className="btn-primary mt-auto w-full group/btn"
+                  style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}` }}
+                >
+                  Enter course
+                  <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
+                </button>
+              </div>
             </motion.div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
