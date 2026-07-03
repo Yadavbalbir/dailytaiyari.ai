@@ -8,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
 from django.db.models import Q
+from django.http import FileResponse, Http404
 
 from .models import Content, ContentProgress, StudyPlan, StudyPlanItem
 from .serializers import (
@@ -54,6 +55,28 @@ class ContentViewSet(TenantAwareReadOnlyViewSet):
         instance.views_count += 1
         instance.save(update_fields=['views_count'])
         return super().retrieve(request, *args, **kwargs)
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, *args, **kwargs):
+        """
+        Stream the PDF bytes inline for in-app reading.
+
+        The raw blob URL is never exposed to the client; the file is proxied
+        through this authenticated endpoint and served with an inline
+        Content-Disposition so it is rendered rather than downloaded.
+        """
+        content = self.get_object()
+        if content.content_type != 'pdf' or not content.pdf_file:
+            raise Http404('No PDF available for this content.')
+        try:
+            fh = content.pdf_file.open('rb')
+        except Exception:
+            raise Http404('PDF file not found.')
+        response = FileResponse(fh, content_type='application/pdf')
+        response['Content-Disposition'] = 'inline; filename="document.pdf"'
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['Cache-Control'] = 'private, no-store'
+        return response
 
     @action(detail=False, methods=['get'])
     def by_topic(self, request):

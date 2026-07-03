@@ -8,6 +8,19 @@ const list = (res) => {
 
 const PAGE = { page_size: 2000 }
 
+// Build a multipart request config when a payload carries a File (e.g. PDF
+// upload); otherwise send as plain JSON.
+const withFiles = (data) => {
+  const hasFile = Object.values(data).some((v) => v instanceof File)
+  if (!hasFile) return { body: data, config: undefined }
+  const fd = new FormData()
+  Object.entries(data).forEach(([k, v]) => {
+    if (v === undefined || v === null) return
+    fd.append(k, v instanceof File ? v : String(v))
+  })
+  return { body: fd, config: { headers: { 'Content-Type': undefined } } }
+}
+
 /**
  * Admin Content Builder service.
  * Full CRUD over the hierarchy: Exam -> Subject -> Chapter -> Topic -> Content.
@@ -47,8 +60,14 @@ export const contentBuilderService = {
   // ---- Content ----
   getContents: async (topicId) =>
     list(await api.get('/content/admin/contents/', { params: { topic: topicId, ...PAGE } })),
-  createContent: async (data) => (await api.post('/content/admin/contents/', data)).data,
-  updateContent: async (id, data) => (await api.patch(`/content/admin/contents/${id}/`, data)).data,
+  createContent: async (data) => {
+    const { body, config } = withFiles(data)
+    return (await api.post('/content/admin/contents/', body, config)).data
+  },
+  updateContent: async (id, data) => {
+    const { body, config } = withFiles(data)
+    return (await api.patch(`/content/admin/contents/${id}/`, body, config)).data
+  },
   deleteContent: async (id) => api.delete(`/content/admin/contents/${id}/`),
 
   // ---- Quizzes ----

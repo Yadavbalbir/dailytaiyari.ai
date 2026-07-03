@@ -250,6 +250,7 @@ export const SCHEMAS = {
             { name: 'is_premium', label: 'Premium', type: 'checkbox' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
             { name: 'content_html', label: 'Content (HTML / Markdown — supports pasted images)', type: 'textarea', full: true, rows: 10, image: true },
+            { name: 'pdf_file', label: 'PDF File', type: 'pdf', full: true, showIf: (v) => v.content_type === 'pdf', hint: 'Uploaded PDF is shown in-app to students (view only — no download).' },
         ],
     },
     quiz: {
@@ -303,11 +304,18 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
 
     const set = (name, val) => setValues((p) => ({ ...p, [name]: val }))
 
+    const visibleFields = schema.fields.filter((f) => !f.showIf || f.showIf(values))
+
     const handleSubmit = (e) => {
         e.preventDefault()
         const payload = {}
-        schema.fields.forEach((f) => {
+        visibleFields.forEach((f) => {
             let v = values[f.name]
+            if (f.type === 'pdf') {
+                // Only send when a new file was chosen; otherwise preserve existing.
+                if (v instanceof File) payload[f.name] = v
+                return
+            }
             if (f.type === 'number') {
                 v = v === '' || v === null ? null : Number(v)
                 if (v === null && !f.required) return
@@ -336,7 +344,7 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
 
                 <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {schema.fields.map((f) => (
+                        {visibleFields.map((f) => (
                             <div key={f.name} className={f.full || f.type === 'textarea' ? 'sm:col-span-2' : ''}>
                                 {f.type === 'checkbox' ? (
                                     <label className="flex items-center gap-2 cursor-pointer py-2">
@@ -363,6 +371,22 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                                                     onChange={(e) => set(f.name, e.target.value)}
                                                 />
                                             )
+                                        ) : f.type === 'pdf' ? (
+                                            <div className="space-y-1.5">
+                                                <input
+                                                    type="file"
+                                                    accept="application/pdf"
+                                                    onChange={(e) => set(f.name, e.target.files?.[0] || values[f.name])}
+                                                    className="block w-full text-sm text-surface-600 dark:text-surface-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/30 dark:file:text-primary-300 cursor-pointer"
+                                                />
+                                                {values[f.name] instanceof File ? (
+                                                    <p className="text-[11px] text-success-600 font-medium">New file: {values[f.name].name}</p>
+                                                ) : typeof values[f.name] === 'string' && values[f.name] ? (
+                                                    <p className="text-[11px] text-surface-400">A PDF is already uploaded. Choose a file to replace it.</p>
+                                                ) : (
+                                                    <p className="text-[11px] text-surface-400">No PDF uploaded yet.</p>
+                                                )}
+                                            </div>
                                         ) : f.type === 'select' ? (
                                             <select className="input" value={values[f.name] ?? ''} onChange={(e) => set(f.name, e.target.value)}>
                                                 {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

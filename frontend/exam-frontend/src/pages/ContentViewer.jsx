@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
@@ -14,6 +14,7 @@ import {
   CheckCircle2, ChevronLeft, PlayCircle, Clock
 } from 'lucide-react'
 import { useAuthStore } from '../context/authStore'
+const PdfReader = lazy(() => import('../components/content/PdfReader'))
 
 const ContentViewer = () => {
   const { contentId } = useParams()
@@ -212,18 +213,11 @@ const ContentViewer = () => {
         </div>
       )}
 
-      {/* PDF Viewer */}
-      {content?.content_type === 'pdf' && content?.pdf_file && (
-        <div className="card p-4 mb-6">
-          <a
-            href={content.pdf_file}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            <FileText size={18} /> Open PDF
-          </a>
-        </div>
+      {/* PDF Viewer (in-app, view-only — no download) */}
+      {content?.content_type === 'pdf' && content?.has_pdf && (
+        <Suspense fallback={<div className="card p-8 text-center text-surface-400">Loading reader…</div>}>
+          <PdfReader contentId={contentId} />
+        </Suspense>
       )}
 
       {/* Actions Footer */}
