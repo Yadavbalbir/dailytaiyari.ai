@@ -10,21 +10,25 @@ index of the correct option (matching ``Answer.selected_option``); for
 """
 from rest_framework import serializers
 
+from core.serializer_fields import Base64ImageField
 from .models import Quiz, Question, QuestionOption, QuizQuestion
 
 
 class AdminQuestionOptionSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
+    option_image = Base64ImageField(required=False, allow_null=True)
 
     class Meta:
         model = QuestionOption
-        fields = ['id', 'option_text', 'is_correct', 'order']
+        fields = ['id', 'option_text', 'is_correct', 'option_image', 'order']
         extra_kwargs = {'order': {'required': False}}
 
 
 class AdminQuestionSerializer(serializers.ModelSerializer):
     """Writable serializer for Question with nested options and quiz linking."""
     options = AdminQuestionOptionSerializer(many=True, required=False)
+    question_image = Base64ImageField(required=False, allow_null=True)
+    explanation_image = Base64ImageField(required=False, allow_null=True)
     quiz = serializers.PrimaryKeyRelatedField(
         queryset=Quiz.objects.all(), required=False, allow_null=True, write_only=True
     )
@@ -34,10 +38,11 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = [
-            'id', 'question_text', 'question_html', 'question_type',
+            'id', 'question_text', 'question_html', 'question_image', 'question_type',
             'difficulty', 'status', 'topic', 'topic_name', 'subject',
             'subject_name', 'courses', 'correct_answer', 'explanation',
-            'numerical_answer', 'numerical_tolerance', 'marks', 'negative_marks',
+            'explanation_image', 'numerical_answer', 'numerical_tolerance',
+            'marks', 'negative_marks',
             'source', 'year', 'tags', 'options', 'quiz',
             'created_at', 'updated_at',
         ]
@@ -67,15 +72,43 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
         return attrs
 
     def _sync_options(self, question, options):
-        """Replace the question's options with the supplied list (ordered)."""
-        question.options.all().delete()
+        """
+        Reconcile the question's options against the supplied list.
+
+        Options are matched by ``id`` so that existing images (which the client
+        round-trips as URLs, not base64) are preserved when untouched. Options
+        missing from the payload are deleted.
+        """
+        existing = {str(o.id): o for o in question.options.all()}
+        seen = set()
         for index, opt in enumerate(options):
-            QuestionOption.objects.create(
-                question=question,
-                option_text=opt.get('option_text', ''),
-                is_correct=opt.get('is_correct', False),
-                order=opt.get('order', index),
-            )
+            oid = str(opt['id']) if opt.get('id') else None
+            values = {
+                'option_text': opt.get('option_text', ''),
+                'is_correct': opt.get('is_correct', False),
+                'order': opt.get('order', index),
+            }
+            # 'option_image' is only present when a new base64 image (ContentFile)
+            # or an explicit null (clear) was sent; URLs raise SkipField upstream.
+            has_image = 'option_image' in opt
+
+            if oid and oid in existing:
+                obj = existing[oid]
+                for attr, value in values.items():
+                    setattr(obj, attr, value)
+                if has_image:
+                    obj.option_image = opt['option_image']
+                obj.save()
+                seen.add(oid)
+            else:
+                obj = QuestionOption(question=question, **values)
+                if has_image:
+                    obj.option_image = opt['option_image']
+                obj.save()
+
+        for oid, obj in existing.items():
+            if oid not in seen:
+                obj.delete()
 
     def _link_quiz(self, question, quiz):
         if quiz is None:

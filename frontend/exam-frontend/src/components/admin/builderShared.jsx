@@ -1,10 +1,164 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
     Plus, Pencil, Trash2, X, Loader2, Save, AlertTriangle,
-    CheckCircle2, Circle,
+    CheckCircle2, Circle, ImagePlus, Loader,
 } from 'lucide-react'
+import { contentBuilderService as svc } from '../../services/contentBuilderService'
+
+/* Fast, cheap modal transitions (no backdrop-blur — it repaints the whole
+ * builder tree behind the overlay and makes opening feel sluggish). */
+const OVERLAY_MOTION = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.12 },
+}
+const PANEL_MOTION = {
+    initial: { opacity: 0, scale: 0.97, y: 8 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 0.97, y: 8 },
+    transition: { duration: 0.14, ease: 'easeOut' },
+}
+
+/** Read a File/Blob into a base64 data URL. */
+export const fileToDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+    })
+
+/**
+ * Compact image attach / paste / drop control.
+ * value = '' | existing URL | data: URL. onChange receives the new value.
+ */
+export const ImageDrop = ({ value, onChange, label = 'image', compact = false }) => {
+    const inputRef = useRef(null)
+    const [busy, setBusy] = useState(false)
+
+    const accept = async (file) => {
+        if (!file || !file.type?.startsWith('image/')) return
+        if (file.size > 5 * 1024 * 1024) return toast.error('Image must be under 5 MB')
+        setBusy(true)
+        try {
+            onChange(await fileToDataUrl(file))
+        } catch {
+            toast.error('Could not read image')
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const onPaste = (e) => {
+        const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
+        if (item) { e.preventDefault(); accept(item.getAsFile()) }
+    }
+    const onDrop = (e) => { e.preventDefault(); accept(e.dataTransfer?.files?.[0]) }
+
+    if (value) {
+        return (
+            <div className="relative inline-block mt-1.5 group/img">
+                <img src={value} alt={label} className={`rounded-lg border border-surface-200 dark:border-surface-700 object-contain ${compact ? 'h-12' : 'max-h-40'}`} />
+                <button type="button" onClick={() => onChange('')} title="Remove image"
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow hover:bg-rose-600">
+                    <X className="w-3.5 h-3.5" />
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div
+            tabIndex={0}
+            onPaste={onPaste}
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onClick={() => inputRef.current?.click()}
+            className={`mt-1.5 flex items-center gap-2 rounded-lg border border-dashed border-surface-300 dark:border-surface-600 text-surface-400 hover:text-primary-600 hover:border-primary-400 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary-400/40 ${compact ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2.5 text-xs'}`}
+        >
+            {busy ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+            <span>{busy ? 'Reading…' : `Paste, drop or click to add ${label}`}</span>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => accept(e.target.files?.[0])} />
+        </div>
+    )
+}
+
+/** Serialize an image slot for submission: send data URLs (new), null to clear
+ * a previously-set image, and omit unchanged existing URLs. */
+export const imagePayload = (value, initial) => {
+    if (typeof value === 'string' && value.startsWith('data:')) return { send: true, value }
+    if (!value && initial) return { send: true, value: null }   // cleared
+    return { send: false }
+}
+
+/**
+ * Notes editor: a textarea that accepts pasted / dropped / picked images.
+ * Images are uploaded to blob storage and inserted at the cursor as Markdown
+ * (or an <img> tag when the note is already HTML), so they render for students.
+ */
+export const NotesTextarea = ({ value, onChange, rows }) => {
+    const ref = useRef(null)
+    const fileRef = useRef(null)
+    const [busy, setBusy] = useState(false)
+
+    const insertAtCursor = (text) => {
+        const el = ref.current
+        const start = el?.selectionStart ?? value.length
+        const end = el?.selectionEnd ?? value.length
+        onChange(value.slice(0, start) + text + value.slice(end))
+    }
+
+    const upload = async (file) => {
+        if (!file || !file.type?.startsWith('image/')) return
+        if (file.size > 8 * 1024 * 1024) return toast.error('Image must be under 8 MB')
+        setBusy(true)
+        try {
+            const dataUrl = await fileToDataUrl(file)
+            const { url } = await svc.uploadImage(dataUrl)
+            const isHtml = (value || '').trimStart().startsWith('<')
+            insertAtCursor(isHtml ? `\n<img src="${url}" alt="" />\n` : `\n\n![image](${url})\n\n`)
+            toast.success('Image added')
+        } catch {
+            toast.error('Image upload failed')
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const onPaste = (e) => {
+        const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
+        if (item) { e.preventDefault(); upload(item.getAsFile()) }
+    }
+    const onDrop = (e) => {
+        if (e.dataTransfer?.files?.length && e.dataTransfer.files[0].type.startsWith('image/')) {
+            e.preventDefault(); upload(e.dataTransfer.files[0])
+        }
+    }
+
+    return (
+        <div>
+            <textarea
+                ref={ref}
+                className="input font-mono text-sm"
+                rows={rows || 10}
+                value={value ?? ''}
+                onChange={(e) => onChange(e.target.value)}
+                onPaste={onPaste}
+                onDrop={onDrop}
+            />
+            <div className="flex items-center gap-2 mt-1.5">
+                <button type="button" onClick={() => fileRef.current?.click()} className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
+                    {busy ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />} Add image
+                </button>
+                <span className="text-[11px] text-surface-400">or paste / drop an image directly into the editor</span>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
+            </div>
+        </div>
+    )
+}
 
 /* ===========================================================================
  * Shared field / form configuration and modals used by the admin content
@@ -95,7 +249,7 @@ export const SCHEMAS = {
             { name: 'is_free', label: 'Free', type: 'checkbox' },
             { name: 'is_premium', label: 'Premium', type: 'checkbox' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
-            { name: 'content_html', label: 'Content (HTML)', type: 'textarea', full: true, rows: 10 },
+            { name: 'content_html', label: 'Content (HTML / Markdown — supports pasted images)', type: 'textarea', full: true, rows: 10, image: true },
         ],
     },
     quiz: {
@@ -165,13 +319,13 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
 
     return (
         <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            {...OVERLAY_MOTION}
             onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
             <motion.div
                 className="card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-                initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                {...PANEL_MOTION}
             >
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
                     <h3 className="text-lg font-bold text-surface-900 dark:text-white">
@@ -200,11 +354,15 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                                             {f.label}{f.required && <span className="text-rose-500"> *</span>}
                                         </label>
                                         {f.type === 'textarea' ? (
-                                            <textarea
-                                                className="input font-mono text-sm" rows={f.rows || 3}
-                                                value={values[f.name] ?? ''}
-                                                onChange={(e) => set(f.name, e.target.value)}
-                                            />
+                                            f.image ? (
+                                                <NotesTextarea value={values[f.name] ?? ''} onChange={(val) => set(f.name, val)} rows={f.rows} />
+                                            ) : (
+                                                <textarea
+                                                    className="input font-mono text-sm" rows={f.rows || 3}
+                                                    value={values[f.name] ?? ''}
+                                                    onChange={(e) => set(f.name, e.target.value)}
+                                                />
+                                            )
                                         ) : f.type === 'select' ? (
                                             <select className="input" value={values[f.name] ?? ''} onChange={(e) => set(f.name, e.target.value)}>
                                                 {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -248,11 +406,11 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
  * ========================================================================= */
 export const ConfirmDialog = ({ label, onCancel, onConfirm, deleting }) => (
     <motion.div
-        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60"
+        {...OVERLAY_MOTION}
         onMouseDown={(e) => e.target === e.currentTarget && onCancel()}
     >
-        <motion.div className="card w-full max-w-md p-6 text-center" initial={{ scale: 0.95 }} animate={{ scale: 1 }}>
+        <motion.div className="card w-full max-w-md p-6 text-center" {...PANEL_MOTION}>
             <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-6 h-6 text-rose-500" />
             </div>
@@ -302,9 +460,9 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
         if (instance?.options?.length) {
             return [...instance.options]
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((o) => ({ option_text: o.option_text }))
+                .map((o) => ({ id: o.id, option_text: o.option_text, option_image: o.option_image || '' }))
         }
-        return [{ option_text: '' }, { option_text: '' }]
+        return [{ option_text: '', option_image: '' }, { option_text: '', option_image: '' }]
     }
     const initCorrect = () => {
         const n = Number(instance?.correct_answer)
@@ -322,6 +480,8 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
         numerical_answer: instance?.numerical_answer ?? '',
         numerical_tolerance: instance?.numerical_tolerance ?? 0.01,
         fill_answer: initType === 'fill_blank' ? (instance?.correct_answer || '') : '',
+        question_image: instance?.question_image || '',
+        explanation_image: instance?.explanation_image || '',
     }))
     const [options, setOptions] = useState(initOptions)
     const [correctIndex, setCorrectIndex] = useState(initCorrect)
@@ -329,8 +489,9 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
     const set = (k, val) => setV((p) => ({ ...p, [k]: val }))
     const type = v.question_type
 
-    const setOption = (i, text) => setOptions((p) => p.map((o, idx) => (idx === i ? { option_text: text } : o)))
-    const addOption = () => setOptions((p) => [...p, { option_text: '' }])
+    const setOption = (i, text) => setOptions((p) => p.map((o, idx) => (idx === i ? { ...o, option_text: text } : o)))
+    const setOptionImage = (i, img) => setOptions((p) => p.map((o, idx) => (idx === i ? { ...o, option_image: img } : o)))
+    const addOption = () => setOptions((p) => [...p, { option_text: '', option_image: '' }])
     const removeOption = (i) => {
         setOptions((p) => p.filter((_, idx) => idx !== i))
         setCorrectIndex((c) => (c === i ? 0 : c > i ? c - 1 : c))
@@ -350,14 +511,29 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
             explanation: v.explanation,
         }
 
+        const qImg = imagePayload(v.question_image, instance?.question_image || '')
+        if (qImg.send) base.question_image = qImg.value
+        const eImg = imagePayload(v.explanation_image, instance?.explanation_image || '')
+        if (eImg.send) base.explanation_image = eImg.value
+
+        // Serialize one option, preserving id and image (data URL = new, http URL
+        // = keep, null = clear).
+        const serializeOpt = (o, isCorrect) => {
+            const opt = { option_text: o.option_text, is_correct: isCorrect }
+            if (o.id) opt.id = o.id
+            if (typeof o.option_image === 'string' && o.option_image) opt.option_image = o.option_image
+            else if (o.id && !o.option_image) opt.option_image = null
+            return opt
+        }
+
         if (type === 'mcq') {
             const cleaned = options
-                .map((o, i) => ({ option_text: o.option_text.trim(), is_correct: i === correctIndex }))
-                .filter((o) => o.option_text !== '')
+                .map((o, i) => ({ ...o, option_text: o.option_text.trim(), is_correct: i === correctIndex }))
+                .filter((o) => o.option_text !== '' || o.option_image)
             if (cleaned.length < 2) return toast.error('Add at least two options')
             let ci = cleaned.findIndex((o) => o.is_correct)
             if (ci < 0) ci = 0
-            base.options = cleaned.map((o, i) => ({ option_text: o.option_text, is_correct: i === ci }))
+            base.options = cleaned.map((o, i) => serializeOpt(o, i === ci))
             base.correct_answer = String(ci)
         } else if (type === 'true_false') {
             base.options = [
@@ -384,13 +560,13 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
 
     return (
         <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            {...OVERLAY_MOTION}
             onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
             <motion.div
                 className="card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-                initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+                {...PANEL_MOTION}
             >
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
                     <h3 className="text-lg font-bold text-surface-900 dark:text-white">{isEdit ? 'Edit' : 'New'} Question</h3>
@@ -401,6 +577,7 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
                     <div>
                         <label className="block text-xs font-semibold text-surface-500 mb-1.5">Question<span className="text-rose-500"> *</span></label>
                         <textarea className="input" rows={3} value={v.question_text} onChange={(e) => set('question_text', e.target.value)} />
+                        <ImageDrop value={v.question_image} onChange={(val) => set('question_image', val)} label="question image" />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -429,15 +606,18 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
                         <div className="space-y-2">
                             <label className="block text-xs font-semibold text-surface-500">Options <span className="text-surface-400 font-normal">(select the correct one)</span></label>
                             {options.map((o, i) => (
-                                <div key={i} className="flex items-center gap-2">
-                                    <button type="button" onClick={() => setCorrectIndex(i)} title="Mark correct" className="shrink-0">
+                                <div key={i} className="flex items-start gap-2">
+                                    <button type="button" onClick={() => setCorrectIndex(i)} title="Mark correct" className="shrink-0 mt-2.5">
                                         {correctIndex === i
                                             ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                                             : <Circle className="w-5 h-5 text-surface-300 hover:text-surface-400" />}
                                     </button>
-                                    <input className="input" placeholder={`Option ${i + 1}`} value={o.option_text} onChange={(e) => setOption(i, e.target.value)} />
+                                    <div className="flex-1">
+                                        <input className="input" placeholder={`Option ${i + 1}`} value={o.option_text} onChange={(e) => setOption(i, e.target.value)} />
+                                        <ImageDrop value={o.option_image} onChange={(val) => setOptionImage(i, val)} label="option image" compact />
+                                    </div>
                                     {options.length > 2 && (
-                                        <button type="button" onClick={() => removeOption(i)} className="btn-icon text-surface-400 hover:text-rose-500"><X className="w-4 h-4" /></button>
+                                        <button type="button" onClick={() => removeOption(i)} className="btn-icon text-surface-400 hover:text-rose-500 mt-1.5"><X className="w-4 h-4" /></button>
                                     )}
                                 </div>
                             ))}
@@ -494,6 +674,7 @@ export const QuestionModal = ({ instance, onClose, onSubmit, saving }) => {
                     <div>
                         <label className="block text-xs font-semibold text-surface-500 mb-1.5">Explanation</label>
                         <textarea className="input" rows={2} value={v.explanation} onChange={(e) => set('explanation', e.target.value)} />
+                        <ImageDrop value={v.explanation_image} onChange={(val) => set('explanation_image', val)} label="explanation image" />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">

@@ -365,14 +365,19 @@ const QuizReview = () => {
                 </div>
 
                 {/* Explanation */}
-                {question?.explanation && (
+                {(question?.explanation || question?.explanation_image) && (
                   <div className="mt-4 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
                     <p className="text-sm font-medium text-primary-700 dark:text-primary-300 mb-1 flex items-center gap-1.5">
                       <Lightbulb size={16} /> Explanation
                     </p>
-                    <p className="text-sm text-primary-600 dark:text-primary-400">
-                      {question.explanation}
-                    </p>
+                    {question.explanation && (
+                      <p className="text-sm text-primary-600 dark:text-primary-400">
+                        {question.explanation}
+                      </p>
+                    )}
+                    {question.explanation_image && (
+                      <img src={question.explanation_image} alt="Explanation" className="mt-2 max-h-64 rounded-lg" />
+                    )}
                   </div>
                 )}
 
