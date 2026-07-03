@@ -24,9 +24,13 @@ class ContentSerializer(serializers.ModelSerializer):
 
 class ContentDetailSerializer(ContentSerializer):
     """Detailed serializer with content body."""
-    
+    has_pdf = serializers.SerializerMethodField()
+
     class Meta(ContentSerializer.Meta):
-        fields = ContentSerializer.Meta.fields + ['content_html', 'pdf_file']
+        fields = ContentSerializer.Meta.fields + ['content_html', 'has_pdf']
+
+    def get_has_pdf(self, obj):
+        return bool(obj.pdf_file)
 
 
 class ContentProgressSerializer(serializers.ModelSerializer):
