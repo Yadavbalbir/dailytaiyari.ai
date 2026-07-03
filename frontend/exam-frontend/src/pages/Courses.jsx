@@ -3,14 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2 } from 'lucide-react'
 
 const Courses = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user, profile } = useAuthStore()
+  const isAdmin = (user?.role || profile?.user?.role) === 'admin'
 
   const { data: availableRaw, isLoading: availLoading } = useQuery({
     queryKey: ['availableCourses'],
@@ -122,6 +125,16 @@ const Courses = () => {
                       </button>
                     )}
                   </div>
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/courses/${course.id}/manage`)}
+                      className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                    >
+                      <Settings2 size={15} /> Manage course
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )

@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
-  ChevronRight, GraduationCap, ArrowLeft
+  ChevronRight, GraduationCap, ArrowLeft, Settings2
 } from 'lucide-react'
 
 const iconMap = {
@@ -20,6 +21,8 @@ const iconMap = {
 const StudyCourse = () => {
   const navigate = useNavigate()
   const { courseId } = useParams()
+  const { user, profile } = useAuthStore()
+  const isAdmin = (user?.role || profile?.user?.role) === 'admin'
 
   // Enrolled courses — used to resolve the course header and to guard access.
   const { data: studyData = { courses: [], pending: [] }, isLoading: coursesLoading } = useQuery({
@@ -58,6 +61,15 @@ const StudyCourse = () => {
           </h1>
           <p className="text-surface-500 mt-1">Choose a subject to start learning</p>
         </div>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => navigate(`/courses/${courseId}/manage`)}
+            className="ml-auto btn-secondary text-sm px-3 py-2"
+          >
+            <Settings2 size={16} /> <span className="hidden sm:inline">Manage course</span>
+          </button>
+        )}
       </div>
 
       {subjectsLoading ? (

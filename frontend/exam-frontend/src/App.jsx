@@ -39,6 +39,7 @@ import Community from './pages/Community'
 import CommunityPost from './pages/CommunityPost'
 import PreviousYearPapers from './pages/PreviousYearPapers'
 import AdminDashboard from './pages/AdminDashboard'
+import CourseManager from './pages/CourseManager'
 
 
 // Protected Route Component
@@ -53,6 +54,16 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/onboarding" replace />
   }
 
+  return children
+}
+
+// Admin-only Route Component
+const AdminRoute = ({ children }) => {
+  const { user, profile } = useAuthStore()
+  const role = user?.role || profile?.user?.role
+  if (role !== 'admin') {
+    return <Navigate to="/dashboard" replace />
+  }
   return children
 }
 
@@ -117,6 +128,7 @@ function App() {
         >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
+          <Route path="/courses/:courseId/manage" element={<AdminRoute><CourseManager /></AdminRoute>} />
           <Route path="/study" element={<Study />} />
           <Route path="/study/course/:courseId" element={<StudyCourse />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />
