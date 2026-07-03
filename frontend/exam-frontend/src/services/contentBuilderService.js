@@ -64,6 +64,10 @@ export const contentBuilderService = {
   createQuestion: async (data) => (await api.post('/quiz/admin/questions/', data)).data,
   updateQuestion: async (id, data) => (await api.patch(`/quiz/admin/questions/${id}/`, data)).data,
   deleteQuestion: async (id) => api.delete(`/quiz/admin/questions/${id}/`),
+
+  // ---- Media ----
+  uploadImage: async (dataUrl) =>
+    (await api.post('/content/admin/upload-image/', { image: dataUrl })).data,
 }
 
 export default contentBuilderService
