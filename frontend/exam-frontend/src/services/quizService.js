@@ -20,9 +20,9 @@ export const quizService = {
   },
 
   // Get daily challenge
-  getDailyChallenge: async (examId) => {
+  getDailyChallenge: async (courseId) => {
     const response = await api.get('/quiz/quizzes/daily_challenge/', {
-      params: examId ? { exam_id: examId } : {},
+      params: courseId ? { course_id: courseId } : {},
     })
     return response.data
   },

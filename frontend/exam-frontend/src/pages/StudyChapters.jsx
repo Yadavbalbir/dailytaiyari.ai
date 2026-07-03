@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
-import { examService } from '../services/examService'
+import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ChevronRight, ArrowLeft,
@@ -14,13 +14,13 @@ const StudyChapters = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['studyChapters', subjectId],
-    queryFn: () => examService.getStudyChapters(subjectId),
+    queryFn: () => courseService.getStudyChapters(subjectId),
     enabled: !!subjectId,
   })
 
   const { data: leaderboard } = useQuery({
     queryKey: ['studyLeaderboard', 'subject', subjectId],
-    queryFn: () => examService.getStudyLeaderboard('subject', subjectId),
+    queryFn: () => courseService.getStudyLeaderboard('subject', subjectId),
     enabled: !!subjectId,
   })
 

@@ -17,7 +17,7 @@ client = OpenAI(api_key=config('OPENAI_API_KEY'))
 
 def generate_content(topic_name, content_type_suffix, subject_name):
     prompt = f"""
-    Create highly accurate, comprehensive educational content for a student preparing for competitive exams (like JEE, NEET, or similar high-level exams).
+    Create highly accurate, comprehensive educational content for a student preparing for competitive courses (like JEE, NEET, or similar high-level courses).
     
     Topic: {topic_name}
     Subject: {subject_name}

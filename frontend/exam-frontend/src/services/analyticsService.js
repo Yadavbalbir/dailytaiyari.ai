@@ -4,7 +4,7 @@ export const analyticsService = {
   // Get dashboard stats
   getDashboardStats: async (examId) => {
     const response = await api.get('/analytics/dashboard/', {
-      params: examId ? { exam_id: examId } : {},
+      params: examId ? { course_id: examId } : {},
     })
     return response.data
   },
@@ -35,7 +35,7 @@ export const analyticsService = {
   // Subject performance
   getSubjectPerformance: async (examId) => {
     const response = await api.get('/analytics/subject-performance/by_exam/', {
-      params: { exam_id: examId },
+      params: { course_id: examId },
     })
     return response.data
   },
@@ -61,7 +61,7 @@ export const analyticsService = {
   // Streak
   getCurrentStreak: async (examId) => {
     const response = await api.get('/analytics/streaks/current/', {
-      params: examId ? { exam_id: examId } : {},
+      params: examId ? { course_id: examId } : {},
     })
     return response.data
   },
@@ -125,7 +125,7 @@ export const analyticsService = {
   },
 
   getContentExplorer: async () => {
-    const response = await api.get('/exams/explorer/')
+    const response = await api.get('/courses/explorer/')
     return response.data
   },
 }

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
-import { examService } from '../services/examService'
+import { courseService } from '../services/courseService'
 import { contentService } from '../services/contentService'
 import Loading from '../components/common/Loading'
 import {
@@ -25,7 +25,7 @@ const TopicView = () => {
 
   const { data: topic, isLoading: topicLoading } = useQuery({
     queryKey: ['topic', topicId],
-    queryFn: () => examService.getTopicDetails(topicId),
+    queryFn: () => courseService.getTopicDetails(topicId),
   })
 
   const { data: contents, isLoading: contentsLoading } = useQuery({

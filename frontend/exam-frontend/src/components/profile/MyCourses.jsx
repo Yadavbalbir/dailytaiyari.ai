@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { examService } from '../../services/examService'
+import { courseService } from '../../services/courseService'
 import toast from 'react-hot-toast'
 import { GraduationCap, PlusCircle, Clock, CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
 
@@ -10,55 +10,55 @@ const statusMeta = {
   rejected: { label: 'Rejected', cls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300', icon: XCircle },
 }
 
-const MyExams = () => {
+const MyCourses = () => {
   const queryClient = useQueryClient()
-  const [selectedExam, setSelectedExam] = useState('')
+  const [selectedCourse, setSelectedCourse] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const { data: enrollments = [], isLoading } = useQuery({
     queryKey: ['enrollments'],
     queryFn: async () => {
-      const d = await examService.getEnrollments()
+      const d = await courseService.getEnrollments()
       return Array.isArray(d) ? d : (d?.results || [])
     },
   })
 
   const { data: availableRaw = [] } = useQuery({
-    queryKey: ['availableExamsForEnroll'],
+    queryKey: ['availableCourses'],
     queryFn: async () => {
-      const d = await examService.getAvailableExamsForEnrollment()
+      const d = await courseService.getAvailableCoursesForEnrollment()
       return Array.isArray(d) ? d : (d?.results || [])
     },
   })
   const available = Array.isArray(availableRaw) ? availableRaw : []
 
-  const enrolledIds = new Set(enrollments.map((e) => e.exam))
-  const requestable = available.filter((ex) => !enrolledIds.has(ex.id))
+  const enrolledIds = new Set(enrollments.map((e) => e.course))
+  const requestable = available.filter((c) => !enrolledIds.has(c.id))
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['enrollments'] })
-    queryClient.invalidateQueries({ queryKey: ['studyExams'] })
+    queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
   }
 
-  const requestEnroll = async (examId) => {
-    if (!examId) return
+  const requestEnroll = async (courseId) => {
+    if (!courseId) return
     setSubmitting(true)
     try {
-      await examService.enrollInExam(examId)
+      await courseService.requestEnrollment(courseId)
       toast.success('Request sent for admin approval')
-      setSelectedExam('')
+      setSelectedCourse('')
       refresh()
     } catch (err) {
-      toast.error(err?.response?.data?.exam?.[0] || err?.response?.data?.detail || 'Request failed')
+      toast.error(err?.response?.data?.course?.[0] || err?.response?.data?.detail || 'Request failed')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const dropExam = async (id) => {
+  const dropCourse = async (id) => {
     setSubmitting(true)
     try {
-      await examService.unenroll(id)
+      await courseService.unenroll(id)
       toast.success('Removed')
       refresh()
     } catch {
@@ -72,25 +72,25 @@ const MyExams = () => {
     <div className="card p-6">
       <div className="flex items-center gap-2 mb-5">
         <GraduationCap size={20} className="text-primary-500" />
-        <h2 className="text-lg font-semibold">My Exams</h2>
+        <h2 className="text-lg font-semibold">My Courses</h2>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <select
-          value={selectedExam}
-          onChange={(e) => setSelectedExam(e.target.value)}
+          value={selectedCourse}
+          onChange={(e) => setSelectedCourse(e.target.value)}
           className="input flex-1"
           disabled={!requestable.length}
         >
-          <option value="">{requestable.length ? 'Select an exam to enroll…' : 'No more exams to enroll'}</option>
-          {requestable.map((ex) => (
-            <option key={ex.id} value={ex.id}>{ex.name}</option>
+          <option value="">{requestable.length ? 'Select a course to enroll…' : 'No more courses to enroll'}</option>
+          {requestable.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
         <button
           type="button"
-          onClick={() => requestEnroll(selectedExam)}
-          disabled={!selectedExam || submitting}
+          onClick={() => requestEnroll(selectedCourse)}
+          disabled={!selectedCourse || submitting}
           className="btn primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <PlusCircle size={18} />
@@ -101,7 +101,7 @@ const MyExams = () => {
       {isLoading ? (
         <p className="text-sm text-surface-500">Loading…</p>
       ) : enrollments.length === 0 ? (
-        <p className="text-sm text-surface-500">No exams yet. Request one above — your admin will review it.</p>
+        <p className="text-sm text-surface-500">No courses yet. Request one above — your admin will review it.</p>
       ) : (
         <ul className="space-y-2">
           {enrollments.map((e) => {
@@ -110,7 +110,7 @@ const MyExams = () => {
             return (
               <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-surface-200 dark:border-surface-700">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{e.exam_name || e.exam}</p>
+                  <p className="font-medium truncate">{e.course_name || e.course}</p>
                   {e.status === 'rejected' && e.rejection_reason && (
                     <p className="text-xs text-red-500 mt-0.5">Reason: {e.rejection_reason}</p>
                   )}
@@ -120,12 +120,12 @@ const MyExams = () => {
                     <Icon size={13} /> {meta.label}
                   </span>
                   {e.status === 'rejected' ? (
-                    <button onClick={() => requestEnroll(e.exam)} disabled={submitting}
+                    <button onClick={() => requestEnroll(e.course)} disabled={submitting}
                       className="text-sm text-primary-600 dark:text-primary-400 hover:underline inline-flex items-center gap-1">
                       <RotateCcw size={14} /> Re-request
                     </button>
                   ) : (
-                    <button onClick={() => dropExam(e.id)} disabled={submitting}
+                    <button onClick={() => dropCourse(e.id)} disabled={submitting}
                       className="text-sm text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-1">
                       <XCircle size={14} /> Drop
                     </button>
@@ -140,4 +140,4 @@ const MyExams = () => {
   )
 }
 
-export default MyExams
+export default MyCourses

@@ -71,7 +71,7 @@ class QuestionWithAnswerSerializer(QuestionSerializer):
 class QuizSerializer(serializers.ModelSerializer):
     """Serializer for quiz listings."""
     questions_count = serializers.ReadOnlyField()
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     topic_name = serializers.CharField(source='topic.name', read_only=True)
     user_attempt_info = serializers.SerializerMethodField()
@@ -80,7 +80,7 @@ class QuizSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = [
             'id', 'title', 'description', 'quiz_type', 'status',
-            'exam', 'exam_name', 'subject', 'subject_name',
+            'course', 'course_name', 'subject', 'subject_name',
             'topic', 'topic_name', 'questions_count',
             'duration_minutes', 'total_marks', 'is_free',
             'is_daily_challenge', 'challenge_date',
@@ -151,14 +151,14 @@ class QuizDetailSerializer(QuizSerializer):
 
 class MockTestSerializer(serializers.ModelSerializer):
     """Serializer for mock test listings."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     questions_count = serializers.SerializerMethodField()
     user_attempt_info = serializers.SerializerMethodField()
     
     class Meta:
         model = MockTest
         fields = [
-            'id', 'title', 'description', 'exam', 'exam_name',
+            'id', 'title', 'description', 'course', 'course_name',
             'duration_minutes', 'total_marks', 'negative_marking',
             'status', 'is_free', 'sections', 'questions_count',
             'total_attempts', 'average_score', 'highest_score',
@@ -213,7 +213,7 @@ class MockTestDetailSerializer(MockTestSerializer):
         fields = MockTestSerializer.Meta.fields + ['questions', 'marking_scheme']
     
     def get_marking_scheme(self, obj):
-        """Return marking scheme from exam and question data."""
+        """Return marking scheme from course and question data."""
         from .models import MockTestQuestion
         mtqs = MockTestQuestion.objects.filter(mock_test=obj).select_related('question')
         if not mtqs.exists():

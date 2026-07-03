@@ -1,2 +1,2 @@
-# Exams app - Exam, Subject, Topic models
+# Courses app - Course, Subject, Topic models
 

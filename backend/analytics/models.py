@@ -3,7 +3,7 @@ Analytics models for tracking student performance.
 """
 from django.db import models
 from core.models import TimeStampedModel
-from exams.models import Topic, Subject, Exam
+from exams.models import Topic, Subject, Course
 
 
 class TopicMastery(TimeStampedModel):
@@ -104,7 +104,7 @@ class SubjectPerformance(TimeStampedModel):
         related_name='subject_performances'
     )
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='performances')
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='subject_performances')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='subject_performances')
     
     # Statistics
     total_questions = models.PositiveIntegerField(default=0)
@@ -123,7 +123,7 @@ class SubjectPerformance(TimeStampedModel):
     average_speed = models.PositiveIntegerField(default=0)  # seconds per question
 
     class Meta:
-        unique_together = ['student', 'subject', 'exam']
+        unique_together = ['student', 'subject', 'course']
         verbose_name = 'Subject Performance'
         verbose_name_plural = 'Subject Performances'
 
@@ -180,8 +180,8 @@ class Streak(TimeStampedModel):
         on_delete=models.CASCADE, 
         related_name='streaks'
     )
-    exam = models.ForeignKey(
-        Exam, 
+    course = models.ForeignKey(
+        Course, 
         on_delete=models.CASCADE, 
         related_name='streaks',
         null=True, blank=True
@@ -200,7 +200,7 @@ class Streak(TimeStampedModel):
     total_active_days = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ['student', 'exam']
+        unique_together = ['student', 'course']
         verbose_name = 'Streak'
         verbose_name_plural = 'Streaks'
 

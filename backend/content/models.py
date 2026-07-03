@@ -3,7 +3,7 @@ Content models for study materials - Notes, Videos, PDFs.
 """
 from django.db import models
 from core.models import TimeStampedModel, OrderedModel
-from exams.models import Topic, Subject, Exam
+from exams.models import Topic, Subject, Course
 
 
 class Content(OrderedModel):
@@ -40,7 +40,7 @@ class Content(OrderedModel):
     # Relationships
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='contents')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='contents')
-    exams = models.ManyToManyField(Exam, related_name='contents')
+    courses = models.ManyToManyField(Course, related_name='contents')
     
     # Content data
     content_html = models.TextField(blank=True)  # For notes
@@ -126,7 +126,7 @@ class StudyPlan(TimeStampedModel):
         on_delete=models.CASCADE, 
         related_name='study_plans'
     )
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='study_plans')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='study_plans')
     
     # Plan details
     date = models.DateField()
@@ -143,7 +143,7 @@ class StudyPlan(TimeStampedModel):
     xp_earned = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ['student', 'exam', 'date']
+        unique_together = ['student', 'course', 'date']
         verbose_name = 'Study Plan'
         verbose_name_plural = 'Study Plans'
         ordering = ['-date']

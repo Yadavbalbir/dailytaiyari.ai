@@ -9,7 +9,7 @@ class ContentAdmin(admin.ModelAdmin):
     search_fields = ['title', 'description']
     prepopulated_fields = {'slug': ('title',)}
     raw_id_fields = ['topic', 'subject']
-    filter_horizontal = ['exams']
+    filter_horizontal = ['courses']
 
 
 @admin.register(ContentProgress)
@@ -21,9 +21,9 @@ class ContentProgressAdmin(admin.ModelAdmin):
 
 @admin.register(StudyPlan)
 class StudyPlanAdmin(admin.ModelAdmin):
-    list_display = ['student', 'exam', 'date', 'is_completed', 'target_study_minutes', 'actual_study_minutes']
-    list_filter = ['exam', 'is_completed', 'date']
-    raw_id_fields = ['student', 'exam']
+    list_display = ['student', 'course', 'date', 'is_completed', 'target_study_minutes', 'actual_study_minutes']
+    list_filter = ['course', 'is_completed', 'date']
+    raw_id_fields = ['student', 'course']
 
 
 @admin.register(StudyPlanItem)

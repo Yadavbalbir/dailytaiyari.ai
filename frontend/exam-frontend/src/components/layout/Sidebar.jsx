@@ -5,6 +5,7 @@ import { useAppStore } from '../../context/appStore'
 import {
   LayoutDashboard,
   BookOpen,
+  GraduationCap,
   PenTool,
   ClipboardList,
   FileText,
@@ -19,6 +20,7 @@ import {
 // Navigation items with professional icons
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/courses', label: 'Courses', icon: GraduationCap },
   { path: '/study', label: 'Study', icon: BookOpen },
   { path: '/quiz', label: 'Practice Quiz', icon: PenTool },
   { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList },

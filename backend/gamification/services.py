@@ -272,7 +272,7 @@ class GamificationService:
         return awarded_badges
     
     @staticmethod
-    def update_leaderboard(period='daily', exam=None, tenant=None):
+    def update_leaderboard(period='daily', course=None, tenant=None):
         """
         Update leaderboard for a specific period. Scoped to tenant when provided.
         """
@@ -301,8 +301,8 @@ class GamificationService:
         query = StudentProfile.objects.all()
         if tenant:
             query = query.filter(user__tenant=tenant)
-        if exam:
-            query = query.filter(enrollments__exam=exam)
+        if course:
+            query = query.filter(enrollments__course=course)
         
         # Get stats for the period
         student_stats = []
@@ -340,7 +340,7 @@ class GamificationService:
             # Get previous rank
             previous_entry = LeaderboardEntry.objects.filter(
                 student=stat['student'],
-                exam=exam,
+                course=course,
                 period=period
             ).order_by('-period_start').first()
             
@@ -349,7 +349,7 @@ class GamificationService:
             
             LeaderboardEntry.objects.update_or_create(
                 student=stat['student'],
-                exam=exam,
+                course=course,
                 period=period,
                 period_start=start_date or today.replace(year=2020, month=1, day=1),
                 defaults={
@@ -367,7 +367,7 @@ class GamificationService:
         return len(student_stats)
     
     @staticmethod
-    def get_leaderboard(period='daily', exam=None, limit=50, tenant=None):
+    def get_leaderboard(period='daily', course=None, limit=50, tenant=None):
         """
         Get leaderboard data dynamically from DailyActivity. Scoped to tenant when provided.
         """
@@ -394,8 +394,8 @@ class GamificationService:
         query = StudentProfile.objects.all()
         if tenant:
             query = query.filter(user__tenant=tenant)
-        if exam:
-            query = query.filter(enrollments__exam=exam)
+        if course:
+            query = query.filter(enrollments__course=course)
         
         # Calculate stats for each student
         leaderboard_data = []
@@ -446,7 +446,7 @@ class GamificationService:
         return result
     
     @staticmethod
-    def get_student_rank(student, period='daily', exam=None, tenant=None):
+    def get_student_rank(student, period='daily', course=None, tenant=None):
         """
         Get student's rank in leaderboard dynamically. Scoped to tenant when provided.
         """
@@ -473,8 +473,8 @@ class GamificationService:
         query = StudentProfile.objects.all()
         if tenant:
             query = query.filter(user__tenant=tenant)
-        if exam:
-            query = query.filter(enrollments__exam=exam)
+        if course:
+            query = query.filter(enrollments__course=course)
         
         student_scores = []
         for s in query:

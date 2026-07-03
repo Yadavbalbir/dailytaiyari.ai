@@ -11,17 +11,17 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db import transaction
 
-from .models import StudentProfile, ExamEnrollment
+from .models import StudentProfile, CourseEnrollment
 from .serializers import (
     CustomTokenObtainPairSerializer,
     UserRegistrationSerializer,
     UserSerializer,
     StudentProfileSerializer,
-    ExamEnrollmentSerializer,
+    CourseEnrollmentSerializer,
     AdminEnrollmentRequestSerializer,
     OnboardingSerializer
 )
-from exams.models import Exam
+from exams.models import Course
 from core.permissions import IsTenantAdmin
 from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
@@ -89,7 +89,7 @@ class UserView(generics.RetrieveUpdateAPIView):
 
 
 class OnboardingView(APIView):
-    """Complete user onboarding with exam selection."""
+    """Complete user onboarding with course selection."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -105,34 +105,34 @@ class OnboardingView(APIView):
         profile.daily_study_goal_minutes = data['daily_study_goal_minutes']
         profile.preferred_study_time = data['preferred_study_time']
 
-        # Set primary exam
+        # Set primary course
         try:
-            primary_exam = Exam.objects.get(id=data['primary_exam_id'])
-            profile.primary_exam = primary_exam
-        except Exam.DoesNotExist:
+            primary_course = Course.objects.get(id=data['primary_course_id'])
+            profile.primary_course = primary_course
+        except Course.DoesNotExist:
             return Response(
-                {'error': 'Primary exam not found'},
+                {'error': 'Primary course not found'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         profile.save()
 
-        # Create exam enrollments — primary exam auto-approved at onboarding
-        ExamEnrollment.objects.get_or_create(
+        # Create course enrollments — primary course auto-approved at onboarding
+        CourseEnrollment.objects.get_or_create(
             student=profile,
-            exam=primary_exam,
+            course=primary_course,
             defaults={'is_active': True, 'status': 'approved', 'reviewed_at': timezone.now()}
         )
 
-        for exam_id in data.get('additional_exam_ids', []):
+        for course_id in data.get('additional_course_ids', []):
             try:
-                exam = Exam.objects.get(id=exam_id)
-                ExamEnrollment.objects.get_or_create(
+                course = Course.objects.get(id=course_id)
+                CourseEnrollment.objects.get_or_create(
                     student=profile,
-                    exam=exam,
+                    course=course,
                     defaults={'is_active': True, 'status': 'pending'}
                 )
-            except Exam.DoesNotExist:
+            except Course.DoesNotExist:
                 pass
 
         # Mark user as onboarded
@@ -146,20 +146,20 @@ class OnboardingView(APIView):
         })
 
 
-class ExamEnrollmentListView(generics.ListCreateAPIView):
-    """List enrollment requests and request enrollment in an exam (pending admin approval)."""
-    serializer_class = ExamEnrollmentSerializer
+class CourseEnrollmentListView(generics.ListCreateAPIView):
+    """List enrollment requests and request enrollment in an course (pending admin approval)."""
+    serializer_class = CourseEnrollmentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ExamEnrollment.objects.filter(
+        return CourseEnrollment.objects.filter(
             student=self.request.user.profile
-        ).select_related('exam').order_by('-created_at')
+        ).select_related('course').order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
         student = request.user.profile
-        exam = request.data.get('exam')
-        existing = ExamEnrollment.objects.filter(student=student, exam_id=exam).first()
+        course = request.data.get('course')
+        existing = CourseEnrollment.objects.filter(student=student, course_id=course).first()
         if existing:
             if existing.status == 'rejected':
                 # Allow re-request after rejection: reopen as pending
@@ -171,7 +171,7 @@ class ExamEnrollmentListView(generics.ListCreateAPIView):
                 existing.save()
                 return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
             return Response(
-                {'exam': ['You have already requested or are enrolled in this exam.']},
+                {'course': ['You have already requested or are enrolled in this course.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().create(request, *args, **kwargs)
@@ -180,13 +180,13 @@ class ExamEnrollmentListView(generics.ListCreateAPIView):
         serializer.save(student=self.request.user.profile, status='pending', is_active=True)
 
 
-class ExamEnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Manage individual exam enrollment."""
-    serializer_class = ExamEnrollmentSerializer
+class CourseEnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Manage individual course enrollment."""
+    serializer_class = CourseEnrollmentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ExamEnrollment.objects.filter(student=self.request.user.profile)
+        return CourseEnrollment.objects.filter(student=self.request.user.profile)
 
 
 class TenantStudentViewSet(TenantAwareViewSet):
@@ -211,7 +211,7 @@ class TenantStudentViewSet(TenantAwareViewSet):
 
     def get_queryset(self):
         tenant = self.request.tenant
-        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_exam')
+        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_course')
 
         # Optional explicit filters (used by the admin dashboard).
         role = self.request.query_params.get('role')
@@ -224,9 +224,9 @@ class TenantStudentViewSet(TenantAwareViewSet):
         elif status_param == 'suspended':
             qs = qs.filter(user__is_suspended=True)
 
-        primary_exam = self.request.query_params.get('primary_exam')
-        if primary_exam:
-            qs = qs.filter(primary_exam_id=primary_exam)
+        primary_course = self.request.query_params.get('primary_course')
+        if primary_course:
+            qs = qs.filter(primary_course_id=primary_course)
 
         return qs
 
@@ -282,7 +282,7 @@ class TenantStudentViewSet(TenantAwareViewSet):
 
 class TenantEnrollmentRequestViewSet(TenantAwareViewSet):
     """
-    Tenant admins review and approve/reject student exam enrollment requests.
+    Tenant admins review and approve/reject student course enrollment requests.
     """
     serializer_class = AdminEnrollmentRequestSerializer
     permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
@@ -290,9 +290,9 @@ class TenantEnrollmentRequestViewSet(TenantAwareViewSet):
 
     def get_queryset(self):
         tenant = self.request.tenant
-        qs = ExamEnrollment.objects.filter(
+        qs = CourseEnrollment.objects.filter(
             student__user__tenant=tenant
-        ).select_related('student__user', 'exam', 'reviewed_by').order_by('-created_at')
+        ).select_related('student__user', 'course', 'reviewed_by').order_by('-created_at')
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)

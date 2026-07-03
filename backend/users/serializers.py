@@ -4,7 +4,7 @@ Serializers for User authentication and profile management.
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-from .models import StudentProfile, ExamEnrollment
+from .models import StudentProfile, CourseEnrollment
 
 User = get_user_model()
 
@@ -98,7 +98,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     overall_accuracy = serializers.ReadOnlyField()
     xp_for_next_level = serializers.ReadOnlyField()
-    primary_exam_name = serializers.CharField(source='primary_exam.name', read_only=True)
+    primary_course_name = serializers.CharField(source='primary_course.name', read_only=True)
     
     # Handle nullable fields that may receive empty strings from frontend
     date_of_birth = serializers.DateField(required=False, allow_null=True)
@@ -114,8 +114,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'grade', 'school', 'coaching', 'board', 'medium', 'target_year',
             # Location
             'city', 'state',
-            # Exam info
-            'primary_exam', 'primary_exam_name', 
+            # Course info
+            'primary_course', 'primary_course_name', 
             # Study preferences
             'daily_study_goal_minutes', 'preferred_study_time', 
             # Stats
@@ -151,36 +151,36 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
 
 
-class ExamEnrollmentSerializer(serializers.ModelSerializer):
-    """Serializer for exam enrollment."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
-    exam_code = serializers.CharField(source='exam.code', read_only=True)
+class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    """Serializer for course enrollment."""
+    course_name = serializers.CharField(source='course.name', read_only=True)
+    course_code = serializers.CharField(source='course.code', read_only=True)
 
     class Meta:
-        model = ExamEnrollment
+        model = CourseEnrollment
         fields = [
-            'id', 'exam', 'exam_name', 'exam_code', 'is_active', 'status',
-            'rejection_reason', 'reviewed_at', 'enrolled_at', 'exam_xp',
-            'exam_rank', 'target_score', 'target_rank'
+            'id', 'course', 'course_name', 'course_code', 'is_active', 'status',
+            'rejection_reason', 'reviewed_at', 'enrolled_at', 'course_xp',
+            'course_rank', 'target_score', 'target_rank'
         ]
         read_only_fields = [
-            'id', 'enrolled_at', 'exam_xp', 'exam_rank', 'status',
+            'id', 'enrolled_at', 'course_xp', 'course_rank', 'status',
             'rejection_reason', 'reviewed_at'
         ]
 
 
 class AdminEnrollmentRequestSerializer(serializers.ModelSerializer):
     """Serializer for tenant admins to review enrollment requests."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
-    exam_code = serializers.CharField(source='exam.code', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
+    course_code = serializers.CharField(source='course.code', read_only=True)
     student_name = serializers.CharField(source='student.user.full_name', read_only=True)
     student_email = serializers.CharField(source='student.user.email', read_only=True)
     reviewed_by_email = serializers.CharField(source='reviewed_by.email', read_only=True)
 
     class Meta:
-        model = ExamEnrollment
+        model = CourseEnrollment
         fields = [
-            'id', 'exam', 'exam_name', 'exam_code', 'student_name', 'student_email',
+            'id', 'course', 'course_name', 'course_code', 'student_name', 'student_email',
             'status', 'rejection_reason', 'reviewed_at', 'reviewed_by_email', 'created_at'
         ]
         read_only_fields = fields
@@ -188,8 +188,8 @@ class AdminEnrollmentRequestSerializer(serializers.ModelSerializer):
 
 class OnboardingSerializer(serializers.Serializer):
     """Serializer for student onboarding — IIT JEE & NEET only."""
-    primary_exam_id = serializers.UUIDField()
-    additional_exam_ids = serializers.ListField(
+    primary_course_id = serializers.UUIDField()
+    additional_course_ids = serializers.ListField(
         child=serializers.UUIDField(),
         required=False,
         default=[]

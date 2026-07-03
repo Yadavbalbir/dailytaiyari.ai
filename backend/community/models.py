@@ -4,7 +4,7 @@ Community Forum models - Posts, Comments, Likes, Polls, Quizzes.
 from django.db import models
 from django.core.validators import MinLengthValidator
 from core.models import TimeStampedModel
-from exams.models import Exam, Subject
+from exams.models import Course, Subject
 
 
 class Post(TimeStampedModel):
@@ -36,8 +36,8 @@ class Post(TimeStampedModel):
     )
     
     # Categorization
-    exam = models.ForeignKey(
-        Exam,
+    course = models.ForeignKey(
+        Course,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='community_posts'
@@ -77,7 +77,7 @@ class Post(TimeStampedModel):
         indexes = [
             models.Index(fields=['post_type', 'status', '-created_at']),
             models.Index(fields=['author', '-created_at']),
-            models.Index(fields=['exam', '-created_at']),
+            models.Index(fields=['course', '-created_at']),
         ]
 
     def __str__(self):

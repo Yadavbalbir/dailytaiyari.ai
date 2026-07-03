@@ -156,7 +156,7 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id', 'post_type', 'title', 'content', 'image', 'author',
-            'exam', 'subject', 'tags',
+            'course', 'subject', 'tags',
             'likes_count', 'comments_count', 'views_count',
             'is_solved', 'best_answer', 'status',
             'poll_options', 'quiz', 'is_liked', 'user_poll_vote',
@@ -202,7 +202,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'post_type', 'title', 'content', 'image', 'exam', 'subject', 'tags',
+            'post_type', 'title', 'content', 'image', 'course', 'subject', 'tags',
             'poll_options', 'quiz_data'
         ]
 

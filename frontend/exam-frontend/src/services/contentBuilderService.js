@@ -14,35 +14,35 @@ const PAGE = { page_size: 2000 }
  */
 export const contentBuilderService = {
   // ---- Exams ----
-  getExams: async () => list(await api.get('/exams/admin/exams/', { params: PAGE })),
-  createExam: async (data) => (await api.post('/exams/admin/exams/', data)).data,
-  updateExam: async (id, data) => (await api.patch(`/exams/admin/exams/${id}/`, data)).data,
-  deleteExam: async (id) => api.delete(`/exams/admin/exams/${id}/`),
+  getExams: async () => list(await api.get('/courses/admin/courses/', { params: PAGE })),
+  createExam: async (data) => (await api.post('/courses/admin/courses/', data)).data,
+  updateExam: async (id, data) => (await api.patch(`/courses/admin/courses/${id}/`, data)).data,
+  deleteExam: async (id) => api.delete(`/courses/admin/courses/${id}/`),
 
   // ---- Subjects ----
-  getSubjects: async (examId) =>
-    list(await api.get('/exams/admin/subjects/', { params: { exam: examId, ...PAGE } })),
-  createSubject: async (data) => (await api.post('/exams/admin/subjects/', data)).data,
-  updateSubject: async (id, data) => (await api.patch(`/exams/admin/subjects/${id}/`, data)).data,
-  deleteSubject: async (id) => api.delete(`/exams/admin/subjects/${id}/`),
+  getSubjects: async (courseId) =>
+    list(await api.get('/courses/admin/subjects/', { params: { course: courseId, ...PAGE } })),
+  createSubject: async (data) => (await api.post('/courses/admin/subjects/', data)).data,
+  updateSubject: async (id, data) => (await api.patch(`/courses/admin/subjects/${id}/`, data)).data,
+  deleteSubject: async (id) => api.delete(`/courses/admin/subjects/${id}/`),
 
   // ---- Chapters ----
   getChapters: async (subjectId) =>
-    list(await api.get('/exams/admin/chapters/', { params: { subject: subjectId, ...PAGE } })),
-  createChapter: async (data) => (await api.post('/exams/admin/chapters/', data)).data,
-  updateChapter: async (id, data) => (await api.patch(`/exams/admin/chapters/${id}/`, data)).data,
-  deleteChapter: async (id) => api.delete(`/exams/admin/chapters/${id}/`),
+    list(await api.get('/courses/admin/chapters/', { params: { subject: subjectId, ...PAGE } })),
+  createChapter: async (data) => (await api.post('/courses/admin/chapters/', data)).data,
+  updateChapter: async (id, data) => (await api.patch(`/courses/admin/chapters/${id}/`, data)).data,
+  deleteChapter: async (id) => api.delete(`/courses/admin/chapters/${id}/`),
 
   // ---- Topics ----
   getTopics: async ({ chapterId, subjectId }) =>
     list(
-      await api.get('/exams/admin/topics/', {
+      await api.get('/courses/admin/topics/', {
         params: { ...(chapterId ? { chapter: chapterId } : {}), ...(subjectId ? { subject: subjectId } : {}), ...PAGE },
       })
     ),
-  createTopic: async (data) => (await api.post('/exams/admin/topics/', data)).data,
-  updateTopic: async (id, data) => (await api.patch(`/exams/admin/topics/${id}/`, data)).data,
-  deleteTopic: async (id) => api.delete(`/exams/admin/topics/${id}/`),
+  createTopic: async (data) => (await api.post('/courses/admin/topics/', data)).data,
+  updateTopic: async (id, data) => (await api.patch(`/courses/admin/topics/${id}/`, data)).data,
+  deleteTopic: async (id) => api.delete(`/courses/admin/topics/${id}/`),
 
   // ---- Content ----
   getContents: async (topicId) =>

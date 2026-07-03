@@ -39,7 +39,7 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
   const queryClient = useQueryClient()
-  const selectedExamId = (typeof localStorage !== 'undefined' && localStorage.getItem('study:lastExamId')) || ''
+  const selectedExamId = (typeof localStorage !== 'undefined' && localStorage.getItem('study:lastCourseId')) || ''
 
   // Fetch dashboard data
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
@@ -55,7 +55,7 @@ const Dashboard = () => {
   // Create / regenerate today's study plan
   const generatePlan = useMutation({
     mutationFn: () => contentService.generateStudyPlan({
-      ...(selectedExamId ? { exam_id: selectedExamId } : {}),
+      ...(selectedExamId ? { course_id: selectedExamId } : {}),
       target_minutes: profile?.daily_study_goal_minutes || 60,
       include_revision: true,
       focus_weak_topics: true,

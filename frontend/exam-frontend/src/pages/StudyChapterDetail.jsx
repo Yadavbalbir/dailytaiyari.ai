@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
-import { examService } from '../services/examService'
+import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight,
@@ -24,13 +24,13 @@ const StudyChapterDetail = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['studyChapterDetail', chapterId],
-    queryFn: () => examService.getStudyChapterDetail(chapterId),
+    queryFn: () => courseService.getStudyChapterDetail(chapterId),
     enabled: !!chapterId,
   })
 
   const { data: leaderboard } = useQuery({
     queryKey: ['studyLeaderboard', 'chapter', chapterId],
-    queryFn: () => examService.getStudyLeaderboard('chapter', chapterId),
+    queryFn: () => courseService.getStudyLeaderboard('chapter', chapterId),
     enabled: !!chapterId && activeTab === 'leaderboard',
   })
 

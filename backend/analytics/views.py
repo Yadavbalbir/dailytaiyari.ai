@@ -29,9 +29,9 @@ class DashboardView(APIView):
 
     def get(self, request):
         student = request.user.profile
-        exam_id = request.query_params.get('exam_id')
+        course_id = request.query_params.get('course_id')
         
-        stats = AnalyticsService.get_dashboard_stats(student, exam_id)
+        stats = AnalyticsService.get_dashboard_stats(student, course_id)
         serializer = DashboardStatsSerializer(stats)
         
         return Response(serializer.data)
@@ -94,19 +94,19 @@ class SubjectPerformanceViewSet(TenantAwareReadOnlyViewSet):
     def get_queryset(self):
         return SubjectPerformance.objects.filter(
             student=self.request.user.profile
-        ).select_related('subject', 'exam')
+        ).select_related('subject', 'course')
 
     @action(detail=False, methods=['get'])
-    def by_exam(self, request):
-        """Get performance for all subjects in an exam."""
-        exam_id = request.query_params.get('exam_id')
-        if not exam_id:
+    def by_course(self, request):
+        """Get performance for all subjects in an course."""
+        course_id = request.query_params.get('course_id')
+        if not course_id:
             return Response(
-                {'error': 'exam_id is required'},
+                {'error': 'course_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        performances = self.get_queryset().filter(exam_id=exam_id)
+        performances = self.get_queryset().filter(course_id=course_id)
         return Response(SubjectPerformanceSerializer(performances, many=True).data)
 
 
@@ -190,13 +190,13 @@ class StreakViewSet(TenantAwareReadOnlyViewSet):
     def get_queryset(self):
         return Streak.objects.filter(
             student=self.request.user.profile
-        ).select_related('exam')
+        ).select_related('course')
 
     @action(detail=False, methods=['get'])
     def current(self, request):
         """Get current active streak."""
-        exam_id = request.query_params.get('exam_id')
-        streak = self.get_queryset().filter(exam_id=exam_id).first()
+        course_id = request.query_params.get('course_id')
+        streak = self.get_queryset().filter(course_id=course_id).first()
         
         if not streak:
             return Response({

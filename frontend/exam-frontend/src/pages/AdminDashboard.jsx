@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { analyticsService } from '../services/analyticsService'
 import { tenantAdminService } from '../services/tenantAdminService'
-import { examService } from '../services/examService'
+import { courseService } from '../services/courseService'
 import ContentBuilder from '../components/admin/ContentBuilder'
 import {
     Users,
@@ -161,7 +161,7 @@ const StudentEditModal = ({ student, exams, onClose }) => {
         board: student.board || '',
         medium: student.medium || 'english',
         target_year: student.target_year || '',
-        primary_exam: student.primary_exam || '',
+        primary_course: student.primary_course || '',
         // profile — location & prefs
         city: student.city || '',
         state: student.state || '',
@@ -208,7 +208,7 @@ const StudentEditModal = ({ student, exams, onClose }) => {
             board: form.board,
             medium: form.medium,
             target_year: form.target_year === '' ? null : Number(form.target_year),
-            primary_exam: form.primary_exam || null,
+            primary_course: form.primary_course || null,
             city: form.city,
             state: form.state,
             daily_study_goal_minutes: Number(form.daily_study_goal_minutes) || 0,
@@ -280,11 +280,11 @@ const StudentEditModal = ({ student, exams, onClose }) => {
                             <School className="w-4 h-4" /> Academic Details
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Field label="Primary Exam">
+                            <Field label="Primary Course">
                                 <SelectInput
                                     options={[{ value: '', label: '—' }, ...exams.map((ex) => ({ value: ex.id, label: ex.name }))]}
-                                    value={form.primary_exam}
-                                    onChange={set('primary_exam')}
+                                    value={form.primary_course}
+                                    onChange={set('primary_course')}
                                 />
                             </Field>
                             <Field label="Target Year"><TextInput type="number" value={form.target_year} onChange={set('target_year')} placeholder="e.g. 2026" /></Field>
@@ -351,7 +351,7 @@ const StudentDetailModal = ({ student, onClose, onEdit }) => {
             title: 'Academic Details',
             icon: School,
             fields: [
-                { label: 'Primary Exam', value: student.primary_exam_name || 'Not set' },
+                { label: 'Primary Course', value: student.primary_course_name || 'Not set' },
                 { label: 'Target Year', value: student.target_year || 'Not set' },
                 { label: 'Grade/Level', value: student.grade || 'Not provided' },
                 { label: 'School/Institute', value: student.school || 'Not provided' },
@@ -479,9 +479,9 @@ const StudentManagement = () => {
 
     const { data: examsData } = useQuery({
         queryKey: ['adminExamOptions'],
-        queryFn: () => examService.getAvailableExamsForEnrollment(),
+        queryFn: () => courseService.getAvailableCoursesForEnrollment(),
     })
-    const exams = Array.isArray(examsData) ? examsData : (examsData?.results || examsData?.exams || [])
+    const exams = Array.isArray(examsData) ? examsData : (examsData?.results || examsData?.courses || [])
 
     const resetMutation = useMutation({
         mutationFn: (id) => tenantAdminService.resetStudentProgress(id),
@@ -516,7 +516,7 @@ const StudentManagement = () => {
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && !s.user.is_suspended) ||
                 (filterStatus === 'suspended' && s.user.is_suspended)
-            const matchesExam = filterExam === 'all' || String(s.primary_exam) === String(filterExam)
+            const matchesExam = filterExam === 'all' || String(s.primary_course) === String(filterExam)
             return matchesSearch && matchesRole && matchesStatus && matchesExam
         })
 
@@ -549,7 +549,7 @@ const StudentManagement = () => {
             return
         }
         const headers = [
-            'Full Name', 'Email', 'Phone', 'Role', 'Status', 'Primary Exam', 'Target Year',
+            'Full Name', 'Email', 'Phone', 'Role', 'Status', 'Primary Course', 'Target Year',
             'Grade', 'School', 'Coaching', 'Board', 'Medium', 'City', 'State',
             'Level', 'Total XP', 'Accuracy %', 'Questions Attempted', 'Correct Answers', 'Study Minutes',
         ]
@@ -557,7 +557,7 @@ const StudentManagement = () => {
         const rows = filteredStudents.map((s) => [
             s.user.full_name, s.user.email, s.user.phone, s.user.role,
             s.user.is_suspended ? 'Suspended' : 'Active',
-            s.primary_exam_name, s.target_year, s.grade, s.school, s.coaching, s.board, s.medium,
+            s.primary_course_name, s.target_year, s.grade, s.school, s.coaching, s.board, s.medium,
             s.city, s.state, s.current_level, s.total_xp, s.overall_accuracy,
             s.total_questions_attempted, s.total_correct_answers, s.total_study_time_minutes,
         ].map(escape).join(','))
@@ -624,9 +624,9 @@ const StudentManagement = () => {
                         </select>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-surface-400 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Exam</label>
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-surface-400 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Course</label>
                         <select className="input py-2.5" value={filterExam} onChange={(e) => setFilterExam(e.target.value)}>
-                            <option value="all">All Exams</option>
+                            <option value="all">All Courses</option>
                             {exams.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
                         </select>
                     </div>
@@ -660,7 +660,7 @@ const StudentManagement = () => {
                         <thead className="bg-surface-50 dark:bg-surface-800/50 text-xs font-semibold text-surface-500 uppercase">
                             <tr>
                                 <th className="px-6 py-4">Student</th>
-                                <th className="px-6 py-4">Exam</th>
+                                <th className="px-6 py-4">Course</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Performance</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
@@ -684,7 +684,7 @@ const StudentManagement = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-300">
-                                        {student.primary_exam_name || <span className="text-surface-400">—</span>}
+                                        {student.primary_course_name || <span className="text-surface-400">—</span>}
                                     </td>
                                     <td className="px-6 py-4">
                                         <button
@@ -873,7 +873,7 @@ const ContentManagement = () => {
         <div className="space-y-6">
             <div>
                 <h2 className="text-xl font-bold text-surface-900 dark:text-white">Institutional Content Library</h2>
-                <p className="text-sm text-surface-500">Explore exams, subjects, and chapters available to your students</p>
+                <p className="text-sm text-surface-500">Explore courses, subjects, and chapters available to your students</p>
             </div>
 
             <div className="space-y-4">
@@ -887,7 +887,7 @@ const ContentManagement = () => {
                                 <div className="text-left min-w-0">
                                     <h3 className="font-bold text-base sm:text-lg text-surface-900 dark:text-white truncate">{exam.name}</h3>
                                     <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-xs font-bold text-surface-400 uppercase tracking-widest">{exam.exam_type}</span>
+                                        <span className="text-xs font-bold text-surface-400 uppercase tracking-widest">{exam.course_type}</span>
                                         <div className="w-1 h-1 rounded-full bg-surface-300"></div>
                                         <span className="text-xs text-surface-500">{exam.subjects_count} Subjects</span>
                                     </div>
@@ -1039,7 +1039,7 @@ const EnrollmentRequests = () => {
                             <thead className="bg-surface-50 dark:bg-surface-800 text-xs uppercase text-surface-500">
                                 <tr>
                                     <th className="px-4 py-3">Student</th>
-                                    <th className="px-4 py-3">Exam</th>
+                                    <th className="px-4 py-3">Course</th>
                                     <th className="px-4 py-3">Status</th>
                                     <th className="px-4 py-3 text-right">Action</th>
                                 </tr>
@@ -1051,7 +1051,7 @@ const EnrollmentRequests = () => {
                                             <p className="font-medium">{r.student_name || '—'}</p>
                                             <p className="text-xs text-surface-500">{r.student_email}</p>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap">{r.exam_name} <span className="text-xs text-surface-400">{r.exam_code}</span></td>
+                                        <td className="px-4 py-3 whitespace-nowrap">{r.course_name} <span className="text-xs text-surface-400">{r.course_code}</span></td>
                                         <td className="px-4 py-3">
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${badge[r.status]}`}>{r.status}</span>
                                         </td>

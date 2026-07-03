@@ -4,11 +4,11 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db import transaction
 from quiz.models import Quiz, Question, QuizQuestion
-from exams.models import Exam
+from exams.models import Course
 from core.models import Tenant
 
 class Command(BaseCommand):
-    help = 'Automatically generate daily challenges for across all tenants and featured exams'
+    help = 'Automatically generate daily challenges for across all tenants and featured courses'
 
     def add_arguments(self, parser):
         parser.add_argument('--days', type=int, default=1, help='Number of days to generate challenges for starting from today')
@@ -20,46 +20,46 @@ class Command(BaseCommand):
         today = timezone.now().date()
         
         tenants = Tenant.objects.all()
-        featured_exams = Exam.objects.filter(is_featured=True)
+        featured_courses = Course.objects.filter(is_featured=True)
         
-        if not featured_exams.exists():
-            # Fallback to all active exams if no featured ones
-            featured_exams = Exam.objects.all()
+        if not featured_courses.exists():
+            # Fallback to all active courses if no featured ones
+            featured_courses = Course.objects.all()
             
-        self.stdout.write(f'Generating challenges for {len(tenants)} tenants and {len(featured_exams)} exams over {days} days...')
+        self.stdout.write(f'Generating challenges for {len(tenants)} tenants and {len(featured_courses)} courses over {days} days...')
         
         for i in range(days):
             target_date = today + timedelta(days=i)
-            self.generate_for_date(target_date, tenants, featured_exams, force)
+            self.generate_for_date(target_date, tenants, featured_courses, force)
             
         self.stdout.write(self.style.SUCCESS('\nDaily challenge generation completed!'))
 
-    def generate_for_date(self, target_date, tenants, exams, force):
+    def generate_for_date(self, target_date, tenants, courses, force):
         self.stdout.write(f'\nProcessing date: {target_date}')
         
         for tenant in tenants:
-            for exam in exams:
-                # Check if challenge already exists for this tenant, exam and date
+            for course in courses:
+                # Check if challenge already exists for this tenant, course and date
                 existing = Quiz.objects.filter(
                     tenant=tenant,
-                    exam=exam,
+                    course=course,
                     is_daily_challenge=True,
                     challenge_date=target_date
                 ).exists()
                 
                 if existing and not force:
-                    self.stdout.write(f'  - (Tenant: {tenant.name}, Exam: {exam.name}) Skipping: Already exists')
+                    self.stdout.write(f'  - (Tenant: {tenant.name}, Course: {course.name}) Skipping: Already exists')
                     continue
                 
-                # Pick 10 random published questions for this exam
-                # We filter by exam even if questions are shared, we want relevant ones
+                # Pick 10 random published questions for this course
+                # We filter by course even if questions are shared, we want relevant ones
                 questions = list(Question.objects.filter(
-                    exams=exam,
+                    courses=course,
                     status='published'
                 ).order_by('?')[:10])
                 
                 if len(questions) < 5:
-                    self.stdout.write(f'  - (Tenant: {tenant.name}, Exam: {exam.name}) Skipping: Not enough questions (found {len(questions)})')
+                    self.stdout.write(f'  - (Tenant: {tenant.name}, Course: {course.name}) Skipping: Not enough questions (found {len(questions)})')
                     continue
                 
                 with transaction.atomic():
@@ -67,7 +67,7 @@ class Command(BaseCommand):
                     if existing:
                         Quiz.objects.filter(
                             tenant=tenant,
-                            exam=exam,
+                            course=course,
                             is_daily_challenge=True,
                             challenge_date=target_date
                         ).delete()
@@ -75,9 +75,9 @@ class Command(BaseCommand):
                     quiz_title = f'Daily Challenge - {target_date.strftime("%b %d, %Y")}'
                     quiz = Quiz.objects.create(
                         tenant=tenant,
-                        exam=exam,
+                        course=course,
                         title=quiz_title,
-                        description=f'Test your skills with today\'s daily challenge for {exam.name}!',
+                        description=f'Test your skills with today\'s daily challenge for {course.name}!',
                         quiz_type='daily',
                         status='published',
                         challenge_date=target_date,
@@ -95,4 +95,4 @@ class Command(BaseCommand):
                             order=j
                         )
                     
-                    self.stdout.write(self.style.SUCCESS(f'  - (Tenant: {tenant.name}, Exam: {exam.name}) Created: {quiz_title}'))
+                    self.stdout.write(self.style.SUCCESS(f'  - (Tenant: {tenant.name}, Course: {course.name}) Created: {quiz_title}'))

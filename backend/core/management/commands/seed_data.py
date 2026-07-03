@@ -9,8 +9,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.utils.text import slugify
 
-from users.models import User, StudentProfile, ExamEnrollment
-from exams.models import Exam, Subject, Topic, TopicExamRelevance, Chapter
+from users.models import User, StudentProfile, CourseEnrollment
+from exams.models import Course, Subject, Topic, TopicCourseRelevance, Chapter
 from quiz.models import Question, QuestionOption, Quiz, QuizQuestion, MockTest, MockTestQuestion, QuizAttempt, Answer
 from content.models import Content, ContentProgress, StudyPlan, StudyPlanItem
 from gamification.models import Badge, StudentBadge, XPTransaction, LeaderboardEntry, Challenge
@@ -24,7 +24,7 @@ class Command(BaseCommand):
         self.stdout.write('🌱 Starting database seeding...\n')
         
         # Create data in order
-        self.create_exams()
+        self.create_courses()
         self.create_subjects()
         self.create_topics()
         self.create_badges()
@@ -38,15 +38,15 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS('\n✅ Database seeding completed successfully!'))
 
-    def create_exams(self):
+    def create_courses(self):
         self.stdout.write('Creating exams...')
         
-        exams_data = [
+        courses_data = [
             {
                 'name': 'NEET',
                 'code': 'neet',
                 'description': 'National Eligibility cum Entrance Test for medical admissions in India',
-                'exam_type': 'entrance',
+                'course_type': 'entrance',
                 'color': '#10B981',
                 'is_featured': True,
                 'duration_minutes': 200,
@@ -58,7 +58,7 @@ class Command(BaseCommand):
                 'name': 'JEE Main',
                 'code': 'jee-main',
                 'description': 'Joint Entrance Examination Main for engineering admissions',
-                'exam_type': 'entrance',
+                'course_type': 'entrance',
                 'color': '#3B82F6',
                 'is_featured': True,
                 'duration_minutes': 180,
@@ -70,7 +70,7 @@ class Command(BaseCommand):
                 'name': 'JEE Advanced',
                 'code': 'jee-advanced',
                 'description': 'Joint Entrance Examination Advanced for IIT admissions',
-                'exam_type': 'entrance',
+                'course_type': 'entrance',
                 'color': '#8B5CF6',
                 'is_featured': True,
                 'duration_minutes': 180,
@@ -81,8 +81,8 @@ class Command(BaseCommand):
             {
                 'name': 'CBSE Class 12',
                 'code': 'cbse-12',
-                'description': 'Central Board of Secondary Education Class 12 Board Exam',
-                'exam_type': 'board',
+                'description': 'Central Board of Secondary Education Class 12 Board Course',
+                'course_type': 'board',
                 'color': '#F59E0B',
                 'is_featured': True,
                 'duration_minutes': 180,
@@ -93,7 +93,7 @@ class Command(BaseCommand):
                 'name': 'CBSE Class 11',
                 'code': 'cbse-11',
                 'description': 'Central Board of Secondary Education Class 11',
-                'exam_type': 'board',
+                'course_type': 'board',
                 'color': '#EC4899',
                 'is_featured': False,
                 'duration_minutes': 180,
@@ -104,7 +104,7 @@ class Command(BaseCommand):
                 'name': 'NDA',
                 'code': 'nda',
                 'description': 'National Defence Academy entrance examination',
-                'exam_type': 'competitive',
+                'course_type': 'competitive',
                 'color': '#059669',
                 'status': 'active',
                 'duration_minutes': 150,
@@ -116,7 +116,7 @@ class Command(BaseCommand):
                 'name': 'CUET',
                 'code': 'cuet',
                 'description': 'Common University Entrance Test for UG admissions',
-                'exam_type': 'entrance',
+                'course_type': 'entrance',
                 'color': '#6366F1',
                 'status': 'coming_soon',
                 'duration_minutes': 195,
@@ -125,15 +125,15 @@ class Command(BaseCommand):
             },
         ]
         
-        self.exams = {}
-        for exam_data in exams_data:
-            exam, created = Exam.objects.get_or_create(
-                code=exam_data['code'],
-                defaults=exam_data
+        self.courses = {}
+        for course_data in courses_data:
+            course, created = Course.objects.get_or_create(
+                code=course_data['code'],
+                defaults=course_data
             )
-            self.exams[exam_data['code']] = exam
+            self.courses[course_data['code']] = course
             if created:
-                self.stdout.write(f'  ✓ Created exam: {exam.name}')
+                self.stdout.write(f'  ✓ Created course: {course.name}')
 
     def create_subjects(self):
         self.stdout.write('Creating subjects...')
@@ -141,31 +141,31 @@ class Command(BaseCommand):
         subjects_data = [
             # NEET/JEE subjects
             {'name': 'Physics', 'code': 'physics', 'color': '#3B82F6', 'icon': '⚡', 
-             'exams': ['neet', 'jee-main', 'jee-advanced', 'cbse-12', 'cbse-11'], 'weightage': 25},
+             'courses': ['neet', 'jee-main', 'jee-advanced', 'cbse-12', 'cbse-11'], 'weightage': 25},
             {'name': 'Chemistry', 'code': 'chemistry', 'color': '#10B981', 'icon': '🧪',
-             'exams': ['neet', 'jee-main', 'jee-advanced', 'cbse-12', 'cbse-11'], 'weightage': 25},
+             'courses': ['neet', 'jee-main', 'jee-advanced', 'cbse-12', 'cbse-11'], 'weightage': 25},
             {'name': 'Biology', 'code': 'biology', 'color': '#059669', 'icon': '🧬',
-             'exams': ['neet', 'cbse-12', 'cbse-11'], 'weightage': 50},
+             'courses': ['neet', 'cbse-12', 'cbse-11'], 'weightage': 50},
             {'name': 'Mathematics', 'code': 'mathematics', 'color': '#8B5CF6', 'icon': '📐',
-             'exams': ['jee-main', 'jee-advanced', 'cbse-12', 'cbse-11', 'nda'], 'weightage': 33},
+             'courses': ['jee-main', 'jee-advanced', 'cbse-12', 'cbse-11', 'nda'], 'weightage': 33},
             # Additional subjects
             {'name': 'English', 'code': 'english', 'color': '#EC4899', 'icon': '📚',
-             'exams': ['cbse-12', 'cbse-11', 'nda', 'cuet'], 'weightage': 20},
+             'courses': ['cbse-12', 'cbse-11', 'nda', 'cuet'], 'weightage': 20},
             {'name': 'General Knowledge', 'code': 'gk', 'color': '#F59E0B', 'icon': '🌍',
-             'exams': ['nda', 'cuet'], 'weightage': 25},
+             'courses': ['nda', 'cuet'], 'weightage': 25},
         ]
         
         self.subjects = {}
         for subj_data in subjects_data:
-            exam_codes = subj_data.pop('exams')
+            course_codes = subj_data.pop('courses')
             subject, created = Subject.objects.get_or_create(
                 code=subj_data['code'],
                 defaults=subj_data
             )
-            # Add exam relationships
-            for exam_code in exam_codes:
-                if exam_code in self.exams:
-                    subject.exams.add(self.exams[exam_code])
+            # Add course relationships
+            for course_code in course_codes:
+                if course_code in self.courses:
+                    subject.courses.add(self.courses[course_code])
             self.subjects[subj_data['code']] = subject
             if created:
                 self.stdout.write(f'  ✓ Created subject: {subject.name}')
@@ -327,11 +327,11 @@ class Command(BaseCommand):
                         'order': order,
                     }
                 )
-                # Add to relevant exams
-                for exam in subject.exams.all():
-                    TopicExamRelevance.objects.get_or_create(
+                # Add to relevant courses
+                for course in subject.courses.all():
+                    TopicCourseRelevance.objects.get_or_create(
                         topic=topic,
-                        exam=exam,
+                        course=course,
                         defaults={
                             'importance': topic_data['importance'],
                             'average_questions': random.randint(1, 5),
@@ -707,9 +707,9 @@ class Command(BaseCommand):
             )
             
             if created:
-                # Add to exams
-                for exam in subject.exams.all():
-                    question.exams.add(exam)
+                # Add to courses
+                for course in subject.courses.all():
+                    question.courses.add(course)
                 
                 # Create options
                 for i, opt_text in enumerate(q_data['options']):
@@ -765,8 +765,8 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                for exam in subject.exams.all():
-                    notes.exams.add(exam)
+                for course in subject.courses.all():
+                    notes.courses.add(course)
                 content_count += 1
             
             # Create video content
@@ -789,8 +789,8 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                for exam in subject.exams.all():
-                    video.exams.add(exam)
+                for course in subject.courses.all():
+                    video.courses.add(course)
                 content_count += 1
             
             # Create revision notes for important topics
@@ -813,8 +813,8 @@ class Command(BaseCommand):
                     }
                 )
                 if created:
-                    for exam in subject.exams.all():
-                        revision.exams.add(exam)
+                    for course in subject.courses.all():
+                        revision.courses.add(course)
                     content_count += 1
         
         self.stdout.write(f'  ✓ Created {content_count} content items')
@@ -830,13 +830,13 @@ class Command(BaseCommand):
             if not questions.exists():
                 continue
             
-            exam = topic.subject.exams.first()
-            if not exam:
+            course = topic.subject.courses.first()
+            if not course:
                 continue
             
             quiz, created = Quiz.objects.get_or_create(
                 title=f'{topic.name} Quiz',
-                exam=exam,
+                course=course,
                 defaults={
                     'description': f'Test your knowledge of {topic.name}',
                     'quiz_type': 'topic',
@@ -863,13 +863,13 @@ class Command(BaseCommand):
             if not questions.exists():
                 continue
             
-            exam = subject.exams.first()
-            if not exam:
+            course = subject.courses.first()
+            if not course:
                 continue
             
             quiz, created = Quiz.objects.get_or_create(
                 title=f'{subject.name} - Mixed Quiz',
-                exam=exam,
+                course=course,
                 defaults={
                     'description': f'Practice quiz covering various topics in {subject.name}',
                     'quiz_type': 'subject',
@@ -891,11 +891,11 @@ class Command(BaseCommand):
         today = date.today()
         for i in range(7):
             challenge_date = today - timedelta(days=i)
-            exam = self.exams.get('neet')
-            if not exam:
+            course = self.courses.get('neet')
+            if not course:
                 continue
             
-            questions = Question.objects.filter(exams=exam, status='published').order_by('?')[:10]
+            questions = Question.objects.filter(courses=course, status='published').order_by('?')[:10]
             
             quiz, created = Quiz.objects.get_or_create(
                 title=f'Daily Challenge - {challenge_date.strftime("%b %d")}',
@@ -904,7 +904,7 @@ class Command(BaseCommand):
                     'description': f'Daily challenge quiz for {challenge_date.strftime("%B %d, %Y")}',
                     'quiz_type': 'daily',
                     'status': 'published',
-                    'exam': exam,
+                    'course': course,
                     'duration_minutes': 10,
                     'total_marks': 40,
                     'is_free': True,
@@ -925,14 +925,14 @@ class Command(BaseCommand):
         mock_count = 0
         
         # NEET Mock Tests
-        neet = self.exams.get('neet')
+        neet = self.courses.get('neet')
         if neet:
             for i in range(5):
-                questions = Question.objects.filter(exams=neet, status='published').order_by('?')[:45]
+                questions = Question.objects.filter(courses=neet, status='published').order_by('?')[:45]
                 
                 mock, created = MockTest.objects.get_or_create(
                     title=f'NEET Mock Test {i+1}',
-                    exam=neet,
+                    course=neet,
                     defaults={
                         'description': f'Full-length NEET mock test #{i+1} with 45 questions',
                         'duration_minutes': 60,
@@ -960,14 +960,14 @@ class Command(BaseCommand):
                     mock_count += 1
         
         # JEE Mock Tests
-        jee = self.exams.get('jee-main')
+        jee = self.courses.get('jee-main')
         if jee:
             for i in range(3):
-                questions = Question.objects.filter(exams=jee, status='published').order_by('?')[:30]
+                questions = Question.objects.filter(courses=jee, status='published').order_by('?')[:30]
                 
                 mock, created = MockTest.objects.get_or_create(
                     title=f'JEE Main Mock Test {i+1}',
-                    exam=jee,
+                    course=jee,
                     defaults={
                         'description': f'Full-length JEE Main mock test #{i+1}',
                         'duration_minutes': 90,
@@ -1043,7 +1043,7 @@ class Command(BaseCommand):
                 defaults={
                     'grade': user_data['grade'],
                     'city': user_data['city'],
-                    'primary_exam': self.exams.get('neet'),
+                    'primary_course': self.courses.get('neet'),
                     'total_xp': user_data['xp'],
                     'current_level': user_data['level'],
                     'daily_study_goal_minutes': random.choice([30, 60, 90, 120]),
@@ -1053,13 +1053,13 @@ class Command(BaseCommand):
                 }
             )
             
-            # Enroll in exams
-            for exam_code in ['neet', 'cbse-12']:
-                exam = self.exams.get(exam_code)
-                if exam:
-                    ExamEnrollment.objects.get_or_create(
+            # Enroll in courses
+            for course_code in ['neet', 'cbse-12']:
+                course = self.courses.get(course_code)
+                if course:
+                    CourseEnrollment.objects.get_or_create(
                         student=profile,
-                        exam=exam,
+                        course=course,
                         defaults={'is_active': True}
                     )
             
@@ -1073,7 +1073,7 @@ class Command(BaseCommand):
                 defaults={
                     'grade': '12',
                     'city': 'Delhi',
-                    'primary_exam': self.exams.get('neet'),
+                    'primary_course': self.courses.get('neet'),
                     'total_xp': 1500,
                     'current_level': 3,
                     'daily_study_goal_minutes': 60,
@@ -1082,12 +1082,12 @@ class Command(BaseCommand):
             main_user.is_onboarded = True
             main_user.save()
             
-            for exam_code in ['neet', 'jee-main', 'cbse-12']:
-                exam = self.exams.get(exam_code)
-                if exam:
-                    ExamEnrollment.objects.get_or_create(
+            for course_code in ['neet', 'jee-main', 'cbse-12']:
+                course = self.courses.get(course_code)
+                if course:
+                    CourseEnrollment.objects.get_or_create(
                         student=profile,
-                        exam=exam,
+                        course=course,
                         defaults={'is_active': True}
                     )
             
@@ -1165,7 +1165,7 @@ class Command(BaseCommand):
             # Create streaks
             streak, _ = Streak.objects.get_or_create(
                 student=profile,
-                exam=None,
+                course=None,
                 defaults={
                     'current_streak': random.randint(1, 30),
                     'longest_streak': random.randint(10, 45),
@@ -1194,11 +1194,11 @@ class Command(BaseCommand):
             
             # Create subject performance
             for subj_code, subject in self.subjects.items():
-                for exam in subject.exams.all()[:1]:
+                for course in subject.courses.all()[:1]:
                     SubjectPerformance.objects.get_or_create(
                         student=profile,
                         subject=subject,
-                        exam=exam,
+                        course=course,
                         defaults={
                             'total_questions': random.randint(50, 200),
                             'correct_answers': random.randint(30, 150),
@@ -1240,11 +1240,11 @@ class Command(BaseCommand):
                     period_start = today.replace(day=1)
                     period_end = (period_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
                 
-                for exam in self.exams.values():
+                for course in self.courses.values():
                     if random.random() > 0.5:  # 50% chance
                         LeaderboardEntry.objects.get_or_create(
                             student=profile,
-                            exam=exam,
+                            course=course,
                             period=period,
                             period_start=period_start,
                             defaults={

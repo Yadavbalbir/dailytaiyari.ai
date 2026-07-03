@@ -32,11 +32,11 @@ const opt = (arr) => arr.map((v) => ({ value: v, label: v.replace(/_/g, ' ').rep
 
 const SCHEMAS = {
     exam: {
-        title: 'Exam',
+        title: 'Course',
         fields: [
             { name: 'name', label: 'Name', type: 'text', required: true },
             { name: 'code', label: 'Code', type: 'text', required: true, hint: 'Unique slug, e.g. neet' },
-            { name: 'exam_type', label: 'Type', type: 'select', options: opt(EXAM_TYPES), default: 'competitive' },
+            { name: 'course_type', label: 'Type', type: 'select', options: opt(EXAM_TYPES), default: 'competitive' },
             { name: 'status', label: 'Status', type: 'select', options: opt(EXAM_STATUS), default: 'active' },
             { name: 'color', label: 'Color', type: 'color', default: '#3B82F6' },
             { name: 'duration_minutes', label: 'Duration (min)', type: 'number' },
@@ -828,7 +828,7 @@ const SubjectList = ({ examId, openModal, askDelete }) => {
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-surface-700 dark:text-surface-200">Subjects</h3>
-                <button onClick={() => openModal('subject', null, { exam: examId })} className="btn-primary text-sm py-2">
+                <button onClick={() => openModal('subject', null, { course: examId })} className="btn-primary text-sm py-2">
                     <Plus className="w-4 h-4" /> Add Subject
                 </button>
             </div>
@@ -855,7 +855,7 @@ const SubjectList = ({ examId, openModal, askDelete }) => {
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                                 <RowActions
-                                    onEdit={() => openModal('subject', sb, { exam: examId })}
+                                    onEdit={() => openModal('subject', sb, { course: examId })}
                                     onDelete={() => askDelete('subject', sb, sb.name)}
                                 />
                             </div>
@@ -957,15 +957,15 @@ const ContentBuilder = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-bold text-surface-900 dark:text-white">Content Builder</h2>
-                    <p className="text-sm text-surface-500">Create and manage exams, subjects, chapters, topics, content &amp; quizzes</p>
+                    <p className="text-sm text-surface-500">Create and manage courses, subjects, chapters, topics, content &amp; quizzes</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exams…" className="input pl-9 py-2 w-full sm:w-48" />
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search courses…" className="input pl-9 py-2 w-full sm:w-48" />
                     </div>
                     <button onClick={() => openModal('exam', null, {})} className="btn-primary py-2 whitespace-nowrap">
-                        <Plus className="w-4 h-4" /> New Exam
+                        <Plus className="w-4 h-4" /> New Course
                     </button>
                 </div>
             </div>
@@ -973,7 +973,7 @@ const ContentBuilder = () => {
             {exams.length === 0 ? (
                 <div className="card p-12 text-center">
                     <GraduationCap className="w-10 h-10 mx-auto text-surface-300 mb-3" />
-                    <p className="text-surface-500">No exams yet. Create your first exam to start building content.</p>
+                    <p className="text-surface-500">No courses yet. Create your first course to start building content.</p>
                 </div>
             ) : (
                 <>
@@ -1002,7 +1002,7 @@ const ContentBuilder = () => {
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-bold text-surface-900 dark:text-white truncate">{activeExamObj.name}</p>
-                                        <p className="text-[11px] text-surface-500 capitalize">{activeExamObj.exam_type} • {activeExamObj.status?.replace('_', ' ')}</p>
+                                        <p className="text-[11px] text-surface-500 capitalize">{activeExamObj.course_type} • {activeExamObj.status?.replace('_', ' ')}</p>
                                     </div>
                                 </div>
                                 <RowActions

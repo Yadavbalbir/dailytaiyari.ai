@@ -238,7 +238,7 @@ const PreviousYearPapers = () => {
                                                             <div className="flex items-start justify-between mb-3">
                                                                 <div>
                                                                     <div className="flex items-center gap-2 mb-1">
-                                                                        <span className="badge-primary">{paper.exam_name}</span>
+                                                                        <span className="badge-primary">{paper.course_name}</span>
                                                                         {paper.pyp_session && (
                                                                             <span className="badge bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">
                                                                                 {paper.pyp_session}

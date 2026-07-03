@@ -1,20 +1,20 @@
 """
-Exam models - Structure for IIT JEE and NEET competitive exams.
+Course models - Structure for IIT JEE and NEET competitive exams.
 """
 from django.db import models
 from core.models import TimeStampedModel, OrderedModel
 
 
-class Exam(TimeStampedModel):
+class Course(TimeStampedModel):
     """
-    Represents an exam category (e.g., NEET, IIT JEE, CBSE Class 10).
-    Every exam must belong to a tenant.
+    Represents an course category (e.g., NEET, IIT JEE, CBSE Class 10).
+    Every course must belong to a tenant.
     """
-    EXAM_TYPES = [
-        ('competitive', 'Competitive Exam'),
-        ('board', 'Board Exam'),
-        ('entrance', 'Entrance Exam'),
-        ('government', 'Government Job Exam'),
+    COURSE_TYPES = [
+        ('competitive', 'Competitive Course'),
+        ('board', 'Board Course'),
+        ('entrance', 'Entrance Course'),
+        ('government', 'Government Job Course'),
     ]
     
     STATUS_CHOICES = [
@@ -26,22 +26,22 @@ class Exam(TimeStampedModel):
     tenant = models.ForeignKey(
         'core.Tenant',
         on_delete=models.CASCADE,
-        related_name='exams',
+        related_name='courses',
     )
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50, unique=True)  # e.g., 'neet', 'jee-main'
     description = models.TextField(blank=True)
-    exam_type = models.CharField(max_length=20, choices=EXAM_TYPES)
+    course_type = models.CharField(max_length=20, choices=COURSE_TYPES)
     
     # Visual
-    icon = models.ImageField(upload_to='exam_icons/', blank=True, null=True)
+    icon = models.ImageField(upload_to='course_icons/', blank=True, null=True)
     color = models.CharField(max_length=7, default='#3B82F6')  # Hex color
     
     # Metadata
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     is_featured = models.BooleanField(default=False)
     
-    # Exam details
+    # Course details
     duration_minutes = models.PositiveIntegerField(null=True, blank=True)
     total_marks = models.PositiveIntegerField(null=True, blank=True)
     negative_marking = models.BooleanField(default=False)
@@ -56,8 +56,8 @@ class Exam(TimeStampedModel):
     total_questions = models.PositiveIntegerField(default=0)
 
     class Meta:
-        verbose_name = 'Exam'
-        verbose_name_plural = 'Exams'
+        verbose_name = 'Course'
+        verbose_name_plural = 'Courses'
         ordering = ['name']
 
     def __str__(self):
@@ -66,8 +66,8 @@ class Exam(TimeStampedModel):
 
 class Subject(OrderedModel):
     """
-    Subjects within an exam (e.g., Physics, Chemistry for NEET).
-    Each subject is linked to one and only one exam.
+    Subjects within an course (e.g., Physics, Chemistry for NEET).
+    Each subject is linked to one and only one course.
     """
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50)
@@ -77,18 +77,18 @@ class Subject(OrderedModel):
     icon = models.CharField(max_length=50, blank=True)  # Icon name
     color = models.CharField(max_length=7, default='#10B981')
     
-    # Exam relationship: one subject belongs to one exam
-    exam = models.ForeignKey(
-        Exam,
+    # Course relationship: one subject belongs to one course
+    course = models.ForeignKey(
+        Course,
         on_delete=models.CASCADE,
         related_name='subjects',
     )
     
-    # Importance for exam
+    # Importance for course
     weightage = models.DecimalField(
         max_digits=5, decimal_places=2, 
         default=0,
-        help_text="Percentage weightage in the exam"
+        help_text="Percentage weightage in the course"
     )
     
     # Statistics
@@ -98,7 +98,7 @@ class Subject(OrderedModel):
     class Meta:
         verbose_name = 'Subject'
         verbose_name_plural = 'Subjects'
-        unique_together = [['code', 'exam']]
+        unique_together = [['code', 'course']]
 
     def __str__(self):
         return self.name
@@ -139,8 +139,8 @@ class Topic(OrderedModel):
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='medium')
     importance = models.CharField(max_length=20, choices=IMPORTANCE_CHOICES, default='medium')
     
-    # Exam-specific importance (which exams is this topic important for)
-    exams = models.ManyToManyField(Exam, through='TopicExamRelevance', related_name='topics')
+    # Course-specific importance (which courses is this topic important for)
+    courses = models.ManyToManyField(Course, through='TopicCourseRelevance', related_name='topics')
     
     # Study time estimate
     estimated_study_hours = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
@@ -157,15 +157,15 @@ class Topic(OrderedModel):
         return f"{self.subject.name} - {self.name}"
 
 
-class TopicExamRelevance(TimeStampedModel):
+class TopicCourseRelevance(TimeStampedModel):
     """
     Tracks the relevance of a topic to specific exams.
     Allows different importance levels for the same topic across exams.
     """
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
     
-    # Exam-specific importance
+    # Course-specific importance
     importance = models.CharField(
         max_length=20, 
         choices=Topic.IMPORTANCE_CHOICES, 
@@ -173,23 +173,23 @@ class TopicExamRelevance(TimeStampedModel):
     )
     average_questions = models.PositiveIntegerField(
         default=0,
-        help_text="Average questions from this topic in the exam"
+        help_text="Average questions from this topic in the course"
     )
     marks_weightage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     class Meta:
-        unique_together = ['topic', 'exam']
-        verbose_name = 'Topic Exam Relevance'
-        verbose_name_plural = 'Topic Exam Relevances'
+        unique_together = ['topic', 'course']
+        verbose_name = 'Topic Course Relevance'
+        verbose_name_plural = 'Topic Course Relevances'
 
     def __str__(self):
-        return f"{self.topic.name} - {self.exam.name}"
+        return f"{self.topic.name} - {self.course.name}"
 
 
 class Chapter(OrderedModel):
     """
     Chapters organize topics into a learning sequence.
-    Study flow: Exam → Subject → Chapter → Topic → (Content + Quizzes).
+    Study flow: Course → Subject → Chapter → Topic → (Content + Quizzes).
     """
     name = models.CharField(max_length=300)
     code = models.CharField(max_length=100)
@@ -205,7 +205,7 @@ class Chapter(OrderedModel):
         blank=True,
     )
     
-    # For board exams (e.g., CBSE) or syllabus grouping (e.g., class_11, algebra)
+    # For board courses (e.g., CBSE) or syllabus grouping (e.g., class_11, algebra)
     grade = models.CharField(max_length=20, blank=True)
     book_reference = models.CharField(max_length=200, blank=True)
     

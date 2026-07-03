@@ -1,20 +1,20 @@
 """
-Serializers for Exams app.
+Serializers for Courses app.
 """
 from rest_framework import serializers
-from .models import Exam, Subject, Topic, TopicExamRelevance, Chapter
+from .models import Course, Subject, Topic, TopicCourseRelevance, Chapter
 
 
-class ExamSerializer(serializers.ModelSerializer):
-    """Serializer for Exam model."""
+class CourseSerializer(serializers.ModelSerializer):
+    """Serializer for Course model."""
     subjects_count = serializers.SerializerMethodField()
     mock_tests_count = serializers.SerializerMethodField()
     quizzes_count = serializers.SerializerMethodField()
     
     class Meta:
-        model = Exam
+        model = Course
         fields = [
-            'id', 'name', 'code', 'description', 'exam_type',
+            'id', 'name', 'code', 'description', 'course_type',
             'icon', 'color', 'status', 'is_featured',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
@@ -31,11 +31,11 @@ class ExamSerializer(serializers.ModelSerializer):
         return obj.quizzes.count()
 
 
-class ExamListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for exam listings."""
+class CourseListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for course listings."""
     
     class Meta:
-        model = Exam
+        model = Course
         fields = ['id', 'name', 'code', 'icon', 'color', 'status', 'is_featured']
 
 
@@ -73,7 +73,7 @@ class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = [
-            'id', 'name', 'code', 'description', 'icon', 'color', 'exam',
+            'id', 'name', 'code', 'description', 'icon', 'color', 'course',
             'weightage', 'total_topics', 'total_questions',
             'topics_count', 'quizzes_count', 'order'
         ]
@@ -121,12 +121,12 @@ class ChapterDetailSerializer(ChapterSerializer):
         return TopicSerializer([ct.topic for ct in qs], many=True).data
 
 
-class ExamDetailSerializer(ExamSerializer):
-    """Detailed exam serializer with subjects."""
+class CourseDetailSerializer(CourseSerializer):
+    """Detailed course serializer with subjects."""
     subjects = SubjectSerializer(many=True, read_only=True)
     
-    class Meta(ExamSerializer.Meta):
-        fields = ExamSerializer.Meta.fields + ['subjects']
+    class Meta(CourseSerializer.Meta):
+        fields = CourseSerializer.Meta.fields + ['subjects']
 
 
 class SubjectWithChaptersSerializer(SubjectSerializer):
@@ -137,10 +137,10 @@ class SubjectWithChaptersSerializer(SubjectSerializer):
         fields = SubjectSerializer.Meta.fields + ['chapters']
 
 
-class ExamContentExplorerSerializer(ExamSerializer):
-    """Hierarchical serializer for admin content explorer: Exam -> Subject -> Chapter."""
+class CourseContentExplorerSerializer(CourseSerializer):
+    """Hierarchical serializer for admin content explorer: Course -> Subject -> Chapter."""
     subjects = SubjectWithChaptersSerializer(many=True, read_only=True)
     
-    class Meta(ExamSerializer.Meta):
-        fields = ExamSerializer.Meta.fields + ['subjects']
+    class Meta(CourseSerializer.Meta):
+        fields = CourseSerializer.Meta.fields + ['subjects']
 

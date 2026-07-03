@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
-import { examService } from '../../services/examService'
+import { courseService } from '../../services/courseService'
 import Loading from '../../components/common/Loading'
 import toast from 'react-hot-toast'
 import {
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 
 const steps = [
-  { id: 1, title: 'Choose Your Exam', icon: <Target size={20} /> },
+  { id: 1, title: 'Choose Your Course', icon: <Target size={20} /> },
   { id: 2, title: 'Set Your Goals', icon: <Rocket size={20} /> },
 ]
 
@@ -33,10 +33,10 @@ const Onboarding = () => {
   const { isAuthenticated, isOnboarded, completeOnboarding, isLoading } = useAuthStore()
 
   const [currentStep, setCurrentStep] = useState(1)
-  const [exams, setExams] = useState([])
+  const [courses, setCourses] = useState([])
   const [formData, setFormData] = useState({
-    primary_exam_id: '',
-    additional_exam_ids: [],
+    primary_course_id: '',
+    additional_course_ids: [],
     target_year: new Date().getFullYear() + 1,
     daily_study_goal_minutes: 60,
     preferred_study_time: 'evening',
@@ -51,15 +51,15 @@ const Onboarding = () => {
   }, [isAuthenticated, isOnboarded, navigate])
 
   useEffect(() => {
-    loadExams()
+    loadCourses()
   }, [])
 
-  const loadExams = async () => {
+  const loadCourses = async () => {
     try {
-      const data = await examService.getExams()
-      setExams(data.results || data)
+      const data = await courseService.getCourses()
+      setCourses(data.results || data)
     } catch (error) {
-      console.error('Failed to load exams:', error)
+      console.error('Failed to load courses:', error)
     }
   }
 
@@ -76,8 +76,8 @@ const Onboarding = () => {
   }
 
   const handleSubmit = async () => {
-    if (!formData.primary_exam_id) {
-      toast.error('Please select your target exam')
+    if (!formData.primary_course_id) {
+      toast.error('Please select your course')
       return
     }
 
@@ -129,20 +129,20 @@ const Onboarding = () => {
             {steps[currentStep - 1].title}
           </h2>
           <p className="text-surface-500 text-center mb-8">
-            {currentStep === 1 && 'Which exam are you preparing for?'}
+            {currentStep === 1 && 'Which course would you like to start with?'}
             {currentStep === 2 && 'Set your daily study goals'}
           </p>
 
-          {/* Step 1: Exam Selection */}
+          {/* Step 1: Course Selection */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <p className="text-sm text-surface-500 mb-4">Select your primary exam:</p>
+              <p className="text-sm text-surface-500 mb-4">Select your primary course:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {exams.map((exam) => (
+                {courses.map((course) => (
                   <button
-                    key={exam.id}
-                    onClick={() => setFormData({ ...formData, primary_exam_id: exam.id })}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${formData.primary_exam_id === exam.id
+                    key={course.id}
+                    onClick={() => setFormData({ ...formData, primary_course_id: course.id })}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${formData.primary_course_id === course.id
                       ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'border-surface-200 dark:border-surface-700 hover:border-primary-300'
                       }`}
@@ -150,13 +150,13 @@ const Onboarding = () => {
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: exam.color }}
+                        style={{ backgroundColor: course.color }}
                       >
-                        {exam.name.charAt(0)}
+                        {course.name.charAt(0)}
                       </div>
                       <div>
-                        <h4 className="font-semibold">{exam.name}</h4>
-                        <p className="text-xs text-surface-500">{exam.description?.slice(0, 60) || exam.exam_type}</p>
+                        <h4 className="font-semibold">{course.name}</h4>
+                        <p className="text-xs text-surface-500">{course.description?.slice(0, 60) || course.course_type}</p>
                       </div>
                     </div>
                   </button>
@@ -219,7 +219,7 @@ const Onboarding = () => {
 
               {/* Target Year */}
               <div>
-                <label className="block text-sm font-medium mb-2">Target Exam Year</label>
+                <label className="block text-sm font-medium mb-2">Target Year</label>
                 <select
                   value={formData.target_year}
                   onChange={(e) =>
@@ -252,7 +252,7 @@ const Onboarding = () => {
             {currentStep < 2 ? (
               <button
                 onClick={handleNext}
-                disabled={currentStep === 1 && !formData.primary_exam_id}
+                disabled={currentStep === 1 && !formData.primary_course_id}
                 className="btn-primary"
               >
                 Continue

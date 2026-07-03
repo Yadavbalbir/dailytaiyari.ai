@@ -100,13 +100,13 @@ class LeaderboardView(APIView):
 
     def get(self, request):
         period = request.query_params.get('period', 'daily')
-        exam_id = request.query_params.get('exam_id')
+        course_id = request.query_params.get('course_id')
         limit = int(request.query_params.get('limit', 50))
         
-        exam = None
-        if exam_id:
-            from exams.models import Exam
-            exam = Exam.objects.filter(id=exam_id).first()
+        course = None
+        if course_id:
+            from exams.models import Course
+            course = Course.objects.filter(id=course_id).first()
         
         tenant = getattr(request, 'tenant', None)
         if not tenant:
@@ -117,10 +117,10 @@ class LeaderboardView(APIView):
                 'detail': 'Tenant context is required for leaderboard.'
             }, status=status.HTTP_400_BAD_REQUEST)
         # Get leaderboard entries (tenant-scoped)
-        entries = GamificationService.get_leaderboard(period, exam, limit, tenant=tenant)
+        entries = GamificationService.get_leaderboard(period, course, limit, tenant=tenant)
         # Get user's rank (same tenant scope)
         student = request.user.profile
-        user_rank = GamificationService.get_student_rank(student, period, exam, tenant=tenant)
+        user_rank = GamificationService.get_student_rank(student, period, course, tenant=tenant)
         total = len(entries)
         return Response({
             'entries': entries,

@@ -35,13 +35,13 @@ class QuizSubmitThrottle(UserRateThrottle):
     rate = '3000/hour'
 
 
-def _get_student_exam(request):
-    """Helper to get the student's primary exam for filtering."""
+def _get_student_course(request):
+    """Helper to get the student's primary course for filtering."""
     if not request.user.is_authenticated:
         return None
     try:
         profile = request.user.profile
-        return profile.primary_exam
+        return profile.primary_course
     except Exception:
         return None
 
@@ -64,10 +64,10 @@ class QuestionViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Auto-filter by student's primary exam
-        exam = _get_student_exam(self.request)
-        if exam:
-            queryset = queryset.filter(exams=exam)
+        # Auto-filter by student's primary course
+        course = _get_student_course(self.request)
+        if course:
+            queryset = queryset.filter(courses=course)
         return queryset
 
     @action(detail=False, methods=['get'])
@@ -93,7 +93,7 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
     queryset = Quiz.objects.filter(status='published')
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['exam', 'subject', 'topic', 'quiz_type', 'is_free', 'is_daily_challenge']
+    filterset_fields = ['course', 'subject', 'topic', 'quiz_type', 'is_free', 'is_daily_challenge']
     search_fields = ['title', 'description']
 
     def get_serializer_class(self):
@@ -110,11 +110,11 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         if self.action == 'list' and 'is_daily_challenge' not in request.query_params:
             queryset = queryset.filter(is_daily_challenge=False)
         
-        # Auto-filter by student's primary exam (unless explicit exam filter is provided)
-        if not request.query_params.get('exam'):
-            exam = _get_student_exam(request)
-            if exam:
-                queryset = queryset.filter(exam=exam)
+        # Auto-filter by student's primary course (unless explicit course filter is provided)
+        if not request.query_params.get('course'):
+            course = _get_student_course(request)
+            if course:
+                queryset = queryset.filter(course=course)
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -140,36 +140,36 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
 
     @action(detail=False, methods=['get'])
     def filter_options(self, request):
-        """Get available filter options for quizzes (scoped to student's exam)."""
-        from exams.models import Subject, Topic, Exam
+        """Get available filter options for quizzes (scoped to student's course)."""
+        from exams.models import Subject, Topic, Course
         
-        # Scope to student's primary exam
-        exam = _get_student_exam(request)
+        # Scope to student's primary course
+        course = _get_student_course(request)
         quiz_qs = Quiz.objects.filter(status='published')
-        if exam:
-            quiz_qs = quiz_qs.filter(exam=exam)
+        if course:
+            quiz_qs = quiz_qs.filter(course=course)
         
-        # Get subjects that have quizzes for this exam
+        # Get subjects that have quizzes for this course
         subjects_with_quizzes = Subject.objects.filter(
             quizzes__in=quiz_qs
-        ).distinct().values('id', 'name', 'exam_id')
+        ).distinct().values('id', 'name', 'course_id')
         
-        # Get topics that have quizzes for this exam
+        # Get topics that have quizzes for this course
         topics_with_quizzes = Topic.objects.filter(
             quizzes__in=quiz_qs
-        ).distinct().values('id', 'name', 'subject_id', 'subject__name', 'subject__exam_id')
+        ).distinct().values('id', 'name', 'subject_id', 'subject__name', 'subject__course_id')
         
-        # Get exams that have quizzes
-        exams_with_quizzes = Exam.objects.filter(
+        # Get courses that have quizzes
+        courses_with_quizzes = Course.objects.filter(
             quizzes__status='published'
         ).distinct().annotate(short_name=F('code')).values('id', 'name', 'short_name')
         
-        # Get quiz type counts (scoped to exam)
+        # Get quiz type counts (scoped to course)
         quiz_types = quiz_qs.values('quiz_type').annotate(
             count=Count('id')
         )
         
-        # Get attempted/non-attempted counts for the user (scoped to exam)
+        # Get attempted/non-attempted counts for the user (scoped to course)
         attempted_count = 0
         non_attempted_count = 0
         if request.user.is_authenticated:
@@ -186,13 +186,13 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         
         topics_list = [
             {'id': t['id'], 'name': t['name'], 'subject_id': t['subject_id'],
-             'subject__name': t['subject__name'], 'exam_id': t['subject__exam_id']}
+             'subject__name': t['subject__name'], 'course_id': t['subject__course_id']}
             for t in topics_with_quizzes
         ]
         return Response({
             'subjects': list(subjects_with_quizzes),
             'topics': topics_list,
-            'exams': list(exams_with_quizzes),
+            'courses': list(courses_with_quizzes),
             'quiz_types': [
                 {'value': 'topic', 'label': 'Topic Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'topic'), 0)},
                 {'value': 'subject', 'label': 'Subject Quiz', 'count': next((qt['count'] for qt in quiz_types if qt['quiz_type'] == 'subject'), 0)},
@@ -215,38 +215,38 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
     def daily_challenge(self, request):
         """Get today's daily challenge, auto-generating one if needed.
 
-        A fresh challenge of ~10 questions is built per exam per day. The
+        A fresh challenge of ~10 questions is built per course per day. The
         question set rotates daily (deterministic, so every student on the same
-        exam gets the same challenge for the day).
+        course gets the same challenge for the day).
         """
         today = timezone.now().date()
         student = getattr(request.user, 'profile', None)
 
-        # Resolve a usable exam: requested -> primary -> first approved enrollment
-        exam_id = request.query_params.get('exam_id')
-        if not exam_id and student:
-            exam_id = student.primary_exam_id
-        if not exam_id and student:
+        # Resolve a usable course: requested -> primary -> first approved enrollment
+        course_id = request.query_params.get('course_id')
+        if not course_id and student:
+            course_id = student.primary_course_id
+        if not course_id and student:
             enr = student.enrollments.filter(
                 status='approved', is_active=True
             ).order_by('created_at').first()
-            exam_id = enr.exam_id if enr else None
+            course_id = enr.course_id if enr else None
 
-        # 1. Existing challenge for today (scoped to exam when known)
+        # 1. Existing challenge for today (scoped to course when known)
         existing = self.get_queryset().filter(is_daily_challenge=True, challenge_date=today)
-        if exam_id:
-            existing = existing.filter(exam_id=exam_id)
+        if course_id:
+            existing = existing.filter(course_id=course_id)
         quiz = existing.first()
 
-        # 2. Auto-generate today's challenge from the exam question pool
-        if not quiz and exam_id and getattr(request, 'tenant', None):
-            quiz = self._build_daily_challenge(request.tenant, exam_id, today)
+        # 2. Auto-generate today's challenge from the course question pool
+        if not quiz and course_id and getattr(request, 'tenant', None):
+            quiz = self._build_daily_challenge(request.tenant, course_id, today)
 
         # 3. Fallback: most recent challenge available
         if not quiz:
             fallback = self.get_queryset().filter(is_daily_challenge=True)
-            if exam_id:
-                fallback = fallback.filter(exam_id=exam_id)
+            if course_id:
+                fallback = fallback.filter(course_id=course_id)
             quiz = fallback.order_by('-challenge_date').first()
 
         if not quiz:
@@ -257,13 +257,13 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
 
         return Response(QuizDetailSerializer(quiz, context={'request': request}).data)
 
-    def _build_daily_challenge(self, tenant, exam_id, today, size=10):
-        """Create (idempotently) a daily challenge quiz for an exam/date."""
-        from exams.models import Exam
+    def _build_daily_challenge(self, tenant, course_id, today, size=10):
+        """Create (idempotently) a daily challenge quiz for an course/date."""
+        from exams.models import Course
 
         question_ids = list(
             Question.objects.filter(
-                exams__id=exam_id, status='published'
+                courses__id=course_id, status='published'
             ).order_by('id').values_list('id', flat=True)
         )
         if not question_ids:
@@ -275,14 +275,14 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         rotated = question_ids[offset:] + question_ids[:offset]
         picked = rotated[:min(size, total)]
 
-        exam = Exam.objects.filter(id=exam_id).first()
+        course = Course.objects.filter(id=course_id).first()
         title = f"Daily Challenge — {today.strftime('%b %d, %Y')}"
         quiz, created = Quiz.objects.get_or_create(
-            exam_id=exam_id, is_daily_challenge=True, challenge_date=today,
+            course_id=course_id, is_daily_challenge=True, challenge_date=today,
             defaults={
                 'tenant': tenant, 'title': title, 'quiz_type': 'daily',
                 'status': 'published', 'is_free': True,
-                'description': f"Today's mixed challenge for {exam.name if exam else 'your exam'}.",
+                'description': f"Today's mixed challenge for {course.name if course else 'your course'}.",
                 'duration_minutes': max(5, len(picked) * 1),
                 'total_marks': len(picked), 'shuffle_questions': True,
             }
@@ -561,7 +561,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
     queryset = MockTest.objects.filter(status='published', is_pyp=False)
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['exam', 'is_free']
+    filterset_fields = ['course', 'is_free']
     search_fields = ['title', 'description']
 
     def get_serializer_class(self):
@@ -573,11 +573,11 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         queryset = super().get_queryset()
         request = self.request
         
-        # Auto-filter by student's primary exam (unless explicit exam filter is provided)
-        if not request.query_params.get('exam'):
-            exam = _get_student_exam(request)
-            if exam:
-                queryset = queryset.filter(exam=exam)
+        # Auto-filter by student's primary course (unless explicit course filter is provided)
+        if not request.query_params.get('course'):
+            course = _get_student_course(request)
+            if course:
+                queryset = queryset.filter(course=course)
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -597,21 +597,21 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
 
     @action(detail=False, methods=['get'])
     def filter_options(self, request):
-        """Get available filter options for mock tests (scoped to student's exam)."""
-        from exams.models import Exam
+        """Get available filter options for mock tests (scoped to student's course)."""
+        from exams.models import Course
         
-        # Scope to student's primary exam
-        exam = _get_student_exam(request)
+        # Scope to student's primary course
+        course = _get_student_course(request)
         test_qs = MockTest.objects.filter(status='published')
-        if exam:
-            test_qs = test_qs.filter(exam=exam)
+        if course:
+            test_qs = test_qs.filter(course=course)
         
-        # Get exams that have mock tests
-        exams_with_tests = Exam.objects.filter(
+        # Get courses that have mock tests
+        courses_with_tests = Course.objects.filter(
             mock_tests__status='published'
         ).distinct().annotate(short_name=F('code')).values('id', 'name', 'short_name')
         
-        # Get attempted/non-attempted counts for the user (scoped to exam)
+        # Get attempted/non-attempted counts for the user (scoped to course)
         attempted_count = 0
         non_attempted_count = 0
         if request.user.is_authenticated:
@@ -627,7 +627,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             non_attempted_count = total_tests - attempted_count
         
         return Response({
-            'exams': list(exams_with_tests),
+            'courses': list(courses_with_tests),
             'attempt_status': {
                 'attempted': attempted_count,
                 'not_attempted': non_attempted_count,
@@ -747,7 +747,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         
         # Use marks_obtained from check_answer (handles +marks/-negative_marks)
         marks = sum(a.marks_obtained for a in answers)
-        attempt.marks_obtained = marks  # Can be negative in competitive exams
+        attempt.marks_obtained = marks  # Can be negative in competitive courses
         
         # Use effective total marks from MockTestQuestion (accounts for overrides)
         actual_total = sum(float(mtq.effective_marks) for mtq in mtq_map.values())

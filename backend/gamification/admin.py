@@ -26,16 +26,16 @@ class XPTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(LeaderboardEntry)
 class LeaderboardEntryAdmin(admin.ModelAdmin):
-    list_display = ['student', 'exam', 'period', 'rank', 'xp_earned', 'period_start']
-    list_filter = ['period', 'exam']
-    raw_id_fields = ['student', 'exam']
+    list_display = ['student', 'course', 'period', 'rank', 'xp_earned', 'period_start']
+    list_filter = ['period', 'course']
+    raw_id_fields = ['student', 'course']
 
 
 @admin.register(Challenge)
 class ChallengeAdmin(admin.ModelAdmin):
     list_display = ['title', 'challenge_type', 'status', 'start_time', 'end_time', 'participants']
     list_filter = ['challenge_type', 'status']
-    raw_id_fields = ['exam', 'badge_reward']
+    raw_id_fields = ['course', 'badge_reward']
 
 
 @admin.register(ChallengeParticipation)

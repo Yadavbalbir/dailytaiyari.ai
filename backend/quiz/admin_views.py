@@ -1,8 +1,8 @@
 """
 Admin CRUD views for the Quiz Builder.
 
-Tenant-scoped, tenant-admin only. Quizzes scope via ``exam__tenant`` and
-Questions via ``subject__exam__tenant`` (legacy rows may have a null tenant).
+Tenant-scoped, tenant-admin only. Quizzes scope via ``course__tenant`` and
+Questions via ``subject__course__tenant`` (legacy rows may have a null tenant).
 """
 from django.db.models import Case, When
 
@@ -13,13 +13,13 @@ from .admin_serializers import AdminQuizSerializer, AdminQuestionSerializer
 
 
 class AdminQuizViewSet(TenantAdminModelViewSet):
-    queryset = Quiz.objects.select_related('exam', 'subject', 'topic').all()
+    queryset = Quiz.objects.select_related('course', 'subject', 'topic').all()
     serializer_class = AdminQuizSerializer
     search_fields = ['title']
     ordering_fields = ['created_at', 'title']
     ordering = ['-created_at']
-    filterset_fields = ['exam', 'subject', 'topic', 'quiz_type', 'status']
-    tenant_lookup = 'exam__tenant'
+    filterset_fields = ['course', 'subject', 'topic', 'quiz_type', 'status']
+    tenant_lookup = 'course__tenant'
 
 
 class AdminQuestionViewSet(TenantAdminModelViewSet):
@@ -29,7 +29,7 @@ class AdminQuestionViewSet(TenantAdminModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['created_at']
     filterset_fields = ['topic', 'subject', 'difficulty', 'status', 'question_type']
-    tenant_lookup = 'subject__exam__tenant'
+    tenant_lookup = 'subject__course__tenant'
 
     def get_queryset(self):
         qs = super().get_queryset()
