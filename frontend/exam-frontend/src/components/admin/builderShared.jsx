@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
     Plus, Pencil, Trash2, X, Loader2, Save, AlertTriangle,
-    CheckCircle2, Circle, ImagePlus, Loader,
+    CheckCircle2, Circle, ImagePlus, Loader, FileText,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
 
@@ -372,20 +372,37 @@ export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                                                 />
                                             )
                                         ) : f.type === 'pdf' ? (
-                                            <div className="space-y-1.5">
-                                                <input
-                                                    type="file"
-                                                    accept="application/pdf"
-                                                    onChange={(e) => set(f.name, e.target.files?.[0] || values[f.name])}
-                                                    className="block w-full text-sm text-surface-600 dark:text-surface-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/30 dark:file:text-primary-300 cursor-pointer"
-                                                />
+                                            <div className="space-y-2">
                                                 {values[f.name] instanceof File ? (
-                                                    <p className="text-[11px] text-success-600 font-medium">New file: {values[f.name].name}</p>
+                                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-300 text-xs font-medium">
+                                                        <FileText className="w-4 h-4 flex-shrink-0" />
+                                                        <span className="truncate">New file selected: {values[f.name].name}</span>
+                                                    </div>
                                                 ) : typeof values[f.name] === 'string' && values[f.name] ? (
-                                                    <p className="text-[11px] text-surface-400">A PDF is already uploaded. Choose a file to replace it.</p>
+                                                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs">
+                                                        <span className="flex items-center gap-2 text-surface-600 dark:text-surface-300 font-medium truncate">
+                                                            <FileText className="w-4 h-4 flex-shrink-0 text-primary-500" />
+                                                            PDF already uploaded
+                                                        </span>
+                                                        <a href={values[f.name]} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline font-semibold flex-shrink-0">View</a>
+                                                    </div>
                                                 ) : (
-                                                    <p className="text-[11px] text-surface-400">No PDF uploaded yet.</p>
+                                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs text-surface-400">
+                                                        <FileText className="w-4 h-4 flex-shrink-0" />
+                                                        No PDF uploaded yet
+                                                    </div>
                                                 )}
+                                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                                    <span className="btn-secondary text-sm">
+                                                        {(values[f.name] instanceof File) || (typeof values[f.name] === 'string' && values[f.name]) ? 'Replace PDF' : 'Choose PDF'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="application/pdf"
+                                                        onChange={(e) => set(f.name, e.target.files?.[0] || values[f.name])}
+                                                        className="hidden"
+                                                    />
+                                                </label>
                                             </div>
                                         ) : f.type === 'select' ? (
                                             <select className="input" value={values[f.name] ?? ''} onChange={(e) => set(f.name, e.target.value)}>
