@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
+import CourseThumbnail from '../components/course/CourseThumbnail'
 import { GraduationCap, Clock, Compass, ArrowRight } from 'lucide-react'
 
 const Study = () => {
@@ -85,30 +86,23 @@ const Study = () => {
               transition={{ delay: index * 0.07 }}
               className="group card-hover overflow-hidden flex flex-col"
             >
-              <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
-              <div className="p-5 flex flex-col flex-1">
-                <div className="flex items-start gap-3.5 mb-5">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shrink-0 transition-transform duration-200 group-hover:scale-105"
-                    style={{ backgroundColor: color, boxShadow: `0 10px 22px -8px ${color}` }}
-                  >
-                    {course.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold truncate">{course.name}</h3>
-                    {course.code && (
-                      <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
-                        {course.code}
-                      </span>
-                    )}
-                  </div>
-                </div>
+              <CourseThumbnail course={course} />
+              <div className="p-4 sm:p-5 flex flex-col flex-1">
+                <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
+                {course.code && (
+                  <span className="inline-flex self-start items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
+                    {course.code}
+                  </span>
+                )}
+                {course.description && (
+                  <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
+                )}
 
                 <button
                   type="button"
                   onClick={() => navigate(`/study/course/${course.id}`)}
                   className="btn-primary mt-auto w-full group/btn"
-                  style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}` }}
+                  style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}`, marginTop: 'auto' }}
                 >
                   Enter course
                   <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
