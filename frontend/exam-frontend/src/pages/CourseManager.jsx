@@ -32,51 +32,80 @@ const ContentSection = ({ topic, subjectId, openModal, askDelete }) => {
         queryFn: () => svc.getContents(topic.id),
     })
 
+    const videos = contents.filter((ct) => ct.content_type === 'video')
+    const reading = contents.filter((ct) => ct.content_type !== 'video')
+
+    const ContentRow = ({ ct }) => {
+        const Icon = CONTENT_ICON[ct.content_type] || FileText
+        return (
+            <div className="group card p-3.5 flex items-center justify-between gap-3 hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate">{ct.title}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 capitalize">{ct.content_type}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusPill(ct.status)}`}>{ct.status}</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <RowActions
+                        onEdit={() => openModal('content', ct, { topicId: topic.id, subjectId })}
+                        onDelete={() => askDelete('content', ct, ct.title)}
+                    />
+                </div>
+            </div>
+        )
+    }
+
+    if (isLoading) {
+        return <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+    }
+
     return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Learning material</h4>
-                <button
-                    onClick={() => openModal('content', null, { topicId: topic.id, subjectId })}
-                    className="btn-primary text-xs px-3 py-1.5"
-                >
-                    <Plus className="w-3.5 h-3.5" /> Add material
-                </button>
+        <div className="space-y-6">
+            {/* Reading material */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Reading material</h4>
+                    <button
+                        onClick={() => openModal('content', null, { topicId: topic.id, subjectId, defaults: { content_type: 'notes' } })}
+                        className="btn-primary text-xs px-3 py-1.5"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Add material
+                    </button>
+                </div>
+                {reading.length === 0 ? (
+                    <EmptyHint icon={FileText} text="No notes or PDFs yet." sub="Add notes or upload a PDF for students to read." />
+                ) : (
+                    <div className="space-y-2">
+                        {reading.map((ct) => <ContentRow key={ct.id} ct={ct} />)}
+                    </div>
+                )}
             </div>
 
-            {isLoading ? (
-                <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
-            ) : contents.length === 0 ? (
-                <EmptyHint icon={FileText} text="No notes, videos or PDFs yet." sub="Add your first piece of learning material." />
-            ) : (
-                <div className="space-y-2">
-                    {contents.map((ct) => {
-                        const Icon = CONTENT_ICON[ct.content_type] || FileText
-                        return (
-                            <div key={ct.id} className="group card p-3.5 flex items-center justify-between gap-3 hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
-                                        <Icon className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate">{ct.title}</p>
-                                        <div className="flex items-center gap-1.5 mt-1">
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 capitalize">{ct.content_type}</span>
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusPill(ct.status)}`}>{ct.status}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <RowActions
-                                        onEdit={() => openModal('content', ct, { topicId: topic.id, subjectId })}
-                                        onDelete={() => askDelete('content', ct, ct.title)}
-                                    />
-                                </div>
-                            </div>
-                        )
-                    })}
+            {/* Videos */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Videos</h4>
+                    <button
+                        onClick={() => openModal('content', null, { topicId: topic.id, subjectId, defaults: { content_type: 'video' } })}
+                        className="btn-secondary text-xs px-3 py-1.5"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Add video
+                    </button>
                 </div>
-            )}
+                {videos.length === 0 ? (
+                    <EmptyHint icon={Video} text="No videos yet." sub="Add a video by pasting its URL." />
+                ) : (
+                    <div className="space-y-2">
+                        {videos.map((ct) => <ContentRow key={ct.id} ct={ct} />)}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
@@ -560,6 +589,7 @@ const CourseManager = () => {
                     <EntityModal
                         type={modal.type}
                         instance={modal.instance}
+                        defaults={modal.extra?.defaults}
                         saving={saveMutation.isPending}
                         onClose={() => setModal(null)}
                         onSubmit={(payload) => saveMutation.mutate({ type: modal.type, instance: modal.instance, payload, extra: modal.extra })}

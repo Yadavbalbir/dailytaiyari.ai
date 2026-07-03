@@ -297,9 +297,12 @@ export const buildInitial = (fields, instance) => {
 /* ===========================================================================
  * Generic entity modal (course/subject/chapter/topic/content/quiz)
  * ========================================================================= */
-export const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
+export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, saving }) => {
     const schema = SCHEMAS[type]
-    const [values, setValues] = useState(() => buildInitial(schema.fields, instance))
+    const [values, setValues] = useState(() => ({
+        ...buildInitial(schema.fields, instance),
+        ...(!instance && defaults ? defaults : {}),
+    }))
     const isEdit = !!instance
 
     const set = (name, val) => setValues((p) => ({ ...p, [name]: val }))
