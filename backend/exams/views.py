@@ -195,6 +195,9 @@ class AvailableCoursesForEnrollmentView(APIView):
                 'code': e.code,
                 'color': getattr(e, 'color', None) or '#3B82F6',
                 'is_featured': getattr(e, 'is_featured', False),
+                'course_type': getattr(e, 'course_type', '') or '',
+                'description': getattr(e, 'description', '') or '',
+                'thumbnail': (e.icon.url if getattr(e, 'icon', None) else None),
             }
             for e in courses
         ]
@@ -232,6 +235,9 @@ class StudyCoursesView(APIView):
                 'code': e.course.code,
                 'color': getattr(e.course, 'color', None) or '#3B82F6',
                 'is_featured': getattr(e.course, 'is_featured', False),
+                'course_type': getattr(e.course, 'course_type', '') or '',
+                'description': getattr(e.course, 'description', '') or '',
+                'thumbnail': (e.course.icon.url if getattr(e.course, 'icon', None) else None),
                 'enrollment_status': e.status,
             }
             if e.status == 'approved':

@@ -4,8 +4,9 @@ import { motion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
+import CourseThumbnail from '../components/course/CourseThumbnail'
 import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Star } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight } from 'lucide-react'
 
 const Courses = () => {
   const navigate = useNavigate()
@@ -63,6 +64,16 @@ const Courses = () => {
           {available.map((course, index) => {
             const status = statusById[course.id]
             const color = course.color || '#f97316'
+            const statusBadge =
+              status === 'approved' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-success-500/95 text-white shadow-sm">
+                  <CheckCircle2 size={11} /> Enrolled
+                </span>
+              ) : status === 'pending' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-400/95 text-amber-950 shadow-sm">
+                  <Clock size={11} /> Pending
+                </span>
+              ) : null
             return (
               <motion.div
                 key={course.id}
@@ -71,42 +82,20 @@ const Courses = () => {
                 transition={{ delay: index * 0.06 }}
                 className="group card-hover overflow-hidden flex flex-col"
               >
-                <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
+                <CourseThumbnail course={course} statusBadge={statusBadge} />
 
-                <div className="p-5 flex flex-col flex-1">
-                  <div className="flex items-start gap-3.5 mb-5">
-                    <div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shrink-0 transition-transform duration-200 group-hover:scale-105"
-                      style={{ backgroundColor: color, boxShadow: `0 10px 22px -8px ${color}` }}
-                    >
-                      {course.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-lg font-semibold truncate">{course.name}</h3>
-                        {course.is_featured && <Star size={15} className="text-amber-400 fill-amber-400 shrink-0" />}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        {course.code && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
-                            {course.code}
-                          </span>
-                        )}
-                        {status === 'approved' && (
-                          <span className="badge-success">
-                            <CheckCircle2 size={12} /> Enrolled
-                          </span>
-                        )}
-                        {status === 'pending' && (
-                          <span className="badge-warning">
-                            <Clock size={12} /> Pending
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                <div className="p-4 sm:p-5 flex flex-col flex-1">
+                  <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
+                  {course.code && (
+                    <span className="inline-flex self-start items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
+                      {course.code}
+                    </span>
+                  )}
+                  {course.description && (
+                    <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
+                  )}
 
-                  <div className="mt-auto pt-1">
+                  <div className="mt-auto pt-4">
                     {status === 'approved' ? (
                       <button
                         type="button"
