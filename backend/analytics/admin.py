@@ -12,9 +12,9 @@ class TopicMasteryAdmin(admin.ModelAdmin):
 
 @admin.register(SubjectPerformance)
 class SubjectPerformanceAdmin(admin.ModelAdmin):
-    list_display = ['student', 'subject', 'exam', 'accuracy', 'overall_progress']
-    list_filter = ['exam', 'subject']
-    raw_id_fields = ['student', 'subject', 'exam']
+    list_display = ['student', 'subject', 'course', 'accuracy', 'overall_progress']
+    list_filter = ['course', 'subject']
+    raw_id_fields = ['student', 'subject', 'course']
 
 
 @admin.register(DailyActivity)
@@ -27,9 +27,9 @@ class DailyActivityAdmin(admin.ModelAdmin):
 
 @admin.register(Streak)
 class StreakAdmin(admin.ModelAdmin):
-    list_display = ['student', 'exam', 'current_streak', 'longest_streak', 'last_activity_date']
-    list_filter = ['exam']
-    raw_id_fields = ['student', 'exam']
+    list_display = ['student', 'course', 'current_streak', 'longest_streak', 'last_activity_date']
+    list_filter = ['course']
+    raw_id_fields = ['student', 'course']
 
 
 @admin.register(WeeklyReport)

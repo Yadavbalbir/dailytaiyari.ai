@@ -1,5 +1,5 @@
 """
-Views for Exams app.
+Views for Courses app.
 """
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
@@ -9,9 +9,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q, Avg, Sum, F, Value, DecimalField
 from django.db.models.functions import Coalesce
 
-from .models import Exam, Subject, Topic, Chapter
+from .models import Course, Subject, Topic, Chapter
 from .serializers import (
-    ExamSerializer, ExamListSerializer, ExamDetailSerializer,
+    CourseSerializer, CourseListSerializer, CourseDetailSerializer,
     SubjectSerializer, SubjectDetailSerializer,
     TopicSerializer, TopicDetailSerializer,
     ChapterSerializer, ChapterDetailSerializer
@@ -19,38 +19,38 @@ from .serializers import (
 from core.views import TenantAwareReadOnlyViewSet
 
 
-class ExamViewSet(TenantAwareReadOnlyViewSet):
+class CourseViewSet(TenantAwareReadOnlyViewSet):
     """
-    ViewSet for exam operations.
+    ViewSet for course operations.
 
-    list: Get all active exams
-    retrieve: Get exam details with subjects
-    subjects: Get all subjects for an exam
+    list: Get all active courses
+    retrieve: Get course details with subjects
+    subjects: Get all subjects for an course
     """
-    queryset = Exam.objects.filter(status='active')
+    queryset = Course.objects.filter(status='active')
     permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['exam_type', 'is_featured']
+    filterset_fields = ['course_type', 'is_featured']
     search_fields = ['name', 'code']
 
     def get_serializer_class(self):
         if self.action == 'list':
-            return ExamListSerializer
-        return ExamDetailSerializer
+            return CourseListSerializer
+        return CourseDetailSerializer
 
     @action(detail=True, methods=['get'])
     def subjects(self, request, pk=None):
-        """Get all subjects for an exam."""
-        exam = self.get_object()
-        subjects = exam.subjects.all()
+        """Get all subjects for an course."""
+        course = self.get_object()
+        subjects = course.subjects.all()
         serializer = SubjectSerializer(subjects, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def topics(self, request, pk=None):
-        """Get all topics for an exam."""
-        exam = self.get_object()
-        topics = Topic.objects.filter(exams=exam)
+        """Get all topics for an course."""
+        course = self.get_object()
+        topics = Topic.objects.filter(courses=course)
         serializer = TopicSerializer(topics, many=True)
         return Response(serializer.data)
 
@@ -62,7 +62,7 @@ class SubjectViewSet(TenantAwareReadOnlyViewSet):
     queryset = Subject.objects.all()
     permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['exams']
+    filterset_fields = ['courses']
     search_fields = ['name', 'code']
 
     def get_serializer_class(self):
@@ -74,9 +74,9 @@ class SubjectViewSet(TenantAwareReadOnlyViewSet):
         queryset = super().get_queryset()
         if self.request.user.is_authenticated:
             try:
-                exam = self.request.user.profile.primary_exam
-                if exam and not self.request.query_params.get('exams'):
-                    queryset = queryset.filter(exam=exam)
+                course = self.request.user.profile.primary_course
+                if course and not self.request.query_params.get('courses'):
+                    queryset = queryset.filter(course=course)
             except Exception:
                 pass
         return queryset
@@ -117,9 +117,9 @@ class TopicViewSet(TenantAwareReadOnlyViewSet):
         queryset = super().get_queryset()
         if self.request.user.is_authenticated:
             try:
-                exam = self.request.user.profile.primary_exam
-                if exam:
-                    queryset = queryset.filter(subject__exam=exam)
+                course = self.request.user.profile.primary_course
+                if course:
+                    queryset = queryset.filter(subject__course=course)
             except Exception:
                 pass
         return queryset
@@ -152,7 +152,7 @@ class ChapterViewSet(TenantAwareReadOnlyViewSet):
 class TenantContentExplorerView(APIView):
     """
     Hierarchical content explorer for Tenant Admins.
-    Returns all active exams -> subjects -> chapters.
+    Returns all active courses -> subjects -> chapters.
     """
     permission_classes = [permissions.IsAuthenticated] # Role check handled in frontend for now, or add IsTenantAdmin
 
@@ -160,8 +160,8 @@ class TenantContentExplorerView(APIView):
         if request.user.role != 'admin' and not request.user.is_superuser:
             return Response({"detail": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
             
-        from .serializers import ExamContentExplorerSerializer
-        exams = Exam.objects.filter(status='active').prefetch_related(
+        from .serializers import CourseContentExplorerSerializer
+        courses = Course.objects.filter(status='active').prefetch_related(
             'subjects',
             'subjects__chapters',
             'subjects__quizzes',
@@ -169,25 +169,25 @@ class TenantContentExplorerView(APIView):
             'quizzes'
         ).order_by('name')
         
-        serializer = ExamContentExplorerSerializer(exams, many=True)
+        serializer = CourseContentExplorerSerializer(courses, many=True)
         return Response(serializer.data)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Exams available for enrollment (dropdown / list) — not tenant-strict so list is never empty
+# Courses available for enrollment (dropdown / list) — not tenant-strict so list is never empty
 # ──────────────────────────────────────────────────────────────────────────────
 
-class AvailableExamsForEnrollmentView(APIView):
+class AvailableCoursesForEnrollmentView(APIView):
     """
-    Return active exams for the enrollment dropdown. Exam must belong to the request tenant.
+    Return active courses for the enrollment dropdown. Course must belong to the request tenant.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        qs = Exam.objects.filter(status='active').order_by('name')
+        qs = Course.objects.filter(status='active').order_by('name')
         if hasattr(request, 'tenant') and request.tenant:
             qs = qs.filter(tenant=request.tenant)
-        exams = list(qs)
+        courses = list(qs)
         result = [
             {
                 'id': str(e.id),
@@ -196,42 +196,42 @@ class AvailableExamsForEnrollmentView(APIView):
                 'color': getattr(e, 'color', None) or '#3B82F6',
                 'is_featured': getattr(e, 'is_featured', False),
             }
-            for e in exams
+            for e in courses
         ]
         return Response(result)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Study Flow API — exams → subjects → chapters → content with progress
+# Study Flow API — courses → subjects → chapters → content with progress
 # ──────────────────────────────────────────────────────────────────────────────
 
-class StudyExamsView(APIView):
+class StudyCoursesView(APIView):
     """
-    Return the user's enrolled exams for the Study tab.
-    Only approved + active exams are usable; pending requests are returned
+    Return the user's enrolled courses for the Study tab.
+    Only approved + active courses are usable; pending requests are returned
     separately so the UI can show them as awaiting admin approval.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from users.models import ExamEnrollment
+        from users.models import CourseEnrollment
 
         student = request.user.profile
-        enrolled = ExamEnrollment.objects.filter(
+        enrolled = CourseEnrollment.objects.filter(
             student=student
-        ).exclude(status='rejected').select_related('exam').order_by('enrolled_at')
+        ).exclude(status='rejected').select_related('course').order_by('enrolled_at')
 
         approved = []
         pending = []
         for e in enrolled:
-            if not e.exam or e.exam.status != 'active':
+            if not e.course or e.course.status != 'active':
                 continue
             item = {
-                'id': str(e.exam.id),
-                'name': e.exam.name,
-                'code': e.exam.code,
-                'color': getattr(e.exam, 'color', None) or '#3B82F6',
-                'is_featured': getattr(e.exam, 'is_featured', False),
+                'id': str(e.course.id),
+                'name': e.course.name,
+                'code': e.course.code,
+                'color': getattr(e.course, 'color', None) or '#3B82F6',
+                'is_featured': getattr(e.course, 'is_featured', False),
                 'enrollment_status': e.status,
             }
             if e.status == 'approved':
@@ -239,14 +239,14 @@ class StudyExamsView(APIView):
             elif e.status == 'pending':
                 pending.append(item)
 
-        return Response({'exams': approved, 'pending': pending})
+        return Response({'courses': approved, 'pending': pending})
 
 
 class StudySubjectsView(APIView):
     """
-    Return subjects for the selected exam with completion progress.
-    Flow: Study tab → select exam → this list of subjects.
-    Query params: exam_id (optional) — if omitted, uses student's primary_exam.
+    Return subjects for the selected course with completion progress.
+    Flow: Study tab → select course → this list of subjects.
+    Query params: course_id (optional) — if omitted, uses student's primary_course.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -255,27 +255,27 @@ class StudySubjectsView(APIView):
         from quiz.models import Quiz, QuizAttempt
 
         student = request.user.profile
-        exam_id = request.query_params.get('exam_id')
-        if exam_id:
+        course_id = request.query_params.get('course_id')
+        if course_id:
             try:
-                exam = Exam.objects.get(pk=exam_id, status='active')
-            except Exam.DoesNotExist:
-                return Response({'error': 'Exam not found'}, status=404)
+                course = Course.objects.get(pk=course_id, status='active')
+            except Course.DoesNotExist:
+                return Response({'error': 'Course not found'}, status=404)
         else:
-            exam = getattr(student, 'primary_exam', None)
-        if not exam:
+            course = getattr(student, 'primary_course', None)
+        if not course:
             return Response([])
 
-        # Block access unless the student has an approved enrollment for this exam
-        from users.models import ExamEnrollment
-        if not ExamEnrollment.objects.filter(
-            student=student, exam=exam, status='approved'
+        # Block access unless the student has an approved enrollment for this course
+        from users.models import CourseEnrollment
+        if not CourseEnrollment.objects.filter(
+            student=student, course=course, status='approved'
         ).exists():
             return Response(
                 {'error': 'Enrollment pending admin approval'}, status=403
             )
 
-        subjects = Subject.objects.filter(exam=exam).order_by('order')
+        subjects = Subject.objects.filter(course=course).order_by('order')
         result = []
         for subj in subjects:
             content_count = Content.objects.filter(
@@ -288,12 +288,12 @@ class StudySubjectsView(APIView):
                 is_completed=True,
             ).count()
             quiz_count = Quiz.objects.filter(
-                subject=subj, exam=exam, status='published'
+                subject=subj, course=course, status='published'
             ).count()
             quiz_done = QuizAttempt.objects.filter(
                 student=student,
                 quiz__subject=subj,
-                quiz__exam=exam,
+                quiz__course=course,
                 quiz__status='published',
                 status='completed',
             ).values('quiz').distinct().count()

@@ -1,6 +1,6 @@
 """
 User models for DailyTaiyari platform.
-Custom User model with StudentProfile for IIT JEE & NEET exam preparation.
+Custom User model with StudentProfile for IIT JEE & NEET course preparation.
 """
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -90,7 +90,7 @@ class User(AbstractUser):
 class StudentProfile(TimeStampedModel):
     """
     Extended profile for students preparing for IIT JEE & NEET.
-    One profile per user, linked to their target exam.
+    One profile per user, linked to their target course.
     """
     
     GRADE_CHOICES = [
@@ -141,9 +141,9 @@ class StudentProfile(TimeStampedModel):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     
-    # Target exams (Many-to-many through ExamEnrollment)
-    primary_exam = models.ForeignKey(
-        'exams.Exam', 
+    # Target courses (Many-to-many through CourseEnrollment)
+    primary_course = models.ForeignKey(
+        'exams.Course', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
@@ -216,10 +216,10 @@ class StudentProfile(TimeStampedModel):
         return total_required - self.total_xp
 
 
-class ExamEnrollment(TimeStampedModel):
+class CourseEnrollment(TimeStampedModel):
     """
-    Tracks which exams a student is preparing for.
-    Allows multiple exam preparations simultaneously.
+    Tracks which courses a student is preparing for.
+    Allows multiple course preparations simultaneously.
     """
     STATUS_CHOICES = [
         ('pending', 'Pending Approval'),
@@ -228,7 +228,7 @@ class ExamEnrollment(TimeStampedModel):
     ]
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
-    exam = models.ForeignKey('exams.Exam', on_delete=models.CASCADE, related_name='enrollments')
+    course = models.ForeignKey('exams.Course', on_delete=models.CASCADE, related_name='enrollments')
     
     # Status
     is_active = models.BooleanField(default=True)
@@ -243,19 +243,19 @@ class ExamEnrollment(TimeStampedModel):
     )
     rejection_reason = models.CharField(max_length=255, blank=True, default='')
     
-    # Exam-specific stats
-    exam_xp = models.PositiveIntegerField(default=0)
-    exam_rank = models.PositiveIntegerField(null=True, blank=True)
+    # Course-specific stats
+    course_xp = models.PositiveIntegerField(default=0)
+    course_rank = models.PositiveIntegerField(null=True, blank=True)
     
     # Target
     target_score = models.PositiveIntegerField(null=True, blank=True)
     target_rank = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
-        unique_together = ['student', 'exam']
-        verbose_name = 'Exam Enrollment'
-        verbose_name_plural = 'Exam Enrollments'
+        unique_together = ['student', 'course']
+        verbose_name = 'Course Enrollment'
+        verbose_name_plural = 'Course Enrollments'
 
     def __str__(self):
-        return f"{self.student.user.email} - {self.exam.name}"
+        return f"{self.student.user.email} - {self.course.name}"
 

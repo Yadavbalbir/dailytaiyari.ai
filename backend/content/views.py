@@ -38,12 +38,12 @@ class ContentViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Auto-filter by student's primary exam
+        # Auto-filter by student's primary course
         if self.request.user.is_authenticated:
             try:
-                exam = self.request.user.profile.primary_exam
-                if exam:
-                    queryset = queryset.filter(exams=exam)
+                course = self.request.user.profile.primary_course
+                if course:
+                    queryset = queryset.filter(courses=course)
             except Exception:
                 pass
         return queryset
@@ -220,23 +220,23 @@ class StudyPlanViewSet(TenantAwareViewSet):
         return StudyPlan.objects.filter(student=self.request.user.profile)
 
     @staticmethod
-    def _resolve_exam_id(student, requested_exam_id=None):
-        """Resolve a usable exam for the student's study plan.
+    def _resolve_course_id(student, requested_course_id=None):
+        """Resolve a usable course for the student's study plan.
 
-        Order: explicitly requested -> primary exam -> first approved/active
-        enrollment. Returns None if the student has no usable exam.
+        Order: explicitly requested -> primary course -> first approved/active
+        enrollment. Returns None if the student has no usable course.
         """
-        candidates = [requested_exam_id, student.primary_exam_id]
-        for exam_id in candidates:
-            if exam_id and student.enrollments.filter(
-                exam_id=exam_id, status='approved', is_active=True
+        candidates = [requested_course_id, student.primary_course_id]
+        for course_id in candidates:
+            if course_id and student.enrollments.filter(
+                course_id=course_id, status='approved', is_active=True
             ).exists():
-                return exam_id
+                return course_id
         enrollment = student.enrollments.filter(
             status='approved', is_active=True
         ).order_by('created_at').first()
-        return enrollment.exam_id if enrollment else (
-            requested_exam_id or student.primary_exam_id
+        return enrollment.course_id if enrollment else (
+            requested_course_id or student.primary_course_id
         )
 
     @action(detail=False, methods=['get'])
@@ -244,19 +244,19 @@ class StudyPlanViewSet(TenantAwareViewSet):
         """Get today's study plan."""
         student = request.user.profile
         today = timezone.now().date()
-        requested = request.query_params.get('exam_id')
-        exam_id = self._resolve_exam_id(student, requested)
+        requested = request.query_params.get('course_id')
+        course_id = self._resolve_course_id(student, requested)
 
-        if not exam_id:
+        if not course_id:
             return Response({
                 'items': [],
-                'no_exam': True,
-                'detail': 'Enroll in an exam to get a personalised study plan.',
+                'no_course': True,
+                'detail': 'Enroll in an course to get a personalised study plan.',
             })
 
         plan, created = StudyPlan.objects.get_or_create(
             student=student,
-            exam_id=exam_id,
+            course_id=course_id,
             date=today,
             defaults={
                 'target_study_minutes': student.daily_study_goal_minutes,
@@ -278,17 +278,17 @@ class StudyPlanViewSet(TenantAwareViewSet):
         
         student = request.user.profile
         today = timezone.now().date()
-        exam_id = self._resolve_exam_id(student, serializer.validated_data.get('exam_id'))
+        course_id = self._resolve_course_id(student, serializer.validated_data.get('course_id'))
 
-        if not exam_id:
+        if not course_id:
             return Response(
-                {'detail': 'Enroll in an exam before creating a study plan.'},
+                {'detail': 'Enroll in an course before creating a study plan.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         plan, created = StudyPlan.objects.get_or_create(
             student=student,
-            exam_id=exam_id,
+            course_id=course_id,
             date=today,
             defaults={
                 'target_study_minutes': serializer.validated_data['target_minutes']

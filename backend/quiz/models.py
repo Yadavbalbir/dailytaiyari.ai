@@ -3,7 +3,7 @@ Quiz models - Questions, Quizzes, Mock Tests, and Attempts.
 """
 from django.db import models
 from core.models import TimeStampedModel, OrderedModel
-from exams.models import Topic, Subject, Exam
+from exams.models import Topic, Subject, Course
 import uuid
 
 
@@ -46,7 +46,7 @@ class Question(TimeStampedModel):
     # Relationships
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='questions')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='questions')
-    exams = models.ManyToManyField(Exam, related_name='questions')
+    courses = models.ManyToManyField(Course, related_name='questions')
     
     # Answer
     correct_answer = models.CharField(max_length=500)  # Option index or value
@@ -139,7 +139,7 @@ class Quiz(TimeStampedModel):
         related_name='quizzes',
         help_text='Required: no quiz without tenant.',
     )
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='quizzes')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='quizzes')
     subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='quizzes')
     topic = models.ForeignKey(Topic, on_delete=models.SET_NULL, null=True, blank=True, related_name='quizzes')
     
@@ -193,7 +193,7 @@ class QuizQuestion(OrderedModel):
 
 class MockTest(TimeStampedModel):
     """
-    Full-length mock test simulating actual exam.
+    Full-length mock test simulating actual course.
     """
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -209,15 +209,15 @@ class MockTest(TimeStampedModel):
         related_name='mock_tests',
         help_text='Required: no mock test or PYP without tenant.',
     )
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='mock_tests')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='mock_tests')
     
-    # Sections (for exams with multiple subjects)
+    # Sections (for courses with multiple subjects)
     sections = models.JSONField(default=list)  # [{subject_id, questions_count, marks}]
     
     # Questions
     questions = models.ManyToManyField(Question, through='MockTestQuestion', related_name='mock_tests')
     
-    # Settings (from exam defaults)
+    # Settings (from course defaults)
     duration_minutes = models.PositiveIntegerField()
     total_marks = models.DecimalField(max_digits=6, decimal_places=2)
     negative_marking = models.BooleanField(default=True)
@@ -231,7 +231,7 @@ class MockTest(TimeStampedModel):
     pyp_year = models.PositiveIntegerField(null=True, blank=True, help_text='e.g., 2024')
     pyp_shift = models.CharField(max_length=50, blank=True, help_text='e.g., Shift 1, Shift 2')
     pyp_session = models.CharField(max_length=100, blank=True, help_text='e.g., January, April')
-    pyp_date = models.DateField(null=True, blank=True, help_text='Actual exam date')
+    pyp_date = models.DateField(null=True, blank=True, help_text='Actual course date')
     
     # Scheduling
     available_from = models.DateTimeField(null=True, blank=True)
@@ -253,7 +253,7 @@ class MockTest(TimeStampedModel):
 class MockTestQuestion(OrderedModel):
     """
     Through model for MockTest-Question with section info.
-    Supports per-mock-test marks override (so different exams can use 
+    Supports per-mock-test marks override (so different courses can use 
     different marking schemes for the same question).
     """
     mock_test = models.ForeignKey(MockTest, on_delete=models.CASCADE)
@@ -343,7 +343,7 @@ class QuizAttempt(TimeStampedModel):
         # Calculate marks using answer.marks_obtained (set by check_answer)
         # This correctly handles +marks for correct, -negative_marks for wrong
         marks = sum(a.marks_obtained for a in answers)
-        self.marks_obtained = marks  # Can be negative in competitive exams
+        self.marks_obtained = marks  # Can be negative in competitive courses
         self.total_marks = sum(q.marks for q in self.quiz.questions.all())
         
         if self.total_marks > 0:

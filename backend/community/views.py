@@ -30,7 +30,7 @@ class PostViewSet(TenantAwareViewSet):
     
     def get_queryset(self):
         queryset = Post.objects.filter(status='active').select_related(
-            'author__user', 'exam', 'subject'
+            'author__user', 'course', 'subject'
         ).prefetch_related('poll_options', 'quiz')
         
         # Filters
@@ -38,9 +38,9 @@ class PostViewSet(TenantAwareViewSet):
         if post_type:
             queryset = queryset.filter(post_type=post_type)
         
-        exam = self.request.query_params.get('exam')
-        if exam:
-            queryset = queryset.filter(exam_id=exam)
+        course = self.request.query_params.get('course')
+        if course:
+            queryset = queryset.filter(course_id=course)
         
         subject = self.request.query_params.get('subject')
         if subject:

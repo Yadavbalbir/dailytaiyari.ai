@@ -1,6 +1,6 @@
 """
 Admin CRUD view for Content in the Content Builder.
-Tenant-admin only, scoped via the subject's exam tenant.
+Tenant-admin only, scoped via the subject's course tenant.
 """
 from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -18,4 +18,4 @@ class AdminContentViewSet(TenantAdminModelViewSet):
     search_fields = ['title', 'description']
     ordering_fields = ['order', 'created_at', 'views_count', 'title']
     ordering = ['order', '-created_at']
-    tenant_lookup = 'subject__exam__tenant'
+    tenant_lookup = 'subject__course__tenant'

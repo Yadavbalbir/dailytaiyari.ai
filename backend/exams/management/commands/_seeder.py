@@ -1,9 +1,9 @@
-"""Shared seeding logic for syllabus-based exams (JEE, NEET)."""
+"""Shared seeding logic for syllabus-based courses (JEE, NEET)."""
 from django.utils.text import slugify
 from django.db import transaction
 
 from core.models import Tenant
-from exams.models import Exam, Subject, Topic, Chapter, ChapterTopic
+from exams.models import Course, Subject, Topic, Chapter, ChapterTopic
 from content.models import Content
 from quiz.models import Quiz, Question, QuestionOption, QuizQuestion, MockTest, MockTestQuestion
 
@@ -22,27 +22,27 @@ KEY_FACTS = {
 }
 
 
-def build_notes(topic, subject, chapter, exam_name):
+def build_notes(topic, subject, chapter, course_name):
     fact = KEY_FACTS.get(topic)
     kf = f"\n\n## Key Formula\n{fact}\n" if fact else ""
     return (
-        f"# {topic}\n\n*{subject} · {chapter} ({exam_name})*\n\n"
-        f"## Overview\n{topic} is a core part of the {exam_name} {subject} syllabus under "
+        f"# {topic}\n\n*{subject} · {chapter} ({course_name})*\n\n"
+        f"## Overview\n{topic} is a core part of the {course_name} {subject} syllabus under "
         f"**{chapter}**. Master the definitions, governing equations and standard problem types, "
         f"then practise previous-year questions.\n\n"
         f"## Key Points\n"
         f"- Understand the fundamental definition and meaning of {topic}.\n"
         f"- Memorise the standard results and learn their derivations.\n"
-        f"- Solve graded problems and review {exam_name} PYQs.\n{kf}"
+        f"- Solve graded problems and review {course_name} PYQs.\n{kf}"
     )
 
 
-def build_formula(topic, subject, chapter, exam_name):
+def build_formula(topic, subject, chapter, course_name):
     fact = KEY_FACTS.get(topic, "Compile all standard formulas and results for this topic.")
     return f"# {topic} — Formula Sheet\n\n*{subject} · {chapter}*\n\n{fact}\n"
 
 
-def build_questions(topic, subject, exam_name):
+def build_questions(topic, subject, course_name):
     """Return a list of 3 MCQ dicts for a topic. Each: text, options[4], correct idx, explanation."""
     return [
         {
@@ -54,14 +54,14 @@ def build_questions(topic, subject, exam_name):
                 "It is a deprecated topic.",
             ],
             'correct': 0,
-            'explanation': f"{topic} is a core, frequently-tested concept in the {exam_name} {subject} syllabus.",
+            'explanation': f"{topic} is a core, frequently-tested concept in the {course_name} {subject} syllabus.",
         },
         {
-            'text': f"For {exam_name} preparation, the best strategy for mastering {topic} is to:",
+            'text': f"For {course_name} preparation, the best strategy for mastering {topic} is to:",
             'options': [
                 "Skip the derivations entirely.",
                 "Memorise standard results and practise previous-year questions.",
-                "Only read once before the exam.",
+                "Only read once before the course.",
                 "Ignore the formula sheet.",
             ],
             'correct': 1,
@@ -81,21 +81,21 @@ def build_questions(topic, subject, exam_name):
     ]
 
 
-def seed_topic_quiz(topic, subject, exam, tenant, exam_name):
+def seed_topic_quiz(topic, subject, course, tenant, course_name):
     quiz, _ = Quiz.objects.update_or_create(
-        exam=exam, topic=topic, quiz_type='topic',
+        course=course, topic=topic, quiz_type='topic',
         defaults={'title': f"{topic.name} — Practice Quiz", 'tenant': tenant,
                   'subject': subject, 'status': 'published',
                   'description': f"Test your understanding of {topic.name}.",
                   'duration_minutes': 10, 'is_free': True, 'total_marks': 3})
     QuizQuestion.objects.filter(quiz=quiz).delete()
-    for q_order, q in enumerate(build_questions(topic.name, subject.name, exam_name), 1):
+    for q_order, q in enumerate(build_questions(topic.name, subject.name, course_name), 1):
         question, _ = Question.objects.update_or_create(
             topic=topic, subject=subject, question_text=q['text'],
             defaults={'question_type': 'mcq', 'status': 'published',
                       'correct_answer': str(q['correct']), 'explanation': q['explanation'],
                       'marks': 1, 'negative_marks': 0})
-        question.exams.add(exam)
+        question.courses.add(course)
         question.options.all().delete()
         for o_order, opt in enumerate(q['options']):
             QuestionOption.objects.create(question=question, option_text=opt,
@@ -105,9 +105,9 @@ def seed_topic_quiz(topic, subject, exam, tenant, exam_name):
 
 
 @transaction.atomic
-def seed_mock_tests(exam, tenant, exam_name, count=2, per_subject=15):
+def seed_mock_tests(course, tenant, course_name, count=2, per_subject=15):
     """Build full-length mock tests by sampling published questions across subjects."""
-    subjects = list(Subject.objects.filter(exam=exam).order_by('order'))
+    subjects = list(Subject.objects.filter(course=course).order_by('order'))
     n_mock = 0
     for i in range(1, count + 1):
         sections, all_qs = [], []
@@ -122,8 +122,8 @@ def seed_mock_tests(exam, tenant, exam_name, count=2, per_subject=15):
             all_qs.extend((s_idx, qid) for qid in chunk)
         total = len(all_qs)
         mock, _ = MockTest.objects.update_or_create(
-            exam=exam, title=f"{exam_name} Full Mock Test {i}",
-            defaults={'tenant': tenant, 'description': f"Full-length {exam_name} simulation #{i}.",
+            course=course, title=f"{course_name} Full Mock Test {i}",
+            defaults={'tenant': tenant, 'description': f"Full-length {course_name} simulation #{i}.",
                       'sections': sections, 'duration_minutes': 180,
                       'total_marks': total * 4, 'negative_marking': True,
                       'status': 'published', 'is_free': True})
@@ -136,18 +136,18 @@ def seed_mock_tests(exam, tenant, exam_name, count=2, per_subject=15):
 
 
 @transaction.atomic
-def seed_syllabus(exam_code, exam_name, tenant_name, subjects, color='#f97316'):
+def seed_syllabus(course_code, course_name, tenant_name, subjects, color='#f97316'):
     tenant = Tenant.objects.filter(name=tenant_name).first()
     if not tenant:
         raise ValueError(f"Tenant '{tenant_name}' not found")
-    exam, _ = Exam.objects.update_or_create(
-        code=exam_code,
-        defaults={'name': exam_name, 'tenant': tenant, 'status': 'active',
-                  'exam_type': 'competitive', 'color': color})
+    course, _ = Course.objects.update_or_create(
+        code=course_code,
+        defaults={'name': course_name, 'tenant': tenant, 'status': 'active',
+                  'course_type': 'competitive', 'color': color})
     n_sub = n_ch = n_top = n_cnt = n_quiz = 0
     for s_order, (sname, sdata) in enumerate(subjects.items(), 1):
         subject, _ = Subject.objects.update_or_create(
-            code=sdata['code'], exam=exam,
+            code=sdata['code'], course=course,
             defaults={'name': sname, 'color': sdata['color'], 'icon': sdata['icon'],
                       'weightage': sdata['weightage'], 'order': s_order})
         n_sub += 1
@@ -166,17 +166,17 @@ def seed_syllabus(exam_code, exam_name, tenant_name, subjects, color='#f97316'):
                 for suffix, ctype, builder in [
                     ('Complete Notes', 'notes', build_notes),
                     ('Formula Sheet', 'formula', build_formula)]:
-                    slug = slugify(f"{exam_code}-{tname}-{suffix}")[:200]
+                    slug = slugify(f"{course_code}-{tname}-{suffix}")[:200]
                     c, _ = Content.objects.update_or_create(
                         slug=slug,
                         defaults={'title': f"{tname} - {suffix}", 'topic': topic,
                                   'subject': subject, 'content_type': ctype,
                                   'tenant': tenant,
-                                  'content_html': builder(tname, sname, cname, exam_name),
+                                  'content_html': builder(tname, sname, cname, course_name),
                                   'status': 'published', 'is_free': True,
                                   'estimated_time_minutes': 12, 'order': t_order})
-                    c.exams.add(exam)
+                    c.courses.add(course)
                     n_cnt += 1
-                n_quiz += seed_topic_quiz(topic, subject, exam, tenant, exam_name)
-    n_mock = seed_mock_tests(exam, tenant, exam_name)
+                n_quiz += seed_topic_quiz(topic, subject, course, tenant, course_name)
+    n_mock = seed_mock_tests(course, tenant, course_name)
     return n_sub, n_ch, n_top, n_cnt, n_quiz, n_mock

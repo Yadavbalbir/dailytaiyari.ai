@@ -24,7 +24,7 @@ const MockTest = () => {
 
   // Filter state
   const [filters, setFilters] = useState({
-    exam: localStorage.getItem('study:lastExamId') || '',
+    course: localStorage.getItem('study:lastCourseId') || '',
     attempted: '', // '', 'true', 'false'
     is_free: '',
     search: '',
@@ -33,7 +33,7 @@ const MockTest = () => {
   // Build query params
   const queryParams = useMemo(() => {
     const params = {}
-    if (filters.exam) params.exam = filters.exam
+    if (filters.course) params.course = filters.course
     if (filters.attempted) params.attempted = filters.attempted
     if (filters.is_free) params.is_free = filters.is_free
     if (filters.search) params.search = filters.search
@@ -57,17 +57,17 @@ const MockTest = () => {
 
   // Default the exam to the shared selection (or first available) and persist it.
   useEffect(() => {
-    const exams = filterOptions?.exams
+    const exams = filterOptions?.courses
     if (!exams?.length) return
     const isValid = (id) => id && exams.some((e) => e.id === id)
-    if (isValid(filters.exam)) return
-    const stored = localStorage.getItem('study:lastExamId')
-    setFilters((prev) => ({ ...prev, exam: (isValid(stored) && stored) || exams[0].id }))
-  }, [filterOptions?.exams, filters.exam])
+    if (isValid(filters.course)) return
+    const stored = localStorage.getItem('study:lastCourseId')
+    setFilters((prev) => ({ ...prev, course: (isValid(stored) && stored) || exams[0].id }))
+  }, [filterOptions?.courses, filters.course])
 
   useEffect(() => {
-    if (filters.exam) localStorage.setItem('study:lastExamId', filters.exam)
-  }, [filters.exam])
+    if (filters.course) localStorage.setItem('study:lastCourseId', filters.course)
+  }, [filters.course])
 
   const handleStartTest = async (testId) => {
     try {
@@ -84,7 +84,7 @@ const MockTest = () => {
 
   const clearFilters = () => {
     setFilters((prev) => ({
-      exam: prev.exam, // keep exam context
+      course: prev.course, // keep course context
       attempted: '',
       is_free: '',
       search: '',
@@ -92,7 +92,7 @@ const MockTest = () => {
   }
 
   const activeFilterCount = Object.entries(filters)
-    .filter(([k, v]) => k !== 'exam' && Boolean(v)).length
+    .filter(([k, v]) => k !== 'course' && Boolean(v)).length
 
   const tests = mockTests?.results || mockTests || []
 
@@ -206,20 +206,20 @@ const MockTest = () => {
                 </div>
               </div>
 
-              {/* Exam Filter */}
+              {/* Course Filter */}
               <div>
-                <label className="block text-sm font-medium mb-2">Exam</label>
+                <label className="block text-sm font-medium mb-2">Course</label>
                 <div className="flex flex-wrap gap-2">
-                  {filterOptions?.exams?.map((exam) => (
+                  {filterOptions?.courses?.map((course) => (
                     <button
-                      key={exam.id}
-                      onClick={() => updateFilter('exam', exam.id)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.exam === exam.id
+                      key={course.id}
+                      onClick={() => updateFilter('course', course.id)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.course === course.id
                         ? 'bg-primary-500 text-white'
                         : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
                         }`}
                     >
-                      {exam.name}
+                      {course.name}
                     </button>
                   ))}
                 </div>
@@ -342,7 +342,7 @@ const MockTest = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="badge-primary">{test.exam_name}</span>
+                      <span className="badge-primary">{test.course_name}</span>
                       {hasAttempted && (
                         <span className={`badge ${attemptInfo.best_score >= 70 ? 'badge-success' :
                           attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'

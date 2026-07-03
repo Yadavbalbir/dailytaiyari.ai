@@ -21,7 +21,7 @@ class StudyPlanService:
         from exams.models import Topic
         
         student = study_plan.student
-        exam = study_plan.exam
+        course = study_plan.course
         target_minutes = study_plan.target_study_minutes
         
         items_created = []
@@ -32,7 +32,7 @@ class StudyPlanService:
         if focus_weak_topics:
             weak_topics = TopicMastery.objects.filter(
                 student=student,
-                topic__exams=exam,
+                topic__courses=course,
                 mastery_level__lte=2
             ).order_by('mastery_level', '-last_attempted')[:3]
             weak_topic_ids = [tm.topic_id for tm in weak_topics]
@@ -77,7 +77,7 @@ class StudyPlanService:
         ).values_list('content_id', flat=True)
         
         new_contents = Content.objects.filter(
-            Q(exams=exam) | Q(topic__exams=exam),
+            Q(courses=course) | Q(topic__courses=course),
             status='published',
             content_type__in=['notes', 'pdf', 'revision', 'formula']
         ).exclude(id__in=completed_content_ids).order_by('order')[:5]
@@ -119,7 +119,7 @@ class StudyPlanService:
         return items_created
     
     @staticmethod
-    def get_next_content(student, exam):
+    def get_next_content(student, course):
         """
         Get the next recommended content for a student.
         """
@@ -133,19 +133,19 @@ class StudyPlanService:
         
         # Get next uncompleted content
         next_content = Content.objects.filter(
-            Q(exams=exam) | Q(topic__exams=exam),
+            Q(courses=course) | Q(topic__courses=course),
             status='published'
         ).exclude(id__in=completed_ids).order_by('order').first()
         
         return next_content
     
     @staticmethod
-    def get_revision_topics(student, exam, limit=5):
+    def get_revision_topics(student, course, limit=5):
         """
         Get topics that need revision based on:
         - Low mastery level
         - Not practiced recently
-        - High importance for exam
+        - High importance for course
         """
         from analytics.models import TopicMastery
         from django.utils import timezone
@@ -155,7 +155,7 @@ class StudyPlanService:
         
         revision_topics = TopicMastery.objects.filter(
             student=student,
-            topic__exams=exam
+            topic__courses=course
         ).filter(
             Q(mastery_level__lte=2) |  # Low mastery
             Q(last_attempted__lt=week_ago)  # Not practiced recently

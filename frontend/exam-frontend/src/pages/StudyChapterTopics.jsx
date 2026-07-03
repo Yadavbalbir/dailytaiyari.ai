@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
-import { examService } from '../services/examService'
+import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock,
@@ -17,7 +17,7 @@ const StudyChapterTopics = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['studyChapterDetail', chapterId],
-    queryFn: () => examService.getStudyChapterDetail(chapterId),
+    queryFn: () => courseService.getStudyChapterDetail(chapterId),
     enabled: !!chapterId,
   })
 

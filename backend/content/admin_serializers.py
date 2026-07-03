@@ -5,22 +5,22 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from .models import Content
-from exams.models import Exam
+from exams.models import Course
 
 
 class AdminContentSerializer(serializers.ModelSerializer):
     """Full CRUD serializer for Content with automatic slug handling."""
     topic_name = serializers.CharField(source='topic.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
-    exams = serializers.PrimaryKeyRelatedField(
-        queryset=Exam.objects.all(), many=True, required=False
+    courses = serializers.PrimaryKeyRelatedField(
+        queryset=Course.objects.all(), many=True, required=False
     )
 
     class Meta:
         model = Content
         fields = [
             'id', 'title', 'slug', 'description', 'content_type',
-            'topic', 'topic_name', 'subject', 'subject_name', 'exams',
+            'topic', 'topic_name', 'subject', 'subject_name', 'courses',
             'content_html', 'video_url', 'video_duration_minutes',
             'difficulty', 'status', 'is_free', 'is_premium',
             'estimated_time_minutes', 'order', 'author_name',
@@ -44,25 +44,25 @@ class AdminContentSerializer(serializers.ModelSerializer):
             slug = f"{base}-{i}"
         return slug
 
-    def _default_exams(self, validated_data):
-        """If no exams supplied, inherit from the subject's exam."""
+    def _default_courses(self, validated_data):
+        """If no courses supplied, inherit from the subject's course."""
         subject = validated_data.get('subject')
-        if subject and getattr(subject, 'exam_id', None):
-            return [subject.exam]
+        if subject and getattr(subject, 'course_id', None):
+            return [subject.course]
         return []
 
     def create(self, validated_data):
-        exams = validated_data.pop('exams', None)
+        courses = validated_data.pop('courses', None)
         validated_data['slug'] = self._unique_slug(validated_data.get('title', ''))
         content = super().create(validated_data)
-        content.exams.set(exams if exams else self._default_exams(validated_data))
+        content.courses.set(courses if courses else self._default_courses(validated_data))
         return content
 
     def update(self, instance, validated_data):
-        exams = validated_data.pop('exams', None)
+        courses = validated_data.pop('courses', None)
         if 'title' in validated_data and validated_data['title'] != instance.title:
             validated_data['slug'] = self._unique_slug(validated_data['title'], instance)
         content = super().update(instance, validated_data)
-        if exams is not None:
-            content.exams.set(exams)
+        if courses is not None:
+            content.courses.set(courses)
         return content

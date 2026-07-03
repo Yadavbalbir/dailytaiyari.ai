@@ -16,6 +16,8 @@ import Onboarding from './pages/auth/Onboarding'
 // Main Pages
 import Dashboard from './pages/Dashboard'
 import Study from './pages/Study'
+import StudyCourse from './pages/StudyCourse'
+import Courses from './pages/Courses'
 import StudyChapters from './pages/StudyChapters'
 import StudyChapterTopics from './pages/StudyChapterTopics'
 import StudyTopicContent from './pages/StudyTopicContent'
@@ -114,7 +116,9 @@ function App() {
           }
         >
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/courses" element={<Courses />} />
           <Route path="/study" element={<Study />} />
+          <Route path="/study/course/:courseId" element={<StudyCourse />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />
           <Route path="/study/chapter/:chapterId" element={<StudyChapterTopics />} />
           <Route path="/study/chapter/:chapterId/topic/:topicId" element={<StudyTopicContent />} />

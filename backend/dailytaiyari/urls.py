@@ -14,7 +14,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="DailyTaiyari API",
         default_version='v1',
-        description="API for DailyTaiyari - India's Premier Exam Preparation Platform",
+        description="API for DailyTaiyari - India's Premier Course Preparation Platform",
         terms_of_service="https://dailytaiyari.ai/terms/",
         contact=openapi.Contact(email="support@dailytaiyari.ai"),
         license=openapi.License(name="Proprietary"),
@@ -30,7 +30,7 @@ urlpatterns = [
     # API v1 endpoints
     path('api/v1/tenant/<uuid:pk>/', __import__('core.views').views.TenantDetailView.as_view(), name='tenant-detail'),
     path('api/v1/auth/', include('users.urls')),
-    path('api/v1/exams/', include('exams.urls')),
+    path('api/v1/courses/', include('exams.urls')),
     path('api/v1/content/', include('content.urls')),
     path('api/v1/quiz/', include('quiz.urls')),
     path('api/v1/analytics/', include('analytics.urls')),

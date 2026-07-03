@@ -2,7 +2,7 @@
 Writable serializers for the admin Quiz Builder.
 
 These power full CRUD over Quizzes and their Questions (with options) from the
-Exam Content Builder. Question correctness is stored in the same format the quiz
+Course Content Builder. Question correctness is stored in the same format the quiz
 player submits: for ``mcq``/``true_false`` the ``correct_answer`` is the string
 index of the correct option (matching ``Answer.selected_option``); for
 ``fill_blank`` it is the expected text; for ``numerical`` the answer lives in
@@ -36,14 +36,14 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'question_text', 'question_html', 'question_type',
             'difficulty', 'status', 'topic', 'topic_name', 'subject',
-            'subject_name', 'exams', 'correct_answer', 'explanation',
+            'subject_name', 'courses', 'correct_answer', 'explanation',
             'numerical_answer', 'numerical_tolerance', 'marks', 'negative_marks',
             'source', 'year', 'tags', 'options', 'quiz',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {
-            'exams': {'required': False},
+            'courses': {'required': False},
             'correct_answer': {'required': False, 'allow_blank': True},
         }
 
@@ -56,13 +56,13 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
         tenant = self._tenant()
         if tenant is not None:
             quiz = attrs.get('quiz')
-            if quiz is not None and getattr(quiz.exam, 'tenant_id', None) != tenant.id:
+            if quiz is not None and getattr(quiz.course, 'tenant_id', None) != tenant.id:
                 raise serializers.ValidationError({'quiz': 'Quiz not found for this tenant.'})
             topic = attrs.get('topic')
-            if topic is not None and getattr(topic.subject.exam, 'tenant_id', None) != tenant.id:
+            if topic is not None and getattr(topic.subject.course, 'tenant_id', None) != tenant.id:
                 raise serializers.ValidationError({'topic': 'Topic not found for this tenant.'})
             subject = attrs.get('subject')
-            if subject is not None and getattr(subject.exam, 'tenant_id', None) != tenant.id:
+            if subject is not None and getattr(subject.course, 'tenant_id', None) != tenant.id:
                 raise serializers.ValidationError({'subject': 'Subject not found for this tenant.'})
         return attrs
 
@@ -88,15 +88,15 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         options = validated_data.pop('options', None)
         quiz = validated_data.pop('quiz', None)
-        exams = validated_data.pop('exams', None)
+        courses = validated_data.pop('courses', None)
         subject = validated_data.get('subject')
 
         question = Question.objects.create(**validated_data)
 
-        if exams:
-            question.exams.set(exams)
-        elif subject is not None and getattr(subject, 'exam_id', None):
-            question.exams.set([subject.exam])
+        if courses:
+            question.courses.set(courses)
+        elif subject is not None and getattr(subject, 'course_id', None):
+            question.courses.set([subject.course])
 
         if options is not None:
             self._sync_options(question, options)
@@ -106,14 +106,14 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         options = validated_data.pop('options', None)
         quiz = validated_data.pop('quiz', None)
-        exams = validated_data.pop('exams', None)
+        courses = validated_data.pop('courses', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        if exams is not None:
-            instance.exams.set(exams)
+        if courses is not None:
+            instance.courses.set(courses)
         if options is not None:
             self._sync_options(instance, options)
         self._link_quiz(instance, quiz)
@@ -121,15 +121,15 @@ class AdminQuestionSerializer(serializers.ModelSerializer):
 
 
 class AdminQuizSerializer(serializers.ModelSerializer):
-    """Writable serializer for Quiz; derives exam/subject from topic when omitted."""
+    """Writable serializer for Quiz; derives course/subject from topic when omitted."""
     questions_count = serializers.IntegerField(source='questions.count', read_only=True)
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
 
     class Meta:
         model = Quiz
         fields = [
             'id', 'title', 'description', 'quiz_type', 'status',
-            'exam', 'exam_name', 'subject', 'topic',
+            'course', 'course_name', 'subject', 'topic',
             'duration_minutes', 'total_marks', 'passing_marks',
             'shuffle_questions', 'shuffle_options', 'show_answer_after_each',
             'allow_skip', 'is_free', 'questions_count',
@@ -137,7 +137,7 @@ class AdminQuizSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {
-            'exam': {'required': False},
+            'course': {'required': False},
             'quiz_type': {'required': False},
         }
 
@@ -145,11 +145,11 @@ class AdminQuizSerializer(serializers.ModelSerializer):
         topic = attrs.get('topic')
         if topic is not None:
             attrs.setdefault('subject', topic.subject)
-            if not attrs.get('exam'):
-                attrs['exam'] = topic.subject.exam
+            if not attrs.get('course'):
+                attrs['course'] = topic.subject.course
         subject = attrs.get('subject')
-        if subject is not None and not attrs.get('exam'):
-            attrs['exam'] = subject.exam
+        if subject is not None and not attrs.get('course'):
+            attrs['course'] = subject.course
         if not attrs.get('quiz_type'):
             if topic is not None:
                 attrs['quiz_type'] = 'topic'
@@ -162,11 +162,11 @@ class AdminQuizSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         tenant = getattr(request, 'tenant', None)
         if tenant is not None:
-            exam = attrs.get('exam')
-            if exam is not None and getattr(exam, 'tenant_id', None) != tenant.id:
-                raise serializers.ValidationError({'exam': 'Exam not found for this tenant.'})
-            if attrs.get('subject') is not None and getattr(attrs['subject'].exam, 'tenant_id', None) != tenant.id:
+            course = attrs.get('course')
+            if course is not None and getattr(course, 'tenant_id', None) != tenant.id:
+                raise serializers.ValidationError({'course': 'Course not found for this tenant.'})
+            if attrs.get('subject') is not None and getattr(attrs['subject'].course, 'tenant_id', None) != tenant.id:
                 raise serializers.ValidationError({'subject': 'Subject not found for this tenant.'})
-            if topic is not None and getattr(topic.subject.exam, 'tenant_id', None) != tenant.id:
+            if topic is not None and getattr(topic.subject.course, 'tenant_id', None) != tenant.id:
                 raise serializers.ValidationError({'topic': 'Topic not found for this tenant.'})
         return attrs

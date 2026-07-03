@@ -57,14 +57,14 @@ class LeaderboardEntrySerializer(serializers.ModelSerializer):
 
 class ChallengeSerializer(serializers.ModelSerializer):
     """Serializer for challenges."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     badge_reward_data = BadgeSerializer(source='badge_reward', read_only=True)
     
     class Meta:
         model = Challenge
         fields = [
             'id', 'title', 'description', 'challenge_type', 'status',
-            'exam', 'exam_name', 'start_time', 'end_time', 'goal',
+            'course', 'course_name', 'start_time', 'end_time', 'goal',
             'xp_reward', 'badge_reward', 'badge_reward_data',
             'participants', 'completers'
         ]

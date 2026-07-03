@@ -76,7 +76,7 @@ class AnalyticsService:
             perf, created = SubjectPerformance.objects.get_or_create(
                 student=student,
                 subject_id=subject_id,
-                exam=mock_attempt.mock_test.exam
+                course=mock_attempt.mock_test.course
             )
             perf.total_questions += stats['total']
             perf.correct_answers += stats['correct']
@@ -119,19 +119,19 @@ class AnalyticsService:
         return activity
     
     @staticmethod
-    def update_streak(student, activity_date, exam=None):
+    def update_streak(student, activity_date, course=None):
         """
         Update study streak.
         """
         streak, created = Streak.objects.get_or_create(
             student=student,
-            exam=exam
+            course=course
         )
         streak.update_streak(activity_date)
         return streak
     
     @staticmethod
-    def get_dashboard_stats(student, exam=None):
+    def get_dashboard_stats(student, course=None):
         """
         Get comprehensive dashboard statistics.
         """
@@ -139,7 +139,7 @@ class AnalyticsService:
         week_ago = today - timedelta(days=7)
         
         # Get streak
-        streak = Streak.objects.filter(student=student, exam=exam).first()
+        streak = Streak.objects.filter(student=student, course=course).first()
         current_streak = streak.current_streak if streak else 0
         
         # Today's activity (for questions, accuracy)

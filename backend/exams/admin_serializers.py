@@ -1,21 +1,21 @@
 """
-Writable serializers for the admin Exam Content Builder.
+Writable serializers for the admin Course Content Builder.
 
 These power full CRUD over the content hierarchy:
-Exam -> Subject -> Chapter -> Topic -> Content.
+Course -> Subject -> Chapter -> Topic -> Content.
 """
 from rest_framework import serializers
-from .models import Exam, Subject, Topic, Chapter, ChapterTopic
+from .models import Course, Subject, Topic, Chapter, ChapterTopic
 
 
-class AdminExamSerializer(serializers.ModelSerializer):
-    """Writable serializer for Exam in the content builder."""
+class AdminCourseSerializer(serializers.ModelSerializer):
+    """Writable serializer for Course in the content builder."""
     subjects_count = serializers.IntegerField(source='subjects.count', read_only=True)
 
     class Meta:
-        model = Exam
+        model = Course
         fields = [
-            'id', 'name', 'code', 'description', 'exam_type',
+            'id', 'name', 'code', 'description', 'course_type',
             'color', 'status', 'is_featured',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
@@ -26,7 +26,7 @@ class AdminExamSerializer(serializers.ModelSerializer):
 
 class AdminSubjectSerializer(serializers.ModelSerializer):
     """Writable serializer for Subject."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     topics_count = serializers.IntegerField(source='topics.count', read_only=True)
     chapters_count = serializers.IntegerField(source='chapters.count', read_only=True)
 
@@ -34,7 +34,7 @@ class AdminSubjectSerializer(serializers.ModelSerializer):
         model = Subject
         fields = [
             'id', 'name', 'code', 'description', 'icon', 'color',
-            'exam', 'exam_name', 'weightage', 'order',
+            'course', 'course_name', 'weightage', 'order',
             'topics_count', 'chapters_count', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

@@ -1,6 +1,6 @@
 """
 Django settings for DailyTaiyari project.
-Production-grade exam preparation platform.
+Production-grade course preparation platform.
 """
 
 import os

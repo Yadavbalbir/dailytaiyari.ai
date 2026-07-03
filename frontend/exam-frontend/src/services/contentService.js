@@ -57,7 +57,7 @@ export const contentService = {
   // Get today's study plan
   getTodayStudyPlan: async (examId) => {
     const response = await api.get('/content/study-plans/today/', {
-      params: examId ? { exam_id: examId } : {},
+      params: examId ? { course_id: examId } : {},
     })
     return response.data
   },

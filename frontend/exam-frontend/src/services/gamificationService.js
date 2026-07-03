@@ -31,7 +31,7 @@ export const gamificationService = {
   // Leaderboard
   getLeaderboard: async (period = 'daily', examId, limit = 50) => {
     const response = await api.get('/gamification/leaderboard/', {
-      params: { period, exam_id: examId, limit },
+      params: { period, course_id: examId, limit },
     })
     return response.data
   },

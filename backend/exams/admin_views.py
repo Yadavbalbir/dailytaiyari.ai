@@ -1,9 +1,9 @@
 """
-Admin CRUD views for the Exam Content Builder.
+Admin CRUD views for the Course Content Builder.
 
 All endpoints are restricted to tenant admins and scoped to the current tenant
-via the Exam relationship (child rows may have a null ``tenant`` in legacy data,
-so we always scope through ``exam``).
+via the Course relationship (child rows may have a null ``tenant`` in legacy data,
+so we always scope through ``course``).
 """
 from rest_framework import viewsets, filters, status
 from rest_framework.response import Response
@@ -12,9 +12,9 @@ from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsTenantAdmin
-from .models import Exam, Subject, Topic, Chapter, ChapterTopic
+from .models import Course, Subject, Topic, Chapter, ChapterTopic
 from .admin_serializers import (
-    AdminExamSerializer, AdminSubjectSerializer,
+    AdminCourseSerializer, AdminSubjectSerializer,
     AdminChapterSerializer, AdminTopicSerializer,
 )
 
@@ -35,7 +35,7 @@ class TenantAdminModelViewSet(viewsets.ModelViewSet):
     ordering_fields = ['order', 'name', 'created_at']
     ordering = ['order', 'name']
 
-    # Lookup path from the model to the owning Exam's tenant.
+    # Lookup path from the model to the owning Course's tenant.
     tenant_lookup = 'tenant'
 
     def _tenant(self):
@@ -68,33 +68,33 @@ class TenantAdminModelViewSet(viewsets.ModelViewSet):
         return Response({'updated': len(updated)})
 
 
-class AdminExamViewSet(TenantAdminModelViewSet):
-    queryset = Exam.objects.all().order_by('name')
-    serializer_class = AdminExamSerializer
-    filterset_fields = ['exam_type', 'status', 'is_featured']
+class AdminCourseViewSet(TenantAdminModelViewSet):
+    queryset = Course.objects.all().order_by('name')
+    serializer_class = AdminCourseSerializer
+    filterset_fields = ['course_type', 'status', 'is_featured']
     tenant_lookup = 'tenant'
     ordering = ['name']
 
 
 class AdminSubjectViewSet(TenantAdminModelViewSet):
-    queryset = Subject.objects.select_related('exam').all()
+    queryset = Subject.objects.select_related('course').all()
     serializer_class = AdminSubjectSerializer
-    filterset_fields = ['exam']
-    tenant_lookup = 'exam__tenant'
+    filterset_fields = ['course']
+    tenant_lookup = 'course__tenant'
 
 
 class AdminChapterViewSet(TenantAdminModelViewSet):
     queryset = Chapter.objects.select_related('subject').all()
     serializer_class = AdminChapterSerializer
     filterset_fields = ['subject', 'grade']
-    tenant_lookup = 'subject__exam__tenant'
+    tenant_lookup = 'subject__course__tenant'
 
 
 class AdminTopicViewSet(TenantAdminModelViewSet):
     queryset = Topic.objects.select_related('subject').prefetch_related('chapter_topics').all()
     serializer_class = AdminTopicSerializer
     filterset_fields = ['subject', 'difficulty', 'importance', 'parent_topic']
-    tenant_lookup = 'subject__exam__tenant'
+    tenant_lookup = 'subject__course__tenant'
 
     def get_queryset(self):
         qs = super().get_queryset()

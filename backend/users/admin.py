@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, StudentProfile, ExamEnrollment
+from .models import User, StudentProfile, CourseEnrollment
 
 
 @admin.register(User)
@@ -30,15 +30,15 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'primary_exam', 'total_xp', 'current_level']
-    list_filter = ['primary_exam']
+    list_display = ['user', 'primary_course', 'total_xp', 'current_level']
+    list_filter = ['primary_course']
     search_fields = ['user__email', 'user__first_name']
-    raw_id_fields = ['user', 'primary_exam']
+    raw_id_fields = ['user', 'primary_course']
 
 
-@admin.register(ExamEnrollment)
-class ExamEnrollmentAdmin(admin.ModelAdmin):
-    list_display = ['student', 'exam', 'is_active', 'exam_xp', 'exam_rank', 'enrolled_at']
-    list_filter = ['exam', 'is_active']
-    raw_id_fields = ['student', 'exam']
+@admin.register(CourseEnrollment)
+class CourseEnrollmentAdmin(admin.ModelAdmin):
+    list_display = ['student', 'course', 'is_active', 'course_xp', 'course_rank', 'enrolled_at']
+    list_filter = ['course', 'is_active']
+    raw_id_fields = ['student', 'course']
 

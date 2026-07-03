@@ -25,12 +25,12 @@ class TopicMasterySerializer(serializers.ModelSerializer):
 class SubjectPerformanceSerializer(serializers.ModelSerializer):
     """Serializer for subject performance."""
     subject_name = serializers.CharField(source='subject.name', read_only=True)
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     
     class Meta:
         model = SubjectPerformance
         fields = [
-            'id', 'subject', 'subject_name', 'exam', 'exam_name',
+            'id', 'subject', 'subject_name', 'course', 'course_name',
             'total_questions', 'correct_answers', 'accuracy',
             'topics_attempted', 'topics_mastered', 'overall_progress',
             'total_study_minutes', 'average_speed'
@@ -58,12 +58,12 @@ class DailyActivitySerializer(serializers.ModelSerializer):
 
 class StreakSerializer(serializers.ModelSerializer):
     """Serializer for streaks."""
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     
     class Meta:
         model = Streak
         fields = [
-            'id', 'exam', 'exam_name', 'current_streak',
+            'id', 'course', 'course_name', 'current_streak',
             'last_activity_date', 'longest_streak',
             'longest_streak_start', 'longest_streak_end',
             'total_active_days'

@@ -4,6 +4,7 @@ import { useAppStore } from '../../context/appStore'
 import Sidebar from './Sidebar'
 import {
   Home,
+  GraduationCap,
   BookOpen,
   PenTool,
   BarChart3,
@@ -12,6 +13,7 @@ import {
 
 const navItems = [
   { path: '/dashboard', label: 'Home', icon: Home },
+  { path: '/courses', label: 'Courses', icon: GraduationCap },
   { path: '/study', label: 'Study', icon: BookOpen },
   { path: '/quiz', label: 'Quiz', icon: PenTool },
   { path: '/analytics', label: 'Stats', icon: BarChart3 },

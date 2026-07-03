@@ -10,8 +10,8 @@ from .views import (
     ProfileView,
     UserView,
     OnboardingView,
-    ExamEnrollmentListView,
-    ExamEnrollmentDetailView,
+    CourseEnrollmentListView,
+    CourseEnrollmentDetailView,
     TenantStudentViewSet,
     TenantEnrollmentRequestViewSet,
 )
@@ -33,9 +33,9 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile'),
     path('onboarding/', OnboardingView.as_view(), name='onboarding'),
     
-    # Exam Enrollments
-    path('enrollments/', ExamEnrollmentListView.as_view(), name='enrollment-list'),
-    path('enrollments/<uuid:pk>/', ExamEnrollmentDetailView.as_view(), name='enrollment-detail'),
+    # Course Enrollments
+    path('enrollments/', CourseEnrollmentListView.as_view(), name='enrollment-list'),
+    path('enrollments/<uuid:pk>/', CourseEnrollmentDetailView.as_view(), name='enrollment-detail'),
 
     # Tenant Management
     path('', include(router.urls)),

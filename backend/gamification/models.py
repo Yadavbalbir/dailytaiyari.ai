@@ -3,7 +3,7 @@ Gamification models - XP, Badges, Achievements, Leaderboards.
 """
 from django.db import models
 from core.models import TimeStampedModel
-from exams.models import Exam
+from exams.models import Course
 
 
 class Badge(TimeStampedModel):
@@ -142,8 +142,8 @@ class LeaderboardEntry(TimeStampedModel):
         on_delete=models.CASCADE, 
         related_name='leaderboard_entries'
     )
-    exam = models.ForeignKey(
-        Exam, 
+    course = models.ForeignKey(
+        Course, 
         on_delete=models.CASCADE, 
         related_name='leaderboard_entries',
         null=True, blank=True  # null = global leaderboard
@@ -165,11 +165,11 @@ class LeaderboardEntry(TimeStampedModel):
     rank_change = models.IntegerField(default=0)
 
     class Meta:
-        unique_together = ['student', 'exam', 'period', 'period_start']
+        unique_together = ['student', 'course', 'period', 'period_start']
         verbose_name = 'Leaderboard Entry'
         verbose_name_plural = 'Leaderboard Entries'
         indexes = [
-            models.Index(fields=['period', 'exam', 'rank']),
+            models.Index(fields=['period', 'course', 'rank']),
             models.Index(fields=['period_start', 'period_end']),
         ]
 
@@ -199,9 +199,9 @@ class Challenge(TimeStampedModel):
     challenge_type = models.CharField(max_length=20, choices=CHALLENGE_TYPES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
     
-    # Target exam (optional)
-    exam = models.ForeignKey(
-        Exam, 
+    # Target course (optional)
+    course = models.ForeignKey(
+        Course, 
         on_delete=models.CASCADE, 
         related_name='challenges',
         null=True, blank=True

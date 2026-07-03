@@ -6,7 +6,7 @@ import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
 import ImageCropper from '../components/common/ImageCropper'
-import MyExams from '../components/profile/MyExams'
+import MyCourses from '../components/profile/MyCourses'
 
 import {
   Camera,
@@ -234,9 +234,9 @@ const Profile = () => {
             <div className="flex flex-wrap items-center gap-2 mt-3">
               <span className="badge-primary">Level {profile?.current_level || 1}</span>
               <span className="badge-success">{profile?.total_xp?.toLocaleString() || 0} XP</span>
-              {profile?.primary_exam_name && (
+              {profile?.primary_course_name && (
                 <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
-                  {profile.primary_exam_name}
+                  {profile.primary_course_name}
                 </span>
               )}
             </div>
@@ -411,12 +411,12 @@ const Profile = () => {
             )}
           </div>
 
-          {/* Exam */}
+          {/* Course */}
           <div>
-            <label className="block text-sm font-medium text-surface-500 mb-1">Primary Exam</label>
+            <label className="block text-sm font-medium text-surface-500 mb-1">Primary Course</label>
             <p className="text-base py-2">
               <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
-                {profile?.primary_exam_name || '—'}
+                {profile?.primary_course_name || '—'}
               </span>
             </p>
           </div>
@@ -456,7 +456,7 @@ const Profile = () => {
       </div>
 
       {/* My Exams — request enrollment & approval status */}
-      <MyExams />
+      <MyCourses />
 
       {/* Location */}
       <div className="card p-6">

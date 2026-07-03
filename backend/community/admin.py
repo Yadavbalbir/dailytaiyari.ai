@@ -8,7 +8,7 @@ from .models import (
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     list_display = ['title', 'post_type', 'author', 'likes_count', 'comments_count', 'is_solved', 'created_at']
-    list_filter = ['post_type', 'status', 'is_solved', 'exam']
+    list_filter = ['post_type', 'status', 'is_solved', 'course']
     search_fields = ['title', 'content', 'author__user__email']
     date_hierarchy = 'created_at'
 

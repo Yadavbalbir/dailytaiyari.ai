@@ -65,12 +65,12 @@ class StudyPlanSerializer(serializers.ModelSerializer):
     items = StudyPlanItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     completed_items_count = serializers.SerializerMethodField()
-    exam_name = serializers.CharField(source='exam.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     
     class Meta:
         model = StudyPlan
         fields = [
-            'id', 'exam', 'exam_name', 'date', 'is_completed', 'completed_at',
+            'id', 'course', 'course_name', 'date', 'is_completed', 'completed_at',
             'target_study_minutes', 'actual_study_minutes',
             'target_questions', 'actual_questions', 'xp_earned',
             'items', 'items_count', 'completed_items_count',
@@ -86,7 +86,7 @@ class StudyPlanSerializer(serializers.ModelSerializer):
 
 class DailyStudyPlanSerializer(serializers.Serializer):
     """Serializer for generating daily study plan."""
-    exam_id = serializers.UUIDField()
+    course_id = serializers.UUIDField()
     target_minutes = serializers.IntegerField(default=60)
     include_revision = serializers.BooleanField(default=True)
     focus_weak_topics = serializers.BooleanField(default=True)

@@ -1,2 +1,2 @@
-# DailyTaiyari - Exam Preparation Platform
+# DailyTaiyari - Course Preparation Platform
 
