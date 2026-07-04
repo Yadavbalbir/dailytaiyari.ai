@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import {
     ArrowLeft, Plus, ChevronRight, ChevronDown, Loader2, Layers, Book,
     FileText, ListChecks, GraduationCap, Pencil, Eye, Video, FileType,
-    Sparkles, HelpCircle,
+    Sparkles, HelpCircle, ClipboardList, Clock, Users, X, CheckCircle2, Save,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
 import {
@@ -424,6 +424,204 @@ const EmptyHint = ({ icon: Icon, text, sub }) => (
 /* ===========================================================================
  * Main panel: content + quizzes for the selected topic
  * ========================================================================= */
+/* ===========================================================================
+ * Assignments for the selected topic + submissions review drawer
+ * ========================================================================= */
+const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'PDF upload', either: 'Text or PDF' }
+
+const SubmissionsDrawer = ({ assignment, onClose }) => {
+    const queryClient = useQueryClient()
+    const { data, isLoading } = useQuery({
+        queryKey: ['cb-submissions', assignment.id],
+        queryFn: () => svc.getAssignmentSubmissions(assignment.id),
+    })
+    const [grading, setGrading] = useState({})   // subId -> { marks, feedback }
+
+    const gradeMutation = useMutation({
+        mutationFn: ({ id, payload }) => svc.gradeSubmission(id, payload),
+        onSuccess: () => {
+            toast.success('Grade saved')
+            queryClient.invalidateQueries({ queryKey: ['cb-submissions', assignment.id] })
+        },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const counts = data?.counts || { enrolled: 0, submitted: 0, pending: 0, graded: 0 }
+
+    return (
+        <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }}
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                className="card w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+                initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+            >
+                <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold truncate">{assignment.title}</h3>
+                        <p className="text-xs text-surface-500">Submissions</p>
+                    </div>
+                    <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
+                </div>
+
+                {/* Counters */}
+                <div className="grid grid-cols-4 gap-2 p-4 border-b border-surface-100 dark:border-surface-800 text-center">
+                    {[
+                        { label: 'Enrolled', value: counts.enrolled },
+                        { label: 'Submitted', value: counts.submitted },
+                        { label: 'Pending', value: counts.pending },
+                        { label: 'Graded', value: counts.graded },
+                    ].map((s) => (
+                        <div key={s.label} className="rounded-xl bg-surface-50 dark:bg-surface-800 py-2">
+                            <div className="text-xl font-bold text-surface-800 dark:text-surface-100">{s.value}</div>
+                            <div className="text-[11px] text-surface-500">{s.label}</div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="p-5 overflow-y-auto space-y-5">
+                    {isLoading ? (
+                        <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+                    ) : (
+                        <>
+                            {/* Submitted */}
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-success-500" /> Submitted ({data?.submitted?.length || 0})</h4>
+                                {(data?.submitted || []).length === 0 ? (
+                                    <p className="text-xs text-surface-400">No submissions yet.</p>
+                                ) : data.submitted.map((s) => {
+                                    const g = grading[s.id] || { marks: s.marks ?? '', feedback: s.feedback ?? '' }
+                                    return (
+                                        <div key={s.id} className="card p-3.5 space-y-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold truncate">{s.student_name || s.student_email}</p>
+                                                    <p className="text-[11px] text-surface-400">{new Date(s.submitted_at).toLocaleString()}{s.status === 'graded' && <span className="ml-2 text-success-600 font-medium">• Graded</span>}</p>
+                                                </div>
+                                                {s.file_url && (
+                                                    <a href={s.file_url} target="_blank" rel="noopener noreferrer" className="btn-secondary text-xs px-2.5 py-1 shrink-0">View PDF</a>
+                                                )}
+                                            </div>
+                                            {s.submission_text && (
+                                                <div className="text-xs text-surface-600 dark:text-surface-300 bg-surface-50 dark:bg-surface-800 rounded-lg p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">{s.submission_text}</div>
+                                            )}
+                                            <div className="flex items-end gap-2">
+                                                <div className="w-24">
+                                                    <label className="block text-[10px] font-semibold text-surface-500 mb-1">Marks{assignment.max_marks ? ` / ${assignment.max_marks}` : ''}</label>
+                                                    <input type="number" className="input py-1.5 text-sm" value={g.marks}
+                                                        onChange={(e) => setGrading((p) => ({ ...p, [s.id]: { ...g, marks: e.target.value } }))} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="block text-[10px] font-semibold text-surface-500 mb-1">Feedback (student sees this)</label>
+                                                    <input type="text" className="input py-1.5 text-sm" value={g.feedback}
+                                                        onChange={(e) => setGrading((p) => ({ ...p, [s.id]: { ...g, feedback: e.target.value } }))} />
+                                                </div>
+                                                <button
+                                                    onClick={() => gradeMutation.mutate({ id: s.id, payload: { marks: g.marks === '' ? null : Number(g.marks), feedback: g.feedback } })}
+                                                    disabled={gradeMutation.isPending}
+                                                    className="btn-primary text-xs px-3 py-2 shrink-0"
+                                                >
+                                                    <Save className="w-3.5 h-3.5" /> Save
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Pending */}
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-bold flex items-center gap-1.5"><Users className="w-4 h-4 text-surface-400" /> Yet to submit ({data?.pending?.length || 0})</h4>
+                                {(data?.pending || []).length === 0 ? (
+                                    <p className="text-xs text-surface-400">Everyone enrolled has submitted. 🎉</p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {data.pending.map((p) => (
+                                            <span key={p.student} className="text-xs px-2.5 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
+                                                {p.student_name || p.student_email}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </motion.div>
+        </motion.div>
+    )
+}
+
+const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {
+    const { data: assignments = [], isLoading } = useQuery({
+        queryKey: ['cb-assignments', topic.id],
+        queryFn: () => svc.getAssignments(topic.id),
+    })
+    const [viewing, setViewing] = useState(null)
+
+    if (isLoading) {
+        return <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+    }
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Assignments</h4>
+                <button
+                    onClick={() => openModal('assignment', null, { topicId: topic.id, subjectId })}
+                    className="btn-primary text-xs px-3 py-1.5"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Add assignment
+                </button>
+            </div>
+            {assignments.length === 0 ? (
+                <EmptyHint icon={ClipboardList} text="No assignments yet." sub="Create a timed or timeless assignment for students to submit." />
+            ) : (
+                <div className="space-y-2">
+                    {assignments.map((a) => (
+                        <div key={a.id} className="group card p-3.5 flex items-center justify-between gap-3 hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                                    <ClipboardList className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate">{a.title}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{SUBMISSION_TYPE_LABEL[a.submission_type] || a.submission_type}</span>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusPill(a.status)}`}>{a.status}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 inline-flex items-center gap-1">
+                                            <Clock className="w-2.5 h-2.5" />
+                                            {a.is_timed && a.due_at ? `Due ${new Date(a.due_at).toLocaleDateString()}` : 'No deadline'}
+                                        </span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary-50 dark:bg-primary-900/20 text-primary-600">{a.submissions_count || 0} submitted</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setViewing(a)} className="btn-secondary text-xs px-2.5 py-1.5">
+                                    <Users className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Submissions</span>
+                                </button>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <RowActions
+                                        onEdit={() => openModal('assignment', a, { topicId: topic.id, subjectId })}
+                                        onDelete={() => askDelete('assignment', a, a.title)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <AnimatePresence>
+                {viewing && <SubmissionsDrawer assignment={viewing} onClose={() => setViewing(null)} />}
+            </AnimatePresence>
+        </div>
+    )
+}
+
 const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
     const [tab, setTab] = useState('content')
     return (
@@ -442,7 +640,7 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             </div>
 
             <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-fit my-4">
-                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }].map((t) => (
+                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }, { id: 'assignments', label: 'Assignments', icon: ClipboardList }].map((t) => (
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
@@ -453,9 +651,9 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
                 ))}
             </div>
 
-            {tab === 'content'
-                ? <ContentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />
-                : <QuizSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
+            {tab === 'content' && <ContentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
+            {tab === 'quizzes' && <QuizSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
+            {tab === 'assignments' && <AssignmentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
         </div>
     )
 }
@@ -491,6 +689,7 @@ const CourseManager = () => {
         if (type === 'topic') q.invalidateQueries({ queryKey: ['cb-topics', extra.chapterId] })
         if (type === 'content') q.invalidateQueries({ queryKey: ['cb-contents', extra.topicId] })
         if (type === 'quiz') q.invalidateQueries({ queryKey: ['cb-quizzes', extra.topicId] })
+        if (type === 'assignment') q.invalidateQueries({ queryKey: ['cb-assignments', extra.topicId] })
     }
 
     const saveMutation = useMutation({
@@ -501,6 +700,7 @@ const CourseManager = () => {
             if (type === 'topic') { withParents.subject = extra.subjectId; if (extra.chapterId) withParents.chapter = extra.chapterId }
             if (type === 'content') { withParents.topic = extra.topicId; withParents.subject = extra.subjectId }
             if (type === 'quiz') withParents.topic = extra.topicId
+            if (type === 'assignment') { withParents.topic = extra.topicId; withParents.subject = extra.subjectId; withParents.course = courseId }
             const map = {
                 exam: [svc.updateExam, svc.createExam],
                 subject: [svc.updateSubject, svc.createSubject],
@@ -508,6 +708,7 @@ const CourseManager = () => {
                 topic: [svc.updateTopic, svc.createTopic],
                 content: [svc.updateContent, svc.createContent],
                 quiz: [svc.updateQuiz, svc.createQuiz],
+                assignment: [svc.updateAssignment, svc.createAssignment],
             }
             const [update, create] = map[type]
             return instance ? update(instance.id, withParents) : create(withParents)
@@ -522,14 +723,14 @@ const CourseManager = () => {
 
     const deleteMutation = useMutation({
         mutationFn: ({ type, instance }) => {
-            const map = { subject: svc.deleteSubject, chapter: svc.deleteChapter, topic: svc.deleteTopic, content: svc.deleteContent, quiz: svc.deleteQuiz, question: svc.deleteQuestion }
+            const map = { subject: svc.deleteSubject, chapter: svc.deleteChapter, topic: svc.deleteTopic, content: svc.deleteContent, quiz: svc.deleteQuiz, question: svc.deleteQuestion, assignment: svc.deleteAssignment }
             return map[type](instance.id)
         },
         onSuccess: (_d, vars) => {
             toast.success('Deleted')
             // broad invalidation covering the affected level
             queryClient.invalidateQueries({ queryKey: ['cb-subjects', courseId] })
-            queryClient.invalidateQueries({ predicate: (query) => ['cb-chapters', 'cb-topics', 'cb-contents', 'cb-quizzes', 'cb-questions'].includes(query.queryKey[0]) })
+            queryClient.invalidateQueries({ predicate: (query) => ['cb-chapters', 'cb-topics', 'cb-contents', 'cb-quizzes', 'cb-questions', 'cb-assignments'].includes(query.queryKey[0]) })
             if (vars.type === 'topic' && sel.topicId === vars.instance.id) setSel({ subjectId: null, chapterId: null, topicId: null, topic: null })
             setDel(null)
         },

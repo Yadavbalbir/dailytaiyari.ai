@@ -3,11 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
+import { assignmentService } from '../services/assignmentService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, CheckCircle2, Clock,
   Bookmark, FileText, RefreshCw, BarChart3, Eye, Star, LayoutList,
-  Circle, ChevronRight, Trophy, ClipboardList
+  Circle, ChevronRight, Trophy, ClipboardList, Lock
 } from 'lucide-react'
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'reading', label: 'Reading', icon: BookOpen },
   { key: 'videos', label: 'Videos', icon: PlayCircle },
   { key: 'quizzes', label: 'Quizzes', icon: PenTool },
+  { key: 'assignments', label: 'Assignments', icon: ClipboardList },
 ]
 
 /**
@@ -30,6 +32,12 @@ const StudyTopicContent = () => {
     queryKey: ['studyChapterDetail', chapterId],
     queryFn: () => courseService.getStudyChapterDetail(chapterId),
     enabled: !!chapterId,
+  })
+
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['topicAssignments', topicId],
+    queryFn: () => assignmentService.getByTopic(topicId),
+    enabled: !!topicId,
   })
 
   if (isLoading) return <Loading fullScreen />
@@ -120,10 +128,11 @@ const StudyTopicContent = () => {
       <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon
-          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length
+          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length + assignments.length
             : tab.key === 'reading' ? reading.length
             : tab.key === 'videos' ? videos.length
             : tab.key === 'quizzes' ? quizzes.length
+            : tab.key === 'assignments' ? assignments.length
             : 0
           return (
             <button
@@ -154,10 +163,11 @@ const StudyTopicContent = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} navigate={navigate} />}
+          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} navigate={navigate} />}
           {activeTab === 'reading' && <ReadingTab items={reading} navigate={navigate} />}
           {activeTab === 'videos' && <VideosTab items={videos} navigate={navigate} />}
           {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} />}
+          {activeTab === 'assignments' && <AssignmentsTab items={assignments} navigate={navigate} />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -202,7 +212,19 @@ const StatusPill = ({ tone, icon: Icon, label }) => {
   )
 }
 
-const AllTab = ({ reading, videos, quizzes, navigate }) => {
+const assignmentStatus = (a) => {
+  const sub = a.my_submission
+  if (sub && sub.status === 'graded') {
+    const marks = sub.marks != null ? `${sub.marks}${a.max_marks ? `/${a.max_marks}` : ''}` : 'Graded'
+    return { tone: 'score', icon: Trophy, label: marks }
+  }
+  if (sub) return { tone: 'progress', icon: CheckCircle2, label: 'Submitted' }
+  if (!a.is_open) return { tone: 'idle', icon: Lock, label: 'Closed' }
+  if (a.is_timed && a.due_at) return { tone: 'idle', icon: Clock, label: 'Due ' + new Date(a.due_at).toLocaleDateString() }
+  return { tone: 'idle', icon: Circle, label: 'Not submitted' }
+}
+
+const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
   // Reading + videos share a real `order`; interleave them, quizzes go last.
   const materials = [...reading, ...videos]
     .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
@@ -210,6 +232,7 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
   const rows = [
     ...materials,
     ...quizzes.map(q => ({ ...q, _kind: 'quiz' })),
+    ...assignments.map(a => ({ ...a, _kind: 'assignment' })),
   ]
 
   if (rows.length === 0) {
@@ -221,10 +244,12 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
       {rows.map((item, idx) => {
         const isQuiz = item._kind === 'quiz'
         const isVideo = item._kind === 'video'
+        const isAssignment = item._kind === 'assignment'
 
         let cfg
         if (isQuiz) cfg = { icon: PenTool, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'Quiz' }
         else if (isVideo) cfg = { icon: PlayCircle, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Video' }
+        else if (isAssignment) cfg = { icon: ClipboardList, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30', label: 'Assignment' }
         else cfg = readingCfg(item)
         const Icon = cfg.icon
 
@@ -234,6 +259,9 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
           status = item.attempts_count > 0
             ? <StatusPill tone="score" icon={Trophy} label={`Best ${Math.round(item.best_score)}%`} />
             : <StatusPill tone="idle" icon={Circle} label="Not attempted" />
+        } else if (isAssignment) {
+          const s = assignmentStatus(item)
+          status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
         } else if (item.is_completed) {
           status = <StatusPill tone="success" icon={CheckCircle2} label={isVideo ? 'Watched' : 'Completed'} />
         } else if (isVideo && item.progress_percentage > 0) {
@@ -251,12 +279,16 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
         } else if (isVideo) {
           if (item.video_duration_minutes) meta.push(`${item.video_duration_minutes} min`)
           meta.push(`${item.views_count || 0} views`)
+        } else if (isAssignment) {
+          meta.push(item.is_timed ? 'Timed' : 'No deadline')
+          if (item.max_marks) meta.push(`${item.max_marks} marks`)
         } else {
           if (item.estimated_time_minutes) meta.push(`${item.estimated_time_minutes} min read`)
         }
 
         const onClick = () => {
           if (isQuiz) navigate(`/quiz/${item.id}`)
+          else if (isAssignment) navigate(`/assignment/${item.id}`)
           else navigate(`/content/${item.id}`)
         }
 
@@ -466,6 +498,59 @@ const QuizzesTab = ({ items, navigate }) => {
                     Review
                   </button>
                 )}
+              </div>
+            }
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+const AssignmentsTab = ({ items, navigate }) => {
+  if (items.length === 0) {
+    return <EmptyState icon={ClipboardList} message="No assignments have been added yet" />
+  }
+  return (
+    <div className={TILE_GRID}>
+      {items.map((a) => {
+        const s = assignmentStatus(a)
+        const graded = a.my_submission?.status === 'graded'
+        const submitted = !!a.my_submission
+        return (
+          <Tile
+            key={a.id}
+            icon={ClipboardList}
+            iconColor={submitted
+              ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30'
+              : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30'}
+            label="Assignment"
+            title={a.title}
+            meta={a.is_timed
+              ? <><Clock size={10} /> {a.due_at ? new Date(a.due_at).toLocaleDateString() : 'Timed'}</>
+              : <>No deadline</>}
+            completed={submitted}
+            badge={graded
+              ? (
+                <span className="flex items-center gap-0.5 text-[11px] font-bold text-warning-600">
+                  <Star size={12} className="text-warning-500 fill-warning-500" />
+                  {a.my_submission.marks != null ? a.my_submission.marks : ''}{a.max_marks ? `/${a.max_marks}` : ''}
+                </span>
+              )
+              : (!a.is_open && !submitted && (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-surface-400">
+                  <Lock size={11} /> Closed
+                </span>
+              ))}
+            onClick={() => navigate(`/assignment/${a.id}`)}
+            action={
+              <div className="mt-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/assignment/${a.id}`) }}
+                  className={`w-full text-xs py-1.5 ${submitted || !a.is_open ? 'btn-outline' : 'btn-primary'}`}
+                >
+                  {graded ? 'View feedback' : submitted ? 'View submission' : a.is_open ? 'Start' : 'View'}
+                </button>
               </div>
             }
           />
