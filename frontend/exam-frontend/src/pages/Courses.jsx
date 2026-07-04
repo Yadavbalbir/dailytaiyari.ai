@@ -89,8 +89,7 @@ const Courses = () => {
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
-                      style={{ backgroundColor: course.color || '#f97316' }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 bg-gradient-to-br from-primary-400 to-primary-600"
                     >
                       <GraduationCap size={20} />
                     </span>
@@ -122,7 +121,6 @@ const Courses = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {available.map((course, index) => {
             const status = statusById[course.id]
-            const color = course.color || '#f97316'
             const statusBadge =
               status === 'approved' ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-success-500/95 text-white shadow-sm">
@@ -145,11 +143,6 @@ const Courses = () => {
 
                 <div className="p-4 sm:p-5 flex flex-col flex-1">
                   <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
-                  {course.code && (
-                    <span className="inline-flex self-start items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
-                      {course.code}
-                    </span>
-                  )}
                   {course.description && (
                     <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
                   )}
@@ -160,7 +153,6 @@ const Courses = () => {
                         type="button"
                         onClick={() => navigate(`/study/course/${course.id}`)}
                         className="btn-primary w-full group/btn"
-                        style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}` }}
                       >
                         Enter course
                         <ArrowRight size={16} className="transition-transform group-hover/btn:translate-x-0.5" />

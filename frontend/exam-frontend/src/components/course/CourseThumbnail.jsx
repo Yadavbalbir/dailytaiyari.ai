@@ -15,7 +15,6 @@ const TYPE_LABELS = {
  */
 const CourseThumbnail = ({ course, statusBadge = null }) => {
   const [imgOk, setImgOk] = useState(true)
-  const color = course.color || '#f97316'
   const hasImage = !!course.thumbnail && imgOk
   const typeLabel = TYPE_LABELS[course.course_type] || null
 
@@ -32,17 +31,17 @@ const CourseThumbnail = ({ course, statusBadge = null }) => {
       ) : (
         <div
           className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
-          style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}cc 55%, ${color}99 100%)` }}
+          style={{ background: 'linear-gradient(135deg, #fdba74 0%, #f97316 45%, #ea580c 100%)' }}
         >
           {/* soft decorative rings */}
-          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/10" />
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/15" />
           <div className="absolute -bottom-10 -left-6 w-28 h-28 rounded-full bg-black/10" />
-          <span className="relative font-display font-bold text-white/95 text-5xl sm:text-6xl drop-shadow-sm select-none">
+          <span className="relative font-display font-bold text-white text-5xl sm:text-6xl drop-shadow-sm select-none">
             {course.name.charAt(0).toUpperCase()}
           </span>
           <GraduationCap
             size={40}
-            className="absolute bottom-3 right-3 text-white/25"
+            className="absolute bottom-3 right-3 text-white/30"
             strokeWidth={1.5}
           />
         </div>

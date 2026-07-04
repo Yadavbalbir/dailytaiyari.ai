@@ -7,7 +7,8 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
-  ChevronRight, GraduationCap, ArrowLeft, Settings2
+  ChevronRight, GraduationCap, ArrowLeft, Settings2,
+  PlayCircle, PenTool, ClipboardList
 } from 'lucide-react'
 
 const iconMap = {
@@ -128,8 +129,33 @@ const StudyCourse = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mt-3 text-xs text-surface-400">
+                <div className="flex items-center justify-between mt-3 text-xs text-surface-400">
                   <span>{subject.completed_content}/{subject.total_content} completed</span>
+                  {subject.total_content > subject.completed_content && (
+                    <span className="text-surface-400">
+                      {subject.total_content - subject.completed_content} left
+                    </span>
+                  )}
+                </div>
+
+                {/* Content breakdown */}
+                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-surface-100 dark:border-surface-700 text-xs text-surface-500">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen size={13} className="text-blue-500" />
+                    {(subject.reading?.completed ?? 0)}/{(subject.reading?.total ?? 0)} read
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <PlayCircle size={13} className="text-red-500" />
+                    {(subject.videos?.completed ?? 0)}/{(subject.videos?.total ?? 0)} watched
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <PenTool size={13} className="text-green-500" />
+                    {(subject.quizzes?.attempted ?? 0)}/{(subject.quizzes?.total ?? 0)} quizzes
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <ClipboardList size={13} className="text-purple-500" />
+                    {(subject.assignments?.completed ?? 0)}/{(subject.assignments?.total ?? 0)} tasks
+                  </span>
                 </div>
               </motion.div>
             )

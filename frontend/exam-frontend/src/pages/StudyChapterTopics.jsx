@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
-  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock,
+  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock, ClipboardList,
 } from 'lucide-react'
 
 /**
@@ -72,12 +72,13 @@ const StudyChapterTopics = () => {
         ) : (
           <div className="space-y-2">
             {topics.map((item, index) => {
-              const { topic, reading = [], videos = [], quizzes = [] } = item
+              const { topic, reading = [], videos = [], quizzes = [], assignments = [] } = item
               const readingDone = reading.filter(r => r.is_completed).length
               const videosDone = videos.filter(v => v.is_completed).length
               const quizzesAttempted = quizzes.filter(q => q.attempts_count > 0).length
-              const total = reading.length + videos.length + quizzes.length
-              const completed = readingDone + videosDone + quizzesAttempted
+              const assignmentsDone = assignments.filter(a => a.is_completed).length
+              const total = reading.length + videos.length + quizzes.length + assignments.length
+              const completed = readingDone + videosDone + quizzesAttempted + assignmentsDone
               const progress = total > 0 ? Math.round((completed / total) * 100) : 0
 
               return (
@@ -94,7 +95,7 @@ const StudyChapterTopics = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">{topic.name}</h3>
-                    <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-surface-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-surface-500">
                       <span className="flex items-center gap-1">
                         <BookOpen size={12} />
                         {readingDone}/{reading.length} read
@@ -106,6 +107,10 @@ const StudyChapterTopics = () => {
                       <span className="flex items-center gap-1">
                         <PenTool size={12} />
                         {quizzesAttempted}/{quizzes.length} quizzes
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <ClipboardList size={12} />
+                        {assignmentsDone}/{assignments.length} assignments
                       </span>
                     </div>
                   </div>
