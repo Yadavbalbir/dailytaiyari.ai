@@ -6,10 +6,12 @@ import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, CheckCircle2, Clock,
-  Bookmark, FileText, RefreshCw, BarChart3, Eye, Star
+  Bookmark, FileText, RefreshCw, BarChart3, Eye, Star, LayoutList,
+  Circle, ChevronRight, Trophy
 } from 'lucide-react'
 
 const TABS = [
+  { key: 'all', label: 'All', icon: LayoutList },
   { key: 'reading', label: 'Reading', icon: BookOpen },
   { key: 'videos', label: 'Videos', icon: PlayCircle },
   { key: 'quizzes', label: 'Quizzes', icon: PenTool },
@@ -22,7 +24,7 @@ const TABS = [
 const StudyTopicContent = () => {
   const { chapterId, topicId } = useParams()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('reading')
+  const [activeTab, setActiveTab] = useState('all')
 
   const { data, isLoading } = useQuery({
     queryKey: ['studyChapterDetail', chapterId],
@@ -118,7 +120,8 @@ const StudyTopicContent = () => {
       <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon
-          const count = tab.key === 'reading' ? reading.length
+          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length
+            : tab.key === 'reading' ? reading.length
             : tab.key === 'videos' ? videos.length
             : tab.key === 'quizzes' ? quizzes.length
             : 0
@@ -151,6 +154,7 @@ const StudyTopicContent = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
+          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} navigate={navigate} />}
           {activeTab === 'reading' && <ReadingTab items={reading} navigate={navigate} />}
           {activeTab === 'videos' && <VideosTab items={videos} navigate={navigate} />}
           {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} />}
@@ -168,6 +172,122 @@ const EmptyState = ({ icon: Icon, message }) => (
     <p>{message}</p>
   </div>
 )
+
+// Shared type metadata for the unified list view
+const READ_TYPE = {
+  notes: { icon: FileText, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30', label: 'Notes' },
+  pdf: { icon: FileText, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'PDF' },
+  revision: { icon: RefreshCw, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30', label: 'Revision' },
+  formula: { icon: BarChart3, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', label: 'Formulas' },
+}
+
+const StatusPill = ({ tone, icon: Icon, label }) => {
+  const tones = {
+    success: 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300',
+    progress: 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
+    score: 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300',
+    idle: 'bg-surface-100 text-surface-500 dark:bg-surface-700 dark:text-surface-400',
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${tones[tone]}`}>
+      {Icon && <Icon size={12} />}
+      {label}
+    </span>
+  )
+}
+
+const AllTab = ({ reading, videos, quizzes, navigate }) => {
+  // Reading + videos share a real `order`; interleave them, quizzes go last.
+  const materials = [...reading, ...videos]
+    .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const rows = [
+    ...materials,
+    ...quizzes.map(q => ({ ...q, _kind: 'quiz' })),
+  ]
+
+  if (rows.length === 0) {
+    return <EmptyState icon={LayoutList} message="No content has been added to this topic yet" />
+  }
+
+  return (
+    <div className="card divide-y divide-surface-100 dark:divide-surface-700 overflow-hidden">
+      {rows.map((item, idx) => {
+        const isQuiz = item._kind === 'quiz'
+        const isVideo = item._kind === 'video'
+
+        let cfg
+        if (isQuiz) cfg = { icon: PenTool, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'Quiz' }
+        else if (isVideo) cfg = { icon: PlayCircle, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Video' }
+        else cfg = READ_TYPE[item.content_type] || READ_TYPE.notes
+        const Icon = cfg.icon
+
+        // Status
+        let status
+        if (isQuiz) {
+          status = item.attempts_count > 0
+            ? <StatusPill tone="score" icon={Trophy} label={`Best ${Math.round(item.best_score)}%`} />
+            : <StatusPill tone="idle" icon={Circle} label="Not attempted" />
+        } else if (item.is_completed) {
+          status = <StatusPill tone="success" icon={CheckCircle2} label={isVideo ? 'Watched' : 'Completed'} />
+        } else if (isVideo && item.progress_percentage > 0) {
+          status = <StatusPill tone="progress" icon={PlayCircle} label={`${Math.round(item.progress_percentage)}%`} />
+        } else {
+          status = <StatusPill tone="idle" icon={Circle} label="Not started" />
+        }
+
+        // Meta line
+        const meta = []
+        if (isQuiz) {
+          meta.push(`${item.total_questions} Qs`)
+          if (item.duration_minutes) meta.push(`${item.duration_minutes}m`)
+          if (item.attempts_count > 0) meta.push(`${item.attempts_count} attempt${item.attempts_count > 1 ? 's' : ''}`)
+        } else if (isVideo) {
+          if (item.video_duration_minutes) meta.push(`${item.video_duration_minutes} min`)
+          meta.push(`${item.views_count || 0} views`)
+        } else {
+          if (item.estimated_time_minutes) meta.push(`${item.estimated_time_minutes} min read`)
+        }
+
+        const onClick = () => {
+          if (isQuiz) navigate(`/quiz/${item.id}`)
+          else navigate(`/content/${item.id}`)
+        }
+
+        return (
+          <motion.button
+            key={`${item._kind}-${item.id}`}
+            onClick={onClick}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: idx * 0.02 }}
+            className="w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 text-left hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors group"
+          >
+            <span className="hidden sm:flex w-6 shrink-0 justify-center text-xs font-medium text-surface-400 tabular-nums">
+              {idx + 1}
+            </span>
+            <span className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${cfg.color}`}>
+              <Icon size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium text-sm truncate">{item.title}</h4>
+                {item.is_bookmarked && <Bookmark size={13} className="shrink-0 text-warning-500 fill-warning-500" />}
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-[11px] text-surface-400">
+                <span className="font-medium text-surface-500">{cfg.label}</span>
+                {meta.length > 0 && <span className="text-surface-300">•</span>}
+                <span className="truncate flex items-center gap-1"><Clock size={10} /> {meta.join(' · ')}</span>
+              </div>
+            </div>
+            {status}
+            <ChevronRight size={18} className="shrink-0 text-surface-300 group-hover:text-primary-500 transition-colors" />
+          </motion.button>
+        )
+      })}
+    </div>
+  )
+}
 
 const ReadingTab = ({ items, navigate }) => {
   if (items.length === 0) {
