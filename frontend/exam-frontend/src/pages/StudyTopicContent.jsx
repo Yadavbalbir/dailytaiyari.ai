@@ -75,6 +75,15 @@ const StudyTopicContent = () => {
   const readingDone = reading.filter(r => r.is_completed).length
   const videosDone = videos.filter(v => v.is_completed).length
   const quizzesAttempted = quizzes.filter(q => q.attempts_count > 0).length
+  const codingDone = codingProblems.filter(p => p.my_best?.all_passed).length
+  const assignmentsDone = assignments.filter(a => a.is_completed).length
+  const headerStats = [
+    { icon: BookOpen, color: 'text-blue-500', done: readingDone, total: reading.length, label: 'read' },
+    { icon: PlayCircle, color: 'text-red-500', done: videosDone, total: videos.length, label: 'watched' },
+    { icon: PenTool, color: 'text-green-500', done: quizzesAttempted, total: quizzes.length, label: 'quizzes' },
+    { icon: Code2, color: 'text-primary-500', done: codingDone, total: codingProblems.length, label: 'coding' },
+    { icon: ClipboardList, color: 'text-purple-500', done: assignmentsDone, total: assignments.length, label: 'assignments' },
+  ].filter(s => s.total > 0)
 
   return (
     <div className="space-y-6">
@@ -111,18 +120,15 @@ const StudyTopicContent = () => {
           Notes and quizzes for this topic
         </p>
         <div className="flex flex-wrap items-center gap-5 mt-4 text-sm text-surface-500">
-          <span className="flex items-center gap-1.5">
-            <BookOpen size={16} className="text-blue-500" />
-            {readingDone}/{reading.length} read
-          </span>
-          <span className="flex items-center gap-1.5">
-            <PlayCircle size={16} className="text-red-500" />
-            {videosDone}/{videos.length} watched
-          </span>
-          <span className="flex items-center gap-1.5">
-            <PenTool size={16} className="text-green-500" />
-            {quizzesAttempted}/{quizzes.length} quizzes
-          </span>
+          {headerStats.map((s, i) => {
+            const Icon = s.icon
+            return (
+              <span key={i} className="flex items-center gap-1.5">
+                <Icon size={16} className={s.color} />
+                {s.done}/{s.total} {s.label}
+              </span>
+            )
+          })}
           {topic.estimated_study_hours > 0 && (
             <span className="flex items-center gap-1.5">
               <Clock size={16} className="text-warning-500" />
@@ -143,6 +149,8 @@ const StudyTopicContent = () => {
             : tab.key === 'assignments' ? assignments.length
             : tab.key === 'coding' ? codingProblems.length
             : 0
+          // Hide categories that have no content (keep "All" always visible).
+          if (tab.key !== 'all' && count === 0) return null
           return (
             <button
               key={tab.key}

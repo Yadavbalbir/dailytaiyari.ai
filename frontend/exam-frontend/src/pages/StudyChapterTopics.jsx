@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
-  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock, ClipboardList,
+  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock, ClipboardList, Code2,
 } from 'lucide-react'
 
 /**
@@ -72,14 +72,22 @@ const StudyChapterTopics = () => {
         ) : (
           <div className="space-y-2">
             {topics.map((item, index) => {
-              const { topic, reading = [], videos = [], quizzes = [], assignments = [] } = item
+              const { topic, reading = [], videos = [], quizzes = [], assignments = [], coding = [] } = item
               const readingDone = reading.filter(r => r.is_completed).length
               const videosDone = videos.filter(v => v.is_completed).length
               const quizzesAttempted = quizzes.filter(q => q.attempts_count > 0).length
               const assignmentsDone = assignments.filter(a => a.is_completed).length
-              const total = reading.length + videos.length + quizzes.length + assignments.length
-              const completed = readingDone + videosDone + quizzesAttempted + assignmentsDone
+              const codingDone = coding.filter(c => c.is_completed).length
+              const total = reading.length + videos.length + quizzes.length + assignments.length + coding.length
+              const completed = readingDone + videosDone + quizzesAttempted + assignmentsDone + codingDone
               const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+              const stats = [
+                { icon: BookOpen, done: readingDone, total: reading.length, label: 'read' },
+                { icon: PlayCircle, done: videosDone, total: videos.length, label: 'watched' },
+                { icon: PenTool, done: quizzesAttempted, total: quizzes.length, label: 'quizzes' },
+                { icon: Code2, done: codingDone, total: coding.length, label: 'coding' },
+                { icon: ClipboardList, done: assignmentsDone, total: assignments.length, label: 'assignments' },
+              ].filter(s => s.total > 0)
 
               return (
                 <motion.div
@@ -96,22 +104,15 @@ const StudyChapterTopics = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">{topic.name}</h3>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-surface-500">
-                      <span className="flex items-center gap-1">
-                        <BookOpen size={12} />
-                        {readingDone}/{reading.length} read
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <PlayCircle size={12} />
-                        {videosDone}/{videos.length} watched
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <PenTool size={12} />
-                        {quizzesAttempted}/{quizzes.length} quizzes
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ClipboardList size={12} />
-                        {assignmentsDone}/{assignments.length} assignments
-                      </span>
+                      {stats.map((s, i) => {
+                        const Icon = s.icon
+                        return (
+                          <span key={i} className="flex items-center gap-1">
+                            <Icon size={12} />
+                            {s.done}/{s.total} {s.label}
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
