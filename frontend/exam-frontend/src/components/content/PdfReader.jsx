@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
-import { Loader2, AlertCircle, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Lock } from 'lucide-react'
+import { Loader2, AlertCircle, ZoomIn, ZoomOut, ChevronUp, ChevronDown, Lock, Maximize2, Minimize2 } from 'lucide-react'
 import api from '../../services/api'
 
 // Bundle the pdf.js worker with Vite (no external CDN dependency).
@@ -28,6 +28,7 @@ const PdfReader = ({ contentId }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [scale, setScale] = useState(1)
   const [width, setWidth] = useState(0)
+  const [fullscreen, setFullscreen] = useState(false)
 
   // Fetch the PDF through the authenticated API (handles auth + token refresh).
   useEffect(() => {
@@ -78,6 +79,21 @@ const PdfReader = ({ contentId }) => {
   const file = useMemo(() => (data ? { data } : null), [data])
   const pageWidth = width ? Math.max(280, Math.floor(width * scale) - 24) : undefined
 
+  // Exit fullscreen on Escape and lock body scroll while expanded.
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [fullscreen])
+
   const goToPage = (n) => {
     const node = pageRefs.current[n - 1]
     if (node && containerRef.current) {
@@ -95,7 +111,7 @@ const PdfReader = ({ contentId }) => {
   }
 
   return (
-    <div className="card overflow-hidden mb-6">
+    <div className={fullscreen ? 'fixed inset-0 z-[70] flex flex-col bg-white dark:bg-surface-900' : 'card overflow-hidden mb-6'}>
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-surface-200 dark:border-surface-800 bg-surface-50 dark:bg-surface-900/50">
         <div className="flex items-center gap-1.5 text-xs font-medium text-surface-500">
@@ -140,6 +156,13 @@ const PdfReader = ({ contentId }) => {
           >
             <ZoomIn size={16} />
           </button>
+          <button
+            onClick={() => setFullscreen((f) => !f)}
+            className="btn-icon ml-1"
+            title={fullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+          >
+            {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
         </div>
       </div>
 
@@ -147,7 +170,7 @@ const PdfReader = ({ contentId }) => {
       <div
         ref={containerRef}
         onContextMenu={(e) => e.preventDefault()}
-        className="max-h-[75vh] overflow-y-auto bg-surface-100 dark:bg-surface-950 px-3 py-4 flex flex-col items-center select-none"
+        className={`overflow-y-auto bg-surface-100 dark:bg-surface-950 px-3 py-4 flex flex-col items-center select-none ${fullscreen ? 'flex-1' : 'max-h-[75vh]'}`}
       >
         {!file ? (
           <div className="flex flex-col items-center gap-2 py-16 text-surface-400">
