@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'chatbot.apps.ChatbotConfig',
     'community.apps.CommunityConfig',
     'assignments.apps.AssignmentsConfig',
+    'coding.apps.CodingConfig',
 ]
 
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]
@@ -267,6 +268,8 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour',
         'quiz_submit': '60/hour',  # Rate limit quiz submissions
+        'code_run': '120/hour',  # Rate limit "run sample" code executions
+        'code_submit': '120/hour',  # Rate limit graded code submissions
     }
 }
 
@@ -302,6 +305,10 @@ CORS_ALLOW_HEADERS = [
 
 # OpenAI Configuration (for AI Chatbot)
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+
+# Code-execution engine (Piston) for coding problems.
+PISTON_URL = config('PISTON_URL', default='http://piston:2000')
+CODING_ENABLED = config('CODING_ENABLED', default=True, cast=bool)
 
 # Caching (Redis for production)
 CACHES = {

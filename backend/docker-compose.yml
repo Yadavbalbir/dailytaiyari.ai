@@ -31,6 +31,9 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Code-execution engine (Piston). Swappable: point elsewhere to move it off-box.
+      - PISTON_URL=${PISTON_URL:-http://piston:2000}
+      - CODING_ENABLED=${CODING_ENABLED:-True}
       # Storage backend selector: azure | s3 | local
       - STORAGE_BACKEND=${STORAGE_BACKEND:-}
       # Azure Blob Storage
@@ -47,6 +50,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Code-execution sandbox for coding questions. Runs untrusted student code.
+  # SECURITY: never publish ports (internal docker network only); reachable only
+  # from `web` at http://piston:2000. Requires privileged for Isolate sandbox;
+  # walled off with strict cpu/memory/pids caps so it cannot starve the app.
+  piston:
+    image: ghcr.io/engineer-man/piston
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - piston_data:/piston
+    # No `ports:` on purpose — do NOT expose to host/internet.
+    cpus: "1.0"
+    mem_limit: 1536m
+    mem_reservation: 256m
+    pids_limit: 1024
 
   nginx:
     image: nginx:1.25-alpine
@@ -65,3 +84,4 @@ volumes:
   postgres_data:
   static_volume:
   media_volume:
+  piston_data:
