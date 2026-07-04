@@ -7,7 +7,7 @@ import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, CheckCircle2, Clock,
   Bookmark, FileText, RefreshCw, BarChart3, Eye, Star, LayoutList,
-  Circle, ChevronRight, Trophy
+  Circle, ChevronRight, Trophy, ClipboardList
 } from 'lucide-react'
 
 const TABS = [
@@ -181,6 +181,12 @@ const READ_TYPE = {
   formula: { icon: BarChart3, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', label: 'Formulas' },
 }
 
+const PRACTICE_CFG = { icon: ClipboardList, color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30', label: 'Practice' }
+
+// Resolve the tile config for a reading item, accounting for practice-question material.
+const readingCfg = (item) =>
+  item.material_kind === 'practice' ? PRACTICE_CFG : (READ_TYPE[item.content_type] || READ_TYPE.notes)
+
 const StatusPill = ({ tone, icon: Icon, label }) => {
   const tones = {
     success: 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300',
@@ -219,7 +225,7 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
         let cfg
         if (isQuiz) cfg = { icon: PenTool, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'Quiz' }
         else if (isVideo) cfg = { icon: PlayCircle, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Video' }
-        else cfg = READ_TYPE[item.content_type] || READ_TYPE.notes
+        else cfg = readingCfg(item)
         const Icon = cfg.icon
 
         // Status
@@ -327,35 +333,60 @@ const Tile = ({ icon: Icon, iconColor, label, title, meta, onClick, completed, b
   </motion.div>
 )
 
-const READING_CFG = {
-  notes: { icon: FileText, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30', label: 'Notes' },
-  pdf: { icon: FileText, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'PDF' },
-  revision: { icon: RefreshCw, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30', label: 'Revision' },
-  formula: { icon: BarChart3, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', label: 'Formulas' },
+const ReadingCard = ({ item, navigate }) => {
+  const cfg = readingCfg(item)
+  return (
+    <Tile
+      icon={cfg.icon}
+      iconColor={cfg.color}
+      label={cfg.label}
+      title={item.title}
+      meta={<><Clock size={10} /> {item.estimated_time_minutes}m</>}
+      completed={item.is_completed}
+      bookmarked={item.is_bookmarked}
+      onClick={() => navigate(`/content/${item.id}`)}
+    />
+  )
+}
+
+const ReadingSection = ({ icon: Icon, title, items, navigate }) => {
+  if (items.length === 0) return null
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={16} className="text-surface-400" />
+        <h3 className="text-sm font-semibold text-surface-600 dark:text-surface-300">{title}</h3>
+        <span className="text-xs bg-surface-100 dark:bg-surface-700 text-surface-500 px-1.5 py-0.5 rounded-full">
+          {items.length}
+        </span>
+      </div>
+      <div className={TILE_GRID}>
+        {items.map((item) => <ReadingCard key={item.id} item={item} navigate={navigate} />)}
+      </div>
+    </div>
+  )
 }
 
 const ReadingTab = ({ items, navigate }) => {
   if (items.length === 0) {
     return <EmptyState icon={BookOpen} message="No reading materials available yet" />
   }
+  const study = items.filter((i) => i.material_kind !== 'practice')
+  const practice = items.filter((i) => i.material_kind === 'practice')
+
+  // If everything is one kind, don't show redundant section headers.
+  if (study.length === 0 || practice.length === 0) {
+    return (
+      <div className={TILE_GRID}>
+        {items.map((item) => <ReadingCard key={item.id} item={item} navigate={navigate} />)}
+      </div>
+    )
+  }
+
   return (
-    <div className={TILE_GRID}>
-      {items.map((item) => {
-        const cfg = READING_CFG[item.content_type] || READING_CFG.notes
-        return (
-          <Tile
-            key={item.id}
-            icon={cfg.icon}
-            iconColor={cfg.color}
-            label={cfg.label}
-            title={item.title}
-            meta={<><Clock size={10} /> {item.estimated_time_minutes}m</>}
-            completed={item.is_completed}
-            bookmarked={item.is_bookmarked}
-            onClick={() => navigate(`/content/${item.id}`)}
-          />
-        )
-      })}
+    <div className="space-y-6">
+      <ReadingSection icon={BookOpen} title="Notes & material" items={study} navigate={navigate} />
+      <ReadingSection icon={ClipboardList} title="Practice questions" items={practice} navigate={navigate} />
     </div>
   )
 }

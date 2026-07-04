@@ -19,7 +19,7 @@ class AdminContentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Content
         fields = [
-            'id', 'title', 'slug', 'description', 'content_type',
+            'id', 'title', 'slug', 'description', 'content_type', 'material_kind',
             'topic', 'topic_name', 'subject', 'subject_name', 'courses',
             'content_html', 'video_url', 'video_file', 'video_duration_minutes', 'pdf_file',
             'difficulty', 'status', 'is_free', 'is_premium',
