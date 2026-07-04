@@ -111,6 +111,19 @@ export const contentBuilderService = {
     (await api.patch(`/assignments/admin/submissions/${id}/`, data)).data,
   // Authenticated view-only stream of a student's submitted PDF (for PdfReader).
   submissionFileUrl: (id) => `/assignments/admin/submissions/${id}/file/`,
+
+  // ---- Coding problems ----
+  getCodingProblems: async (topicId) =>
+    list(await api.get('/coding/admin/problems/', { params: { topic: topicId, ...PAGE } })),
+  createCodingProblem: async (data) => (await api.post('/coding/admin/problems/', data)).data,
+  updateCodingProblem: async (id, data) => (await api.patch(`/coding/admin/problems/${id}/`, data)).data,
+  deleteCodingProblem: async (id) => api.delete(`/coding/admin/problems/${id}/`),
+  getCodingProblem: async (id) => (await api.get(`/coding/admin/problems/${id}/`)).data,
+  getCodingSubmissions: async (id) =>
+    (await api.get(`/coding/admin/problems/${id}/submissions/`)).data,
+  getCodingSubmission: async (id) =>
+    (await api.get(`/coding/admin/submissions/${id}/`)).data,
+  getCodingMeta: async () => (await api.get('/coding/meta/')).data,
 }
 
 export default contentBuilderService

@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import { assignmentService } from '../services/assignmentService'
+import { codingService } from '../services/codingService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, CheckCircle2, Clock,
   Bookmark, FileText, RefreshCw, BarChart3, Eye, Star, LayoutList,
-  Circle, ChevronRight, Trophy, ClipboardList, Lock
+  Circle, ChevronRight, Trophy, ClipboardList, Lock, Code2
 } from 'lucide-react'
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   { key: 'videos', label: 'Videos', icon: PlayCircle },
   { key: 'quizzes', label: 'Quizzes', icon: PenTool },
   { key: 'assignments', label: 'Assignments', icon: ClipboardList },
+  { key: 'coding', label: 'Coding', icon: Code2 },
 ]
 
 /**
@@ -37,6 +39,12 @@ const StudyTopicContent = () => {
   const { data: assignments = [] } = useQuery({
     queryKey: ['topicAssignments', topicId],
     queryFn: () => assignmentService.getByTopic(topicId),
+    enabled: !!topicId,
+  })
+
+  const { data: codingProblems = [] } = useQuery({
+    queryKey: ['topicCoding', topicId],
+    queryFn: () => codingService.getByTopic(topicId),
     enabled: !!topicId,
   })
 
@@ -128,11 +136,12 @@ const StudyTopicContent = () => {
       <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon
-          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length + assignments.length
+          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length + assignments.length + codingProblems.length
             : tab.key === 'reading' ? reading.length
             : tab.key === 'videos' ? videos.length
             : tab.key === 'quizzes' ? quizzes.length
             : tab.key === 'assignments' ? assignments.length
+            : tab.key === 'coding' ? codingProblems.length
             : 0
           return (
             <button
@@ -163,11 +172,12 @@ const StudyTopicContent = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} navigate={navigate} />}
+          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} coding={codingProblems} navigate={navigate} />}
           {activeTab === 'reading' && <ReadingTab items={reading} navigate={navigate} />}
           {activeTab === 'videos' && <VideosTab items={videos} navigate={navigate} />}
           {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} />}
           {activeTab === 'assignments' && <AssignmentsTab items={assignments} navigate={navigate} />}
+          {activeTab === 'coding' && <CodingTab items={codingProblems} navigate={navigate} />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -224,7 +234,14 @@ const assignmentStatus = (a) => {
   return { tone: 'idle', icon: Circle, label: 'Not submitted' }
 }
 
-const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
+const codingStatus = (p) => {
+  const b = p.my_best
+  if (b && b.all_passed) return { tone: 'score', icon: Trophy, label: 'Solved' }
+  if (b) return { tone: 'progress', icon: CheckCircle2, label: `${b.passed_count}/${b.total_count}` }
+  return { tone: 'idle', icon: Circle, label: 'Not attempted' }
+}
+
+const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navigate }) => {
   // Reading + videos share a real `order`; interleave them, quizzes go last.
   const materials = [...reading, ...videos]
     .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
@@ -233,6 +250,7 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
     ...materials,
     ...quizzes.map(q => ({ ...q, _kind: 'quiz' })),
     ...assignments.map(a => ({ ...a, _kind: 'assignment' })),
+    ...coding.map(c => ({ ...c, _kind: 'coding' })),
   ]
 
   if (rows.length === 0) {
@@ -245,11 +263,13 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
         const isQuiz = item._kind === 'quiz'
         const isVideo = item._kind === 'video'
         const isAssignment = item._kind === 'assignment'
+        const isCoding = item._kind === 'coding'
 
         let cfg
         if (isQuiz) cfg = { icon: PenTool, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'Quiz' }
         else if (isVideo) cfg = { icon: PlayCircle, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Video' }
         else if (isAssignment) cfg = { icon: ClipboardList, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30', label: 'Assignment' }
+        else if (isCoding) cfg = { icon: Code2, color: 'bg-primary-50 text-primary-600 dark:bg-primary-900/30', label: 'Coding' }
         else cfg = readingCfg(item)
         const Icon = cfg.icon
 
@@ -261,6 +281,9 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
             : <StatusPill tone="idle" icon={Circle} label="Not attempted" />
         } else if (isAssignment) {
           const s = assignmentStatus(item)
+          status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
+        } else if (isCoding) {
+          const s = codingStatus(item)
           status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
         } else if (item.is_completed) {
           status = <StatusPill tone="success" icon={CheckCircle2} label={isVideo ? 'Watched' : 'Completed'} />
@@ -282,6 +305,9 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
         } else if (isAssignment) {
           meta.push(item.is_timed ? 'Timed' : 'No deadline')
           if (item.max_marks) meta.push(`${item.max_marks} marks`)
+        } else if (isCoding) {
+          if (item.difficulty) meta.push(item.difficulty)
+          if (item.max_marks) meta.push(`${item.max_marks} marks`)
         } else {
           if (item.estimated_time_minutes) meta.push(`${item.estimated_time_minutes} min read`)
         }
@@ -289,6 +315,7 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], navigate }) => {
         const onClick = () => {
           if (isQuiz) navigate(`/quiz/${item.id}`)
           else if (isAssignment) navigate(`/assignment/${item.id}`)
+          else if (isCoding) navigate(`/coding/${item.id}`)
           else navigate(`/content/${item.id}`)
         }
 
@@ -550,6 +577,51 @@ const AssignmentsTab = ({ items, navigate }) => {
                   className={`w-full text-xs py-1.5 ${submitted || !a.is_open ? 'btn-outline' : 'btn-primary'}`}
                 >
                   {graded ? 'View feedback' : submitted ? 'View submission' : a.is_open ? 'Start' : 'View'}
+                </button>
+              </div>
+            }
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+const CodingTab = ({ items, navigate }) => {
+  if (items.length === 0) {
+    return <EmptyState icon={Code2} message="No coding problems have been added yet" />
+  }
+  return (
+    <div className={TILE_GRID}>
+      {items.map((p) => {
+        const s = codingStatus(p)
+        const solved = p.my_best?.all_passed
+        const attempted = !!p.my_best
+        return (
+          <Tile
+            key={p.id}
+            icon={Code2}
+            iconColor={attempted
+              ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30'
+              : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30'}
+            label="Coding"
+            title={p.title}
+            meta={<>{p.difficulty || 'coding'}{p.max_marks ? ` · ${p.max_marks} marks` : ''}</>}
+            completed={solved}
+            badge={attempted && (
+              <span className={`flex items-center gap-0.5 text-[11px] font-bold ${solved ? 'text-success-600' : 'text-warning-600'}`}>
+                {solved ? <CheckCircle2 size={12} /> : <Star size={12} className="text-warning-500" />}
+                {p.my_best.passed_count}/{p.my_best.total_count}
+              </span>
+            )}
+            onClick={() => navigate(`/coding/${p.id}`)}
+            action={
+              <div className="mt-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/coding/${p.id}`) }}
+                  className={`w-full text-xs py-1.5 ${attempted ? 'btn-outline' : 'btn-primary'}`}
+                >
+                  {solved ? 'Review' : attempted ? 'Continue' : 'Solve'}
                 </button>
               </div>
             }
