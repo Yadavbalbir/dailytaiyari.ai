@@ -5,7 +5,7 @@ import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ChevronRight, ArrowLeft,
-  CheckCircle2, Trophy, ClipboardList
+  CheckCircle2, Trophy, ClipboardList, Code2
 } from 'lucide-react'
 
 const StudyChapters = () => {
@@ -118,24 +118,23 @@ const StudyChapters = () => {
                         </p>
                       )}
 
-                      {/* Stats row */}
+                      {/* Stats row — only categories that have content */}
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-surface-400">
-                        <span className="flex items-center gap-1">
-                          <BookOpen size={12} />
-                          {chapter.reading.completed}/{chapter.reading.total} read
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <PlayCircle size={12} />
-                          {chapter.videos.completed}/{chapter.videos.total} watched
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <PenTool size={12} />
-                          {chapter.quizzes.attempted}/{chapter.quizzes.total} quizzes
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <ClipboardList size={12} />
-                          {(chapter.assignments?.completed ?? 0)}/{(chapter.assignments?.total ?? 0)} assignments
-                        </span>
+                        {[
+                          { icon: BookOpen, done: chapter.reading?.completed ?? 0, total: chapter.reading?.total ?? 0, label: 'read' },
+                          { icon: PlayCircle, done: chapter.videos?.completed ?? 0, total: chapter.videos?.total ?? 0, label: 'watched' },
+                          { icon: PenTool, done: chapter.quizzes?.attempted ?? 0, total: chapter.quizzes?.total ?? 0, label: 'quizzes' },
+                          { icon: Code2, done: chapter.coding?.completed ?? 0, total: chapter.coding?.total ?? 0, label: 'coding' },
+                          { icon: ClipboardList, done: chapter.assignments?.completed ?? 0, total: chapter.assignments?.total ?? 0, label: 'assignments' },
+                        ].filter((s) => s.total > 0).map((s, i) => {
+                          const Icon = s.icon
+                          return (
+                            <span key={i} className="flex items-center gap-1">
+                              <Icon size={12} />
+                              {s.done}/{s.total} {s.label}
+                            </span>
+                          )
+                        })}
                       </div>
 
                       {/* Progress bar */}

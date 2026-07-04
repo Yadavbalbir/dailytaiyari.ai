@@ -260,6 +260,7 @@ class StudySubjectsView(APIView):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
         from assignments.models import Assignment, AssignmentSubmission
+        from coding.models import CodingProblem, CodingSubmission
 
         student = request.user.profile
         course_id = request.query_params.get('course_id')
@@ -332,11 +333,22 @@ class StudySubjectsView(APIView):
                 assignment__status='published',
             ).values('assignment').distinct().count()
 
+            coding_total = CodingProblem.objects.filter(
+                topic_id__in=subj_topic_ids, status='published',
+            ).count()
+            coding_done = CodingSubmission.objects.filter(
+                student=student,
+                problem__topic_id__in=subj_topic_ids,
+                problem__status='published',
+                total_count__gt=0,
+                passed_count=F('total_count'),
+            ).values('problem').distinct().count()
+
             content_count = reading_total + video_total
             content_done = reading_done + video_done
 
-            total_content = content_count + quiz_count + assignment_total
-            completed_content = content_done + quiz_done + assignment_done
+            total_content = content_count + quiz_count + assignment_total + coding_total
+            completed_content = content_done + quiz_done + assignment_done + coding_done
             progress = (
                 round((completed_content / total_content) * 100)
                 if total_content > 0 else 0
@@ -362,6 +374,7 @@ class StudySubjectsView(APIView):
                 'videos': {'total': video_total, 'completed': video_done},
                 'quizzes': {'total': quiz_count, 'attempted': quiz_done},
                 'assignments': {'total': assignment_total, 'completed': assignment_done},
+                'coding': {'total': coding_total, 'completed': coding_done},
             })
 
         return Response(result)
@@ -378,6 +391,7 @@ class StudyChaptersView(APIView):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
         from assignments.models import Assignment, AssignmentSubmission
+        from coding.models import CodingProblem, CodingSubmission
 
         student = request.user.profile
         try:
@@ -463,8 +477,19 @@ class StudyChaptersView(APIView):
                 assignment__status='published',
             ).values('assignment').distinct().count()
 
-            total_content = content_count + quiz_count + assignment_total
-            completed_content = content_done + quiz_done + assignment_done
+            coding_total = CodingProblem.objects.filter(
+                topic_id__in=topic_ids, status='published',
+            ).count()
+            coding_done = CodingSubmission.objects.filter(
+                student=student,
+                problem__topic_id__in=topic_ids,
+                problem__status='published',
+                total_count__gt=0,
+                passed_count=F('total_count'),
+            ).values('problem').distinct().count()
+
+            total_content = content_count + quiz_count + assignment_total + coding_total
+            completed_content = content_done + quiz_done + assignment_done + coding_done
 
             progress = (
                 round((completed_content / total_content) * 100)
@@ -485,6 +510,7 @@ class StudyChaptersView(APIView):
                 'videos': {'total': video_total, 'completed': video_done},
                 'quizzes': {'total': quiz_total, 'attempted': quiz_attempted},
                 'assignments': {'total': assignment_total, 'completed': assignment_done},
+                'coding': {'total': coding_total, 'completed': coding_done},
             })
 
         return Response({
@@ -509,6 +535,7 @@ class StudyChapterDetailView(APIView):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
         from assignments.models import Assignment, AssignmentSubmission
+        from coding.models import CodingProblem, CodingSubmission
 
         student = request.user.profile
         try:
@@ -638,6 +665,32 @@ class StudyChapterDetailView(APIView):
                 'submission_status': sub.status if sub else None,
             })
 
+        coding_problems = CodingProblem.objects.filter(
+            topic_id__in=topic_ids, status='published'
+        ).order_by('topic_id', 'order')
+        coding_sub_map = {}
+        for cs in CodingSubmission.objects.filter(
+            student=student, problem__in=coding_problems
+        ):
+            info = coding_sub_map.setdefault(
+                cs.problem_id, {'attempts': 0, 'solved': False}
+            )
+            info['attempts'] += 1
+            if cs.total_count > 0 and cs.passed_count == cs.total_count:
+                info['solved'] = True
+        coding_by_topic = {}
+        for p in coding_problems:
+            tid = str(p.topic_id)
+            info = coding_sub_map.get(p.id, {'attempts': 0, 'solved': False})
+            coding_by_topic.setdefault(tid, []).append({
+                'id': str(p.id),
+                'title': p.title,
+                'difficulty': p.difficulty,
+                'max_marks': p.max_marks,
+                'attempts_count': info['attempts'],
+                'is_completed': info['solved'],
+            })
+
         topics_payload = []
         for ct in chapter_topics:
             t = ct.topic
@@ -656,6 +709,7 @@ class StudyChapterDetailView(APIView):
                 'videos': content_by_topic.get(tid, {}).get('videos', []),
                 'quizzes': quiz_by_topic.get(tid, []),
                 'assignments': assignment_by_topic.get(tid, []),
+                'coding': coding_by_topic.get(tid, []),
             })
 
         return Response({

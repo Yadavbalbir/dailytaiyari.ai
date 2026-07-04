@@ -8,7 +8,7 @@ import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
   ChevronRight, GraduationCap, ArrowLeft, Settings2,
-  PlayCircle, PenTool, ClipboardList
+  PlayCircle, PenTool, ClipboardList, Code2
 } from 'lucide-react'
 
 const iconMap = {
@@ -138,25 +138,30 @@ const StudyCourse = () => {
                   )}
                 </div>
 
-                {/* Content breakdown */}
-                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-surface-100 dark:border-surface-700 text-xs text-surface-500">
-                  <span className="flex items-center gap-1.5">
-                    <BookOpen size={13} className="text-blue-500" />
-                    {(subject.reading?.completed ?? 0)}/{(subject.reading?.total ?? 0)} read
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <PlayCircle size={13} className="text-red-500" />
-                    {(subject.videos?.completed ?? 0)}/{(subject.videos?.total ?? 0)} watched
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <PenTool size={13} className="text-green-500" />
-                    {(subject.quizzes?.attempted ?? 0)}/{(subject.quizzes?.total ?? 0)} quizzes
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <ClipboardList size={13} className="text-purple-500" />
-                    {(subject.assignments?.completed ?? 0)}/{(subject.assignments?.total ?? 0)} tasks
-                  </span>
-                </div>
+                {/* Content breakdown — only show categories that have content */}
+                {(() => {
+                  const stats = [
+                    { icon: BookOpen, color: 'text-blue-500', done: subject.reading?.completed ?? 0, total: subject.reading?.total ?? 0, label: 'read' },
+                    { icon: PlayCircle, color: 'text-red-500', done: subject.videos?.completed ?? 0, total: subject.videos?.total ?? 0, label: 'watched' },
+                    { icon: PenTool, color: 'text-green-500', done: subject.quizzes?.attempted ?? 0, total: subject.quizzes?.total ?? 0, label: 'quizzes' },
+                    { icon: Code2, color: 'text-primary-500', done: subject.coding?.completed ?? 0, total: subject.coding?.total ?? 0, label: 'coding' },
+                    { icon: ClipboardList, color: 'text-purple-500', done: subject.assignments?.completed ?? 0, total: subject.assignments?.total ?? 0, label: 'tasks' },
+                  ].filter((s) => s.total > 0)
+                  if (!stats.length) return null
+                  return (
+                    <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-surface-100 dark:border-surface-700 text-xs text-surface-500">
+                      {stats.map((s, i) => {
+                        const Icon = s.icon
+                        return (
+                          <span key={i} className="flex items-center gap-1.5">
+                            <Icon size={13} className={s.color} />
+                            {s.done}/{s.total} {s.label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </motion.div>
             )
           })}
