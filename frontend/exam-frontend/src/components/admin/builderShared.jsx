@@ -179,6 +179,11 @@ export const MATERIAL_KIND_OPTIONS = [
     { value: 'study', label: 'Study material' },
     { value: 'practice', label: 'Practice questions' },
 ]
+export const SUBMISSION_TYPE_OPTIONS = [
+    { value: 'either', label: 'Text or PDF' },
+    { value: 'text', label: 'Text answer only' },
+    { value: 'pdf', label: 'PDF upload only' },
+]
 export const CONTENT_DIFFICULTY = ['beginner', 'intermediate', 'advanced']
 export const CONTENT_STATUS = ['draft', 'published', 'archived']
 export const QUIZ_TYPES = ['topic', 'subject', 'chapter', 'daily', 'custom', 'pyq']
@@ -282,6 +287,20 @@ export const SCHEMAS = {
         title: 'Question',
         fields: [],
     },
+    assignment: {
+        title: 'Assignment',
+        fields: [
+            { name: 'title', label: 'Title', type: 'text', required: true, full: true },
+            { name: 'submission_type', label: 'Students submit', type: 'select', options: SUBMISSION_TYPE_OPTIONS, default: 'either' },
+            { name: 'status', label: 'Status', type: 'select', options: opt(CONTENT_STATUS), default: 'draft' },
+            { name: 'max_marks', label: 'Max marks (optional)', type: 'number' },
+            { name: 'order', label: 'Order', type: 'number', default: 0 },
+            { name: 'is_timed', label: 'Timed — reject submissions after a deadline', type: 'checkbox' },
+            { name: 'due_at', label: 'Due date & time', type: 'datetime-local', full: true, showIf: (v) => !!v.is_timed, hint: 'After this time, students can no longer submit.' },
+            { name: 'attachment', label: 'Question paper (PDF, optional)', type: 'file', accept: 'application/pdf', noun: 'paper', full: true, hint: 'Optional PDF shown to students in-app (view only).' },
+            { name: 'instructions', label: 'Instructions (supports pasted images)', type: 'textarea', full: true, rows: 8, image: true },
+        ],
+    },
 }
 
 /** Format a DRF error payload into a human-readable toast string. */
@@ -300,6 +319,8 @@ export const buildInitial = (fields, instance) => {
     fields.forEach((f) => {
         let v = instance ? instance[f.name] : undefined
         if (v === undefined || v === null) v = f.default ?? (f.type === 'checkbox' ? false : '')
+        // datetime-local inputs need a trimmed "YYYY-MM-DDTHH:mm" value.
+        if (f.type === 'datetime-local' && typeof v === 'string' && v.length > 16) v = v.slice(0, 16)
         out[f.name] = v
     })
     return out

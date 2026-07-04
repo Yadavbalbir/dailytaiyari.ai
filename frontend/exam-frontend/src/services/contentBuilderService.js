@@ -87,6 +87,23 @@ export const contentBuilderService = {
   // ---- Media ----
   uploadImage: async (dataUrl) =>
     (await api.post('/content/admin/upload-image/', { image: dataUrl })).data,
+
+  // ---- Assignments ----
+  getAssignments: async (topicId) =>
+    list(await api.get('/assignments/admin/assignments/', { params: { topic: topicId, ...PAGE } })),
+  createAssignment: async (data) => {
+    const { body, config } = withFiles(data)
+    return (await api.post('/assignments/admin/assignments/', body, config)).data
+  },
+  updateAssignment: async (id, data) => {
+    const { body, config } = withFiles(data)
+    return (await api.patch(`/assignments/admin/assignments/${id}/`, body, config)).data
+  },
+  deleteAssignment: async (id) => api.delete(`/assignments/admin/assignments/${id}/`),
+  getAssignmentSubmissions: async (id) =>
+    (await api.get(`/assignments/admin/assignments/${id}/submissions/`)).data,
+  gradeSubmission: async (id, data) =>
+    (await api.patch(`/assignments/admin/submissions/${id}/`, data)).data,
 }
 
 export default contentBuilderService

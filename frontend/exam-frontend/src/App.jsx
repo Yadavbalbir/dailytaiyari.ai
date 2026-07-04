@@ -23,6 +23,7 @@ import StudyChapterTopics from './pages/StudyChapterTopics'
 import StudyTopicContent from './pages/StudyTopicContent'
 import TopicView from './pages/TopicView'
 import ContentViewer from './pages/ContentViewer'
+import AssignmentView from './pages/AssignmentView'
 import Quiz from './pages/Quiz'
 import QuizAttempt from './pages/QuizAttempt'
 import QuizReview from './pages/QuizReview'
@@ -136,6 +137,7 @@ function App() {
           <Route path="/study/chapter/:chapterId/topic/:topicId" element={<StudyTopicContent />} />
           <Route path="/topic/:topicId" element={<TopicView />} />
           <Route path="/content/:contentId" element={<ContentViewer />} />
+          <Route path="/assignment/:assignmentId" element={<AssignmentView />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/quiz/:quizId" element={<QuizAttempt />} />
           <Route path="/quiz/review/:attemptId" element={<QuizReview />} />

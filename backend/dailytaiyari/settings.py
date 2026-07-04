@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'gamification.apps.GamificationConfig',
     'chatbot.apps.ChatbotConfig',
     'community.apps.CommunityConfig',
+    'assignments.apps.AssignmentsConfig',
 ]
 
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]

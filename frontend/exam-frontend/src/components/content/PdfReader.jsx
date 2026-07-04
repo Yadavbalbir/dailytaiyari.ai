@@ -19,7 +19,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
  * no browser download/print toolbar and the context menu is disabled, so the
  * document can be read but not casually downloaded.
  */
-const PdfReader = ({ contentId }) => {
+const PdfReader = ({ contentId, url }) => {
   const containerRef = useRef(null)
   const pageRefs = useRef([])
   const [data, setData] = useState(null)
@@ -30,13 +30,15 @@ const PdfReader = ({ contentId }) => {
   const [width, setWidth] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
 
+  const src = url || `/content/${contentId}/pdf/`
+
   // Fetch the PDF through the authenticated API (handles auth + token refresh).
   useEffect(() => {
     let cancelled = false
     setData(null)
     setError(null)
     api
-      .get(`/content/${contentId}/pdf/`, { responseType: 'arraybuffer' })
+      .get(src, { responseType: 'arraybuffer' })
       .then((res) => {
         if (!cancelled) setData(new Uint8Array(res.data))
       })
@@ -46,7 +48,7 @@ const PdfReader = ({ contentId }) => {
     return () => {
       cancelled = true
     }
-  }, [contentId])
+  }, [src])
 
   // Track container width so pages render responsively.
   useEffect(() => {
