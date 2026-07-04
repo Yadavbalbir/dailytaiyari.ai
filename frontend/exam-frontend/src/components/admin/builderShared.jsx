@@ -169,7 +169,12 @@ export const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government']
 export const EXAM_STATUS = ['active', 'coming_soon', 'inactive']
 export const DIFFICULTY = ['easy', 'medium', 'hard']
 export const IMPORTANCE = ['low', 'medium', 'high', 'critical']
-export const CONTENT_TYPES = ['notes', 'video', 'pdf', 'interactive', 'revision', 'formula']
+export const CONTENT_TYPES = ['notes', 'pdf', 'video']
+export const CONTENT_TYPE_OPTIONS = [
+    { value: 'notes', label: 'Text Notes' },
+    { value: 'pdf', label: 'PDF Notes' },
+    { value: 'video', label: 'Video' },
+]
 export const CONTENT_DIFFICULTY = ['beginner', 'intermediate', 'advanced']
 export const CONTENT_STATUS = ['draft', 'published', 'archived']
 export const QUIZ_TYPES = ['topic', 'subject', 'chapter', 'daily', 'custom', 'pyq']
@@ -239,7 +244,7 @@ export const SCHEMAS = {
         title: 'Content',
         fields: [
             { name: 'title', label: 'Title', type: 'text', required: true, full: true },
-            { name: 'content_type', label: 'Type', type: 'select', options: opt(CONTENT_TYPES), default: 'notes' },
+            { name: 'content_type', label: 'Type', type: 'select', options: CONTENT_TYPE_OPTIONS, default: 'notes' },
             { name: 'status', label: 'Status', type: 'select', options: opt(CONTENT_STATUS), default: 'draft' },
             { name: 'difficulty', label: 'Difficulty', type: 'select', options: opt(CONTENT_DIFFICULTY), default: 'intermediate' },
             { name: 'estimated_time_minutes', label: 'Read Time (min)', type: 'number', default: 10 },
@@ -249,7 +254,7 @@ export const SCHEMAS = {
             { name: 'is_free', label: 'Free', type: 'checkbox' },
             { name: 'is_premium', label: 'Premium', type: 'checkbox' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
-            { name: 'content_html', label: 'Content (HTML / Markdown — supports pasted images)', type: 'textarea', full: true, rows: 10, image: true },
+            { name: 'content_html', label: 'Content (HTML / Markdown — supports pasted images)', type: 'textarea', full: true, rows: 10, image: true, showIf: (v) => v.content_type === 'notes' },
             { name: 'pdf_file', label: 'PDF File', type: 'file', accept: 'application/pdf', noun: 'PDF', full: true, showIf: (v) => v.content_type === 'pdf', hint: 'Uploaded PDF is shown in-app to students (view only — no download).' },
             { name: 'video_file', label: 'Upload Video', type: 'file', accept: 'video/*', noun: 'video', full: true, showIf: (v) => v.content_type === 'video', hint: 'Or upload a video file to play from our storage. A pasted URL above takes priority.' },
         ],
