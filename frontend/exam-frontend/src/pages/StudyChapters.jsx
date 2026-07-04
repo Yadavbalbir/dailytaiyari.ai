@@ -5,7 +5,7 @@ import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ChevronRight, ArrowLeft,
-  CheckCircle2, Trophy
+  CheckCircle2, Trophy, ClipboardList
 } from 'lucide-react'
 
 const StudyChapters = () => {
@@ -119,7 +119,7 @@ const StudyChapters = () => {
                       )}
 
                       {/* Stats row */}
-                      <div className="flex items-center gap-4 mt-2 text-xs text-surface-400">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-surface-400">
                         <span className="flex items-center gap-1">
                           <BookOpen size={12} />
                           {chapter.reading.completed}/{chapter.reading.total} read
@@ -131,6 +131,10 @@ const StudyChapters = () => {
                         <span className="flex items-center gap-1">
                           <PenTool size={12} />
                           {chapter.quizzes.attempted}/{chapter.quizzes.total} quizzes
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <ClipboardList size={12} />
+                          {(chapter.assignments?.completed ?? 0)}/{(chapter.assignments?.total ?? 0)} assignments
                         </span>
                       </div>
 
