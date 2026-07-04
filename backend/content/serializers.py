@@ -27,7 +27,7 @@ class ContentDetailSerializer(ContentSerializer):
     has_pdf = serializers.SerializerMethodField()
 
     class Meta(ContentSerializer.Meta):
-        fields = ContentSerializer.Meta.fields + ['content_html', 'has_pdf']
+        fields = ContentSerializer.Meta.fields + ['content_html', 'video_file', 'has_pdf']
 
     def get_has_pdf(self, obj):
         return bool(obj.pdf_file)

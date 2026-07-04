@@ -245,12 +245,13 @@ export const SCHEMAS = {
             { name: 'estimated_time_minutes', label: 'Read Time (min)', type: 'number', default: 10 },
             { name: 'order', label: 'Order', type: 'number', default: 0 },
             { name: 'author_name', label: 'Author', type: 'text' },
-            { name: 'video_url', label: 'Video URL', type: 'text', full: true },
+            { name: 'video_url', label: 'Video URL (YouTube, Vimeo or Google Drive)', type: 'text', full: true, showIf: (v) => v.content_type === 'video', hint: 'Paste a YouTube, Vimeo or Google Drive link. Leave blank if uploading a file below.' },
             { name: 'is_free', label: 'Free', type: 'checkbox' },
             { name: 'is_premium', label: 'Premium', type: 'checkbox' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
             { name: 'content_html', label: 'Content (HTML / Markdown — supports pasted images)', type: 'textarea', full: true, rows: 10, image: true },
-            { name: 'pdf_file', label: 'PDF File', type: 'pdf', full: true, showIf: (v) => v.content_type === 'pdf', hint: 'Uploaded PDF is shown in-app to students (view only — no download).' },
+            { name: 'pdf_file', label: 'PDF File', type: 'file', accept: 'application/pdf', noun: 'PDF', full: true, showIf: (v) => v.content_type === 'pdf', hint: 'Uploaded PDF is shown in-app to students (view only — no download).' },
+            { name: 'video_file', label: 'Upload Video', type: 'file', accept: 'video/*', noun: 'video', full: true, showIf: (v) => v.content_type === 'video', hint: 'Or upload a video file to play from our storage. A pasted URL above takes priority.' },
         ],
     },
     quiz: {
@@ -314,7 +315,7 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
         const payload = {}
         visibleFields.forEach((f) => {
             let v = values[f.name]
-            if (f.type === 'pdf') {
+            if (f.type === 'file') {
                 // Only send when a new file was chosen; otherwise preserve existing.
                 if (v instanceof File) payload[f.name] = v
                 return
@@ -374,7 +375,7 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                                                     onChange={(e) => set(f.name, e.target.value)}
                                                 />
                                             )
-                                        ) : f.type === 'pdf' ? (
+                                        ) : f.type === 'file' ? (
                                             <div className="space-y-2">
                                                 {values[f.name] instanceof File ? (
                                                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-300 text-xs font-medium">
@@ -385,23 +386,23 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                                                     <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs">
                                                         <span className="flex items-center gap-2 text-surface-600 dark:text-surface-300 font-medium truncate">
                                                             <FileText className="w-4 h-4 flex-shrink-0 text-primary-500" />
-                                                            PDF already uploaded
+                                                            {f.noun || 'File'} already uploaded
                                                         </span>
                                                         <a href={values[f.name]} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline font-semibold flex-shrink-0">View</a>
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-xs text-surface-400">
                                                         <FileText className="w-4 h-4 flex-shrink-0" />
-                                                        No PDF uploaded yet
+                                                        No {f.noun || 'file'} uploaded yet
                                                     </div>
                                                 )}
                                                 <label className="inline-flex items-center gap-2 cursor-pointer">
                                                     <span className="btn-secondary text-sm">
-                                                        {(values[f.name] instanceof File) || (typeof values[f.name] === 'string' && values[f.name]) ? 'Replace PDF' : 'Choose PDF'}
+                                                        {(values[f.name] instanceof File) || (typeof values[f.name] === 'string' && values[f.name]) ? `Replace ${f.noun || 'file'}` : `Choose ${f.noun || 'file'}`}
                                                     </span>
                                                     <input
                                                         type="file"
-                                                        accept="application/pdf"
+                                                        accept={f.accept}
                                                         onChange={(e) => set(f.name, e.target.files?.[0] || values[f.name])}
                                                         className="hidden"
                                                     />

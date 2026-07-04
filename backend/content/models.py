@@ -44,7 +44,8 @@ class Content(OrderedModel):
     
     # Content data
     content_html = models.TextField(blank=True)  # For notes
-    video_url = models.URLField(blank=True)  # For videos
+    video_url = models.URLField(blank=True)  # For videos (YouTube, Vimeo, Google Drive)
+    video_file = models.FileField(upload_to='content_videos/', blank=True, null=True)  # Uploaded video on blob
     video_duration_minutes = models.PositiveIntegerField(null=True, blank=True)
     pdf_file = models.FileField(upload_to='content_pdfs/', blank=True, null=True)
     thumbnail = models.ImageField(upload_to='content_thumbnails/', blank=True, null=True)
