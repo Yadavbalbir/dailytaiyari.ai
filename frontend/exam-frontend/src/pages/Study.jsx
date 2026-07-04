@@ -77,7 +77,6 @@ const Study = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {courses.map((course, index) => {
-            const color = course.color || '#f97316'
             return (
             <motion.div
               key={course.id}
@@ -89,11 +88,6 @@ const Study = () => {
               <CourseThumbnail course={course} />
               <div className="p-4 sm:p-5 flex flex-col flex-1">
                 <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
-                {course.code && (
-                  <span className="inline-flex self-start items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-surface-100 dark:bg-surface-800 text-surface-500">
-                    {course.code}
-                  </span>
-                )}
                 {course.description && (
                   <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
                 )}
@@ -102,7 +96,6 @@ const Study = () => {
                   type="button"
                   onClick={() => navigate(`/study/course/${course.id}`)}
                   className="btn-primary mt-auto w-full group/btn"
-                  style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color})`, boxShadow: `0 8px 18px -8px ${color}`, marginTop: 'auto' }}
                 >
                   Enter course
                   <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
