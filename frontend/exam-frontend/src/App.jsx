@@ -43,6 +43,9 @@ import AdminDashboard from './pages/AdminDashboard'
 import CourseManager from './pages/CourseManager'
 import AssignmentGrading from './pages/AssignmentGrading'
 import SubmissionReview from './pages/SubmissionReview'
+import CodingProblem from './pages/CodingProblem'
+import CodingGrading from './pages/CodingGrading'
+import CodingSubmissionReview from './pages/CodingSubmissionReview'
 
 
 // Protected Route Component
@@ -145,6 +148,8 @@ function App() {
           <Route path="/courses/:courseId/manage" element={<EditorRoute><CourseManager /></EditorRoute>} />
           <Route path="/courses/:courseId/manage/assignments/:assignmentId" element={<EditorRoute><AssignmentGrading /></EditorRoute>} />
           <Route path="/courses/:courseId/manage/assignments/:assignmentId/submissions/:submissionId" element={<EditorRoute><SubmissionReview /></EditorRoute>} />
+          <Route path="/courses/:courseId/manage/coding/:problemId" element={<EditorRoute><CodingGrading /></EditorRoute>} />
+          <Route path="/courses/:courseId/manage/coding/:problemId/submissions/:submissionId" element={<EditorRoute><CodingSubmissionReview /></EditorRoute>} />
           <Route path="/study" element={<Study />} />
           <Route path="/study/course/:courseId" element={<StudyCourse />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />
@@ -153,6 +158,7 @@ function App() {
           <Route path="/topic/:topicId" element={<TopicView />} />
           <Route path="/content/:contentId" element={<ContentViewer />} />
           <Route path="/assignment/:assignmentId" element={<AssignmentView />} />
+          <Route path="/coding/:problemId" element={<CodingProblem />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/quiz/:quizId" element={<QuizAttempt />} />
           <Route path="/quiz/review/:attemptId" element={<QuizReview />} />

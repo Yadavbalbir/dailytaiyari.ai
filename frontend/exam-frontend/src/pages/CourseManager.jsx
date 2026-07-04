@@ -7,6 +7,7 @@ import {
     ArrowLeft, Plus, ChevronRight, ChevronDown, Loader2, Layers, Book,
     FileText, ListChecks, GraduationCap, Pencil, Eye, Video, FileType,
     Sparkles, HelpCircle, ClipboardList, Clock, Users, X, CheckCircle2, Save,
+    Code2, Trash2,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
@@ -496,6 +497,287 @@ const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {
     )
 }
 
+const CODING_LANGS = [
+    { key: 'python', label: 'Python 3.12' },
+    { key: 'cpp', label: 'C++ (GCC 10.2)' },
+    { key: 'java', label: 'Java 15' },
+]
+
+const blankCase = () => ({ stdin: '', expected_output: '', is_sample: false, points: 1, explanation: '' })
+
+const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
+    const [form, setForm] = useState(() => ({
+        title: instance?.title || '',
+        statement: instance?.statement || '',
+        difficulty: instance?.difficulty || 'easy',
+        status: instance?.status || 'draft',
+        max_marks: instance?.max_marks ?? '',
+        time_limit_ms: instance?.time_limit_ms ?? 3000,
+        memory_limit_mb: instance?.memory_limit_mb ?? 256,
+        allowed_languages: instance?.allowed_languages?.length ? instance.allowed_languages : ['python'],
+        starter_code: instance?.starter_code || {},
+        test_cases: instance?.test_cases?.length ? instance.test_cases.map((c) => ({ ...c })) : [{ ...blankCase(), is_sample: true }],
+    }))
+
+    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+    const toggleLang = (key) => setForm((f) => {
+        const has = f.allowed_languages.includes(key)
+        return { ...f, allowed_languages: has ? f.allowed_languages.filter((l) => l !== key) : [...f.allowed_languages, key] }
+    })
+    const setStarter = (key, code) => setForm((f) => ({ ...f, starter_code: { ...f.starter_code, [key]: code } }))
+    const setCase = (i, k, v) => setForm((f) => ({ ...f, test_cases: f.test_cases.map((c, idx) => idx === i ? { ...c, [k]: v } : c) }))
+    const addCase = () => setForm((f) => ({ ...f, test_cases: [...f.test_cases, blankCase()] }))
+    const removeCase = (i) => setForm((f) => ({ ...f, test_cases: f.test_cases.filter((_, idx) => idx !== i) }))
+
+    const submit = (e) => {
+        e.preventDefault()
+        if (!form.title.trim()) return toast.error('Title is required')
+        if (!form.allowed_languages.length) return toast.error('Pick at least one language')
+        if (!form.test_cases.length) return toast.error('Add at least one test case')
+        onSubmit({
+            title: form.title.trim(),
+            statement: form.statement,
+            difficulty: form.difficulty,
+            status: form.status,
+            max_marks: form.max_marks === '' ? null : Number(form.max_marks),
+            time_limit_ms: Number(form.time_limit_ms) || 3000,
+            memory_limit_mb: Number(form.memory_limit_mb) || 256,
+            allowed_languages: form.allowed_languages,
+            starter_code: Object.fromEntries(form.allowed_languages.map((k) => [k, form.starter_code[k] || ''])),
+            test_cases: form.test_cases.map((c, i) => ({
+                stdin: c.stdin || '',
+                expected_output: c.expected_output || '',
+                is_sample: !!c.is_sample,
+                points: Number(c.points) || 1,
+                explanation: c.explanation || '',
+                order: i,
+            })),
+        })
+    }
+
+    return (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+            <motion.div
+                className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl"
+                initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="sticky top-0 bg-white dark:bg-surface-900 border-b border-surface-100 dark:border-surface-800 px-5 py-3.5 flex items-center justify-between z-10">
+                    <h3 className="font-bold flex items-center gap-2"><Code2 className="w-4 h-4 text-primary-500" /> {instance ? 'Edit' : 'New'} coding problem</h3>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800"><X className="w-4 h-4" /></button>
+                </div>
+
+                <form onSubmit={submit} className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1">Title</label>
+                        <input className="input" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Two Sum" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1">Problem statement</label>
+                        <textarea rows={6} className="input resize-y" value={form.statement} onChange={(e) => set('statement', e.target.value)} placeholder="Describe the problem, input format, output format, constraints…" />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Difficulty</label>
+                            <select className="input" value={form.difficulty} onChange={(e) => set('difficulty', e.target.value)}>
+                                <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Status</label>
+                            <select className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
+                                <option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Max marks</label>
+                            <input type="number" min="0" className="input" value={form.max_marks} onChange={(e) => set('max_marks', e.target.value)} placeholder="optional" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Time limit (ms)</label>
+                            <input type="number" min="100" className="input" value={form.time_limit_ms} onChange={(e) => set('time_limit_ms', e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1.5">Allowed languages</label>
+                        <div className="flex flex-wrap gap-2">
+                            {CODING_LANGS.map((l) => (
+                                <button key={l.key} type="button" onClick={() => toggleLang(l.key)}
+                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${form.allowed_languages.includes(l.key) ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600' : 'border-surface-200 dark:border-surface-700 text-surface-500'}`}>
+                                    {l.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {form.allowed_languages.length > 0 && (
+                        <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-surface-500">Starter code (optional, per language)</label>
+                            {form.allowed_languages.map((k) => (
+                                <div key={k}>
+                                    <p className="text-[11px] text-surface-400 mb-1">{CODING_LANGS.find((l) => l.key === k)?.label}</p>
+                                    <textarea rows={3} className="input resize-y font-mono text-xs" value={form.starter_code[k] || ''} onChange={(e) => setStarter(k, e.target.value)} placeholder="Boilerplate shown to students…" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs font-semibold text-surface-500">Test cases</label>
+                            <button type="button" onClick={addCase} className="btn-secondary text-xs px-2.5 py-1"><Plus className="w-3.5 h-3.5" /> Add</button>
+                        </div>
+                        <p className="text-[11px] text-surface-400">Sample cases are shown to students (with input/output). Hidden cases are used for grading only.</p>
+                        {form.test_cases.map((c, i) => (
+                            <div key={i} className="rounded-lg border border-surface-200 dark:border-surface-700 p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-surface-500">Test {i + 1}</span>
+                                    <div className="flex items-center gap-3">
+                                        <label className="flex items-center gap-1.5 text-xs text-surface-500 cursor-pointer">
+                                            <input type="checkbox" checked={!!c.is_sample} onChange={(e) => setCase(i, 'is_sample', e.target.checked)} /> Sample (visible)
+                                        </label>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-xs text-surface-400">pts</span>
+                                            <input type="number" min="1" className="input py-1 w-16 text-xs" value={c.points} onChange={(e) => setCase(i, 'points', e.target.value)} />
+                                        </div>
+                                        {form.test_cases.length > 1 && (
+                                            <button type="button" onClick={() => removeCase(i)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <textarea rows={2} className="input resize-y font-mono text-xs" value={c.stdin} onChange={(e) => setCase(i, 'stdin', e.target.value)} placeholder="Input (stdin)" />
+                                    <textarea rows={2} className="input resize-y font-mono text-xs" value={c.expected_output} onChange={(e) => setCase(i, 'expected_output', e.target.value)} placeholder="Expected output" />
+                                </div>
+                                {c.is_sample && (
+                                    <input className="input text-xs" value={c.explanation} onChange={(e) => setCase(i, 'explanation', e.target.value)} placeholder="Explanation (shown with sample)" />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+                        <button type="submit" disabled={saving} className="btn-primary">
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {instance ? 'Save' : 'Create'}
+                        </button>
+                    </div>
+                </form>
+            </motion.div>
+        </motion.div>
+    )
+}
+
+const DIFF_BADGE = {
+    easy: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    hard: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+}
+
+const CodingSection = ({ topic, subjectId }) => {
+    const navigate = useNavigate()
+    const { courseId } = useParams()
+    const queryClient = useQueryClient()
+    const [modal, setModal] = useState(null) // { instance } | null
+    const [del, setDel] = useState(null)
+
+    const { data: problems = [], isLoading } = useQuery({
+        queryKey: ['cb-coding', topic.id],
+        queryFn: () => svc.getCodingProblems(topic.id),
+    })
+
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['cb-coding', topic.id] })
+
+    const saveMutation = useMutation({
+        mutationFn: ({ instance, payload }) => {
+            const body = { ...payload, course: courseId, subject: subjectId, topic: topic.id }
+            return instance ? svc.updateCodingProblem(instance.id, body) : svc.createCodingProblem(body)
+        },
+        onSuccess: (_d, vars) => { toast.success(vars.instance ? 'Problem saved' : 'Problem created'); invalidate(); setModal(null) },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: (p) => svc.deleteCodingProblem(p.id),
+        onSuccess: () => { toast.success('Deleted'); invalidate(); setDel(null) },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    // Fetch full problem (with test cases) before editing.
+    const openEdit = async (p) => {
+        try {
+            const full = await svc.getCodingProblem(p.id)
+            setModal({ instance: full })
+        } catch (err) {
+            toast.error(formatApiError(err))
+        }
+    }
+
+    if (isLoading) {
+        return <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+    }
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Coding problems</h4>
+                <button onClick={() => setModal({ instance: null })} className="btn-primary text-xs px-3 py-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Add problem
+                </button>
+            </div>
+            {problems.length === 0 ? (
+                <EmptyHint icon={Code2} text="No coding problems yet." sub="Create a problem with test cases; grading runs automatically." />
+            ) : (
+                <div className="space-y-2">
+                    {problems.map((p) => (
+                        <div key={p.id} className="group card p-3.5 flex items-center justify-between gap-3 hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
+                                    <Code2 className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate">{p.title}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${DIFF_BADGE[p.difficulty] || ''}`}>{p.difficulty}</span>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusPill(p.status)}`}>{p.status}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{p.test_case_count || 0} tests</span>
+                                        {p.max_marks != null && <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{p.max_marks} marks</span>}
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary-50 dark:bg-primary-900/20 text-primary-600">{p.submission_count || 0} submitted</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => navigate(`/courses/${courseId}/manage/coding/${p.id}`)} className="btn-secondary text-xs px-2.5 py-1.5">
+                                    <Users className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Submissions</span>
+                                </button>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <RowActions onEdit={() => openEdit(p)} onDelete={() => setDel(p)} />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <AnimatePresence>
+                {modal && (
+                    <CodingProblemModal
+                        instance={modal.instance}
+                        saving={saveMutation.isPending}
+                        onClose={() => setModal(null)}
+                        onSubmit={(payload) => saveMutation.mutate({ instance: modal.instance, payload })}
+                    />
+                )}
+                {del && (
+                    <ConfirmDialog label={del.title} deleting={deleteMutation.isPending} onCancel={() => setDel(null)} onConfirm={() => deleteMutation.mutate(del)} />
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
 const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
     const [tab, setTab] = useState('content')
     return (
@@ -514,7 +796,7 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             </div>
 
             <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-fit my-4">
-                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }, { id: 'assignments', label: 'Assignments', icon: ClipboardList }].map((t) => (
+                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }, { id: 'assignments', label: 'Assignments', icon: ClipboardList }, { id: 'coding', label: 'Coding', icon: Code2 }].map((t) => (
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
@@ -528,6 +810,7 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             {tab === 'content' && <ContentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
             {tab === 'quizzes' && <QuizSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
             {tab === 'assignments' && <AssignmentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
+            {tab === 'coding' && <CodingSection topic={topic} subjectId={subjectId} />}
         </div>
     )
 }
