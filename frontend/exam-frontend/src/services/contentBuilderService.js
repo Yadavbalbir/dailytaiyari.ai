@@ -101,10 +101,16 @@ export const contentBuilderService = {
     return (await api.patch(`/assignments/admin/assignments/${id}/`, body, config)).data
   },
   deleteAssignment: async (id) => api.delete(`/assignments/admin/assignments/${id}/`),
+  getAssignment: async (id) =>
+    (await api.get(`/assignments/admin/assignments/${id}/`)).data,
   getAssignmentSubmissions: async (id) =>
     (await api.get(`/assignments/admin/assignments/${id}/submissions/`)).data,
+  getSubmission: async (id) =>
+    (await api.get(`/assignments/admin/submissions/${id}/`)).data,
   gradeSubmission: async (id, data) =>
     (await api.patch(`/assignments/admin/submissions/${id}/`, data)).data,
+  // Authenticated view-only stream of a student's submitted PDF (for PdfReader).
+  submissionFileUrl: (id) => `/assignments/admin/submissions/${id}/file/`,
 }
 
 export default contentBuilderService
