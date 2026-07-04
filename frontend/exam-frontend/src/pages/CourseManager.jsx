@@ -9,6 +9,7 @@ import {
     Sparkles, HelpCircle, ClipboardList, Clock, Users, X, CheckCircle2, Save,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
+import { useAuthStore } from '../context/authStore'
 import {
     EntityModal, ConfirmDialog, RowActions, QuestionModal, formatApiError, QTYPE_LABEL,
 } from '../components/admin/builderShared'
@@ -661,14 +662,99 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
 /* ===========================================================================
  * Root page
  * ========================================================================= */
+const InstructorsModal = ({ course, onClose, onSaved }) => {
+    const { data: instructors = [], isLoading } = useQuery({
+        queryKey: ['cb-instructors'],
+        queryFn: () => svc.getInstructors(),
+    })
+    const [selected, setSelected] = useState(() => new Set((course.instructors_detail || []).map((i) => String(i.id))))
+
+    const saveMutation = useMutation({
+        mutationFn: () => svc.updateExam(course.id, { instructors: Array.from(selected) }),
+        onSuccess: () => {
+            toast.success('Instructors updated')
+            onSaved?.()
+            onClose()
+        },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const toggle = (id) => setSelected((prev) => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+    })
+
+    return (
+        <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                className="card w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+                initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+            >
+                <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold truncate">Assign instructors</h3>
+                        <p className="text-xs text-surface-500">Instructors can edit this course's content but can't manage instructors.</p>
+                    </div>
+                    <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="p-5 overflow-y-auto space-y-2">
+                    {isLoading ? (
+                        <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+                    ) : instructors.length === 0 ? (
+                        <div className="text-center py-8 text-surface-500 text-sm">
+                            <Users className="w-8 h-8 mx-auto mb-2 text-surface-300" />
+                            <p>No instructors yet.</p>
+                            <p className="text-xs mt-1">Set a user's role to "Instructor" in the admin dashboard first.</p>
+                        </div>
+                    ) : (
+                        instructors.map((ins) => {
+                            const id = String(ins.id)
+                            const checked = selected.has(id)
+                            return (
+                                <label
+                                    key={id}
+                                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${checked ? 'border-primary-300 bg-primary-50/50 dark:bg-primary-900/20' : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'}`}
+                                >
+                                    <input type="checkbox" checked={checked} onChange={() => toggle(id)} className="accent-primary-600 w-4 h-4" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold truncate">{ins.name}</p>
+                                        <p className="text-xs text-surface-400 truncate">{ins.email}</p>
+                                    </div>
+                                    {checked && <CheckCircle2 className="w-4 h-4 text-primary-500 ml-auto shrink-0" />}
+                                </label>
+                            )
+                        })
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-2 p-4 border-t border-surface-200 dark:border-surface-800">
+                    <button onClick={onClose} className="btn-secondary text-sm px-4 py-2">Cancel</button>
+                    <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="btn-primary text-sm px-4 py-2 inline-flex items-center gap-2">
+                        {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
+                    </button>
+                </div>
+            </motion.div>
+        </motion.div>
+    )
+}
+
 const CourseManager = () => {
     const { courseId } = useParams()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const { user, profile } = useAuthStore()
+    const isAdmin = (user?.role || profile?.user?.role) === 'admin'
 
     const [sel, setSel] = useState({ subjectId: null, chapterId: null, topicId: null, topic: null })
     const [modal, setModal] = useState(null)   // { type, instance, extra }
     const [del, setDel] = useState(null)        // { type, instance, label }
+    const [instructorsOpen, setInstructorsOpen] = useState(false)
 
     const { data: courses = [], isLoading } = useQuery({
         queryKey: ['cb-courses'],
@@ -754,6 +840,11 @@ const CourseManager = () => {
                     <p className="text-xs sm:text-sm text-surface-500">Manage subjects, chapters, topics, content & quizzes</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    {course && isAdmin && (
+                        <button onClick={() => setInstructorsOpen(true)} className="btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex">
+                            <Users className="w-3.5 h-3.5" /> Instructors
+                        </button>
+                    )}
                     {course && (
                         <button onClick={() => openModal('exam', course, {})} className="btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex">
                             <Pencil className="w-3.5 h-3.5" /> Edit course
@@ -786,6 +877,9 @@ const CourseManager = () => {
 
             {/* Modals */}
             <AnimatePresence>
+                {instructorsOpen && course && (
+                    <InstructorsModal course={course} onClose={() => setInstructorsOpen(false)} onSaved={() => queryClient.invalidateQueries({ queryKey: ['cb-courses'] })} />
+                )}
                 {modal && (
                     <EntityModal
                         type={modal.type}

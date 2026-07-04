@@ -31,6 +31,7 @@ export const contentBuilderService = {
   createExam: async (data) => (await api.post('/courses/admin/courses/', data)).data,
   updateExam: async (id, data) => (await api.patch(`/courses/admin/courses/${id}/`, data)).data,
   deleteExam: async (id) => api.delete(`/courses/admin/courses/${id}/`),
+  getInstructors: async () => (await api.get('/courses/admin/courses/instructors/')).data,
 
   // ---- Subjects ----
   getSubjects: async (courseId) =>

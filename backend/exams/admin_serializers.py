@@ -5,12 +5,19 @@ These power full CRUD over the content hierarchy:
 Course -> Subject -> Chapter -> Topic -> Content.
 """
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Course, Subject, Topic, Chapter, ChapterTopic
+
+User = get_user_model()
 
 
 class AdminCourseSerializer(serializers.ModelSerializer):
     """Writable serializer for Course in the content builder."""
     subjects_count = serializers.IntegerField(source='subjects.count', read_only=True)
+    instructors = serializers.PrimaryKeyRelatedField(
+        many=True, required=False, queryset=User.objects.filter(role='instructor'),
+    )
+    instructors_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -19,9 +26,16 @@ class AdminCourseSerializer(serializers.ModelSerializer):
             'color', 'status', 'is_featured',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
-            'subjects_count', 'created_at', 'updated_at',
+            'subjects_count', 'instructors', 'instructors_detail',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'total_students', 'total_questions', 'created_at', 'updated_at']
+
+    def get_instructors_detail(self, obj):
+        return [
+            {'id': str(u.id), 'name': u.full_name or u.email, 'email': u.email}
+            for u in obj.instructors.all()
+        ]
 
 
 class AdminSubjectSerializer(serializers.ModelSerializer):

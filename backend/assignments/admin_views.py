@@ -21,6 +21,7 @@ class AdminAssignmentViewSet(TenantAdminModelViewSet):
     ordering = ['order', '-created_at']
     filterset_fields = ['course', 'subject', 'topic', 'status', 'submission_type']
     tenant_lookup = 'tenant'
+    course_lookup = 'course'
 
     @action(detail=True, methods=['get'])
     def submissions(self, request, pk=None):
@@ -69,6 +70,7 @@ class AdminSubmissionViewSet(TenantAdminModelViewSet):
     ordering = ['-submitted_at']
     filterset_fields = ['assignment', 'status']
     tenant_lookup = 'assignment__tenant'
+    course_lookup = 'assignment__course'
     http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_serializer_context(self):

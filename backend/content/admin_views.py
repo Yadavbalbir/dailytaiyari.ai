@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 
-from core.permissions import IsTenantAdmin
+from core.permissions import IsCourseEditor
 from exams.admin_views import TenantAdminModelViewSet
 from .models import Content
 from .admin_serializers import AdminContentSerializer
@@ -27,7 +27,7 @@ class AdminImageUploadView(APIView):
     inline. Accepts either a multipart ``image`` file or a JSON body with an
     ``image`` data URL. Returns ``{"url": "..."}``.
     """
-    permission_classes = [IsTenantAdmin]
+    permission_classes = [IsCourseEditor]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def post(self, request):
@@ -58,3 +58,4 @@ class AdminContentViewSet(TenantAdminModelViewSet):
     ordering_fields = ['order', 'created_at', 'views_count', 'title']
     ordering = ['order', '-created_at']
     tenant_lookup = 'subject__course__tenant'
+    course_lookup = 'subject__course'
