@@ -164,6 +164,8 @@ const StudyChapters = () => {
 
         {/* Sidebar: leaderboard (+ future tiles) */}
         <aside className="order-2 space-y-4 lg:sticky lg:top-6">
+          {/* Spacer matching the "Chapters" heading so the card lines up with the first chapter card */}
+          <div aria-hidden="true" className="hidden lg:block text-lg font-semibold leading-7">&nbsp;</div>
           {leaderboard && leaderboard.length > 0 && (
             <div className="card p-5">
               <h3 className="font-semibold flex items-center gap-2 mb-4">
