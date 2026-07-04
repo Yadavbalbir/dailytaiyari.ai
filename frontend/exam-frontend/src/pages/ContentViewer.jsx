@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../context/authStore'
 const PdfReader = lazy(() => import('../components/content/PdfReader'))
+import VideoPlayer from '../components/content/VideoPlayer'
 
 const ContentViewer = () => {
   const { contentId } = useParams()
@@ -178,18 +179,9 @@ const ContentViewer = () => {
         </div>
       </div>
 
-      {/* Video Player */}
-      {content?.content_type === 'video' && content?.video_url && (
-        <div className="card overflow-hidden mb-6">
-          <div className="aspect-video bg-black">
-            <iframe
-              src={content.video_url.replace('watch?v=', 'embed/')}
-              title={content.title}
-              className="w-full h-full"
-              allowFullScreen
-            />
-          </div>
-        </div>
+      {/* Video Player (YouTube / Vimeo / Google Drive / uploaded) */}
+      {content?.content_type === 'video' && (content?.video_url || content?.video_file) && (
+        <VideoPlayer url={content.video_url} fileUrl={content.video_file} title={content.title} />
       )}
 
       {/* Notes Content: render as HTML if content looks like HTML, else as Markdown (with LaTeX) */}
