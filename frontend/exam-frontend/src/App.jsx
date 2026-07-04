@@ -41,6 +41,8 @@ import CommunityPost from './pages/CommunityPost'
 import PreviousYearPapers from './pages/PreviousYearPapers'
 import AdminDashboard from './pages/AdminDashboard'
 import CourseManager from './pages/CourseManager'
+import AssignmentGrading from './pages/AssignmentGrading'
+import SubmissionReview from './pages/SubmissionReview'
 
 
 // Protected Route Component
@@ -141,6 +143,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/courses/:courseId/manage" element={<EditorRoute><CourseManager /></EditorRoute>} />
+          <Route path="/courses/:courseId/manage/assignments/:assignmentId" element={<EditorRoute><AssignmentGrading /></EditorRoute>} />
+          <Route path="/courses/:courseId/manage/assignments/:assignmentId/submissions/:submissionId" element={<EditorRoute><SubmissionReview /></EditorRoute>} />
           <Route path="/study" element={<Study />} />
           <Route path="/study/course/:courseId" element={<StudyCourse />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />

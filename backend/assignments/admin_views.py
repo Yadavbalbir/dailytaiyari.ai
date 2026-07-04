@@ -1,4 +1,7 @@
 """Admin CRUD + submission review for assignments (tenant-admin only)."""
+import mimetypes
+
+from django.http import FileResponse, Http404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -48,6 +51,19 @@ class AdminAssignmentViewSet(TenantAdminModelViewSet):
         total = enrollments.count()
         submitted = len(submitted_ids)
         return Response({
+            'assignment': {
+                'id': str(assignment.id),
+                'title': assignment.title,
+                'instructions': assignment.instructions,
+                'submission_type': assignment.submission_type,
+                'max_marks': assignment.max_marks,
+                'status': assignment.status,
+                'is_timed': assignment.is_timed,
+                'due_at': assignment.due_at.isoformat() if assignment.due_at else None,
+                'topic_name': assignment.topic.name if assignment.topic else '',
+                'subject_name': assignment.subject.name if assignment.subject else '',
+                'course': str(assignment.course_id),
+            },
             'submitted': AdminSubmissionSerializer(subs, many=True, context={'request': request}).data,
             'pending': pending,
             'counts': {
@@ -86,3 +102,21 @@ class AdminSubmissionViewSet(TenantAdminModelViewSet):
             obj.graded_at = timezone.now()
             obj.graded_by = self.request.user
             obj.save(update_fields=['status', 'graded_at', 'graded_by'])
+
+    @action(detail=True, methods=['get'], url_path='file')
+    def file(self, request, pk=None):
+        """Stream a student's submitted file inline (view-only) for grading."""
+        submission = self.get_object()
+        if not submission.submission_file:
+            raise Http404('No file submitted.')
+        try:
+            fh = submission.submission_file.open('rb')
+        except Exception:
+            raise Http404('Submission file not found.')
+        name = submission.submission_file.name
+        content_type = mimetypes.guess_type(name)[0] or 'application/pdf'
+        response = FileResponse(fh, content_type=content_type)
+        response['Content-Disposition'] = 'inline; filename="submission.pdf"'
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['Cache-Control'] = 'private, no-store'
+        return response

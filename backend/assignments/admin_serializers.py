@@ -27,13 +27,22 @@ class AdminSubmissionSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_email = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    file_stream_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+    assignment_title = serializers.CharField(source='assignment.title', read_only=True)
+    assignment_instructions = serializers.CharField(source='assignment.instructions', read_only=True)
+    assignment_max_marks = serializers.IntegerField(source='assignment.max_marks', read_only=True)
+    assignment_submission_type = serializers.CharField(source='assignment.submission_type', read_only=True)
+    topic_name = serializers.CharField(source='assignment.topic.name', read_only=True)
 
     class Meta:
         model = AssignmentSubmission
         fields = [
-            'id', 'assignment', 'student', 'student_name', 'student_email',
-            'submission_text', 'file_url', 'submitted_at',
-            'status', 'marks', 'feedback', 'graded_at',
+            'id', 'assignment', 'assignment_title', 'assignment_instructions',
+            'assignment_max_marks', 'assignment_submission_type', 'topic_name',
+            'student', 'student_name', 'student_email',
+            'submission_text', 'file_url', 'file_stream_url', 'file_name',
+            'submitted_at', 'status', 'marks', 'feedback', 'graded_at',
         ]
         read_only_fields = [
             'id', 'assignment', 'student', 'submission_text', 'file_url',
@@ -59,3 +68,14 @@ class AdminSubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         url = obj.submission_file.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_file_stream_url(self, obj):
+        """Relative path the frontend PdfReader streams from (authenticated)."""
+        if not obj.submission_file:
+            return None
+        return f'/assignments/admin/submissions/{obj.id}/file/'
+
+    def get_file_name(self, obj):
+        if not obj.submission_file:
+            return None
+        return obj.submission_file.name.rsplit('/', 1)[-1]

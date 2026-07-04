@@ -426,141 +426,18 @@ const EmptyHint = ({ icon: Icon, text, sub }) => (
  * Main panel: content + quizzes for the selected topic
  * ========================================================================= */
 /* ===========================================================================
- * Assignments for the selected topic + submissions review drawer
+ * Assignments for the selected topic
  * ========================================================================= */
 const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'PDF upload', either: 'Text or PDF' }
 
-const SubmissionsDrawer = ({ assignment, onClose }) => {
-    const queryClient = useQueryClient()
-    const { data, isLoading } = useQuery({
-        queryKey: ['cb-submissions', assignment.id],
-        queryFn: () => svc.getAssignmentSubmissions(assignment.id),
-    })
-    const [grading, setGrading] = useState({})   // subId -> { marks, feedback }
-
-    const gradeMutation = useMutation({
-        mutationFn: ({ id, payload }) => svc.gradeSubmission(id, payload),
-        onSuccess: () => {
-            toast.success('Grade saved')
-            queryClient.invalidateQueries({ queryKey: ['cb-submissions', assignment.id] })
-        },
-        onError: (err) => toast.error(formatApiError(err)),
-    })
-
-    const counts = data?.counts || { enrolled: 0, submitted: 0, pending: 0, graded: 0 }
-
-    return (
-        <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-            {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }}
-            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-        >
-            <motion.div
-                className="card w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
-                initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
-            >
-                <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
-                    <div className="min-w-0">
-                        <h3 className="text-lg font-bold truncate">{assignment.title}</h3>
-                        <p className="text-xs text-surface-500">Submissions</p>
-                    </div>
-                    <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
-                </div>
-
-                {/* Counters */}
-                <div className="grid grid-cols-4 gap-2 p-4 border-b border-surface-100 dark:border-surface-800 text-center">
-                    {[
-                        { label: 'Enrolled', value: counts.enrolled },
-                        { label: 'Submitted', value: counts.submitted },
-                        { label: 'Pending', value: counts.pending },
-                        { label: 'Graded', value: counts.graded },
-                    ].map((s) => (
-                        <div key={s.label} className="rounded-xl bg-surface-50 dark:bg-surface-800 py-2">
-                            <div className="text-xl font-bold text-surface-800 dark:text-surface-100">{s.value}</div>
-                            <div className="text-[11px] text-surface-500">{s.label}</div>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="p-5 overflow-y-auto space-y-5">
-                    {isLoading ? (
-                        <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
-                    ) : (
-                        <>
-                            {/* Submitted */}
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-success-500" /> Submitted ({data?.submitted?.length || 0})</h4>
-                                {(data?.submitted || []).length === 0 ? (
-                                    <p className="text-xs text-surface-400">No submissions yet.</p>
-                                ) : data.submitted.map((s) => {
-                                    const g = grading[s.id] || { marks: s.marks ?? '', feedback: s.feedback ?? '' }
-                                    return (
-                                        <div key={s.id} className="card p-3.5 space-y-2">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold truncate">{s.student_name || s.student_email}</p>
-                                                    <p className="text-[11px] text-surface-400">{new Date(s.submitted_at).toLocaleString()}{s.status === 'graded' && <span className="ml-2 text-success-600 font-medium">• Graded</span>}</p>
-                                                </div>
-                                                {s.file_url && (
-                                                    <a href={s.file_url} target="_blank" rel="noopener noreferrer" className="btn-secondary text-xs px-2.5 py-1 shrink-0">View PDF</a>
-                                                )}
-                                            </div>
-                                            {s.submission_text && (
-                                                <div className="text-xs text-surface-600 dark:text-surface-300 bg-surface-50 dark:bg-surface-800 rounded-lg p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">{s.submission_text}</div>
-                                            )}
-                                            <div className="flex items-end gap-2">
-                                                <div className="w-24">
-                                                    <label className="block text-[10px] font-semibold text-surface-500 mb-1">Marks{assignment.max_marks ? ` / ${assignment.max_marks}` : ''}</label>
-                                                    <input type="number" className="input py-1.5 text-sm" value={g.marks}
-                                                        onChange={(e) => setGrading((p) => ({ ...p, [s.id]: { ...g, marks: e.target.value } }))} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <label className="block text-[10px] font-semibold text-surface-500 mb-1">Feedback (student sees this)</label>
-                                                    <input type="text" className="input py-1.5 text-sm" value={g.feedback}
-                                                        onChange={(e) => setGrading((p) => ({ ...p, [s.id]: { ...g, feedback: e.target.value } }))} />
-                                                </div>
-                                                <button
-                                                    onClick={() => gradeMutation.mutate({ id: s.id, payload: { marks: g.marks === '' ? null : Number(g.marks), feedback: g.feedback } })}
-                                                    disabled={gradeMutation.isPending}
-                                                    className="btn-primary text-xs px-3 py-2 shrink-0"
-                                                >
-                                                    <Save className="w-3.5 h-3.5" /> Save
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-
-                            {/* Pending */}
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-bold flex items-center gap-1.5"><Users className="w-4 h-4 text-surface-400" /> Yet to submit ({data?.pending?.length || 0})</h4>
-                                {(data?.pending || []).length === 0 ? (
-                                    <p className="text-xs text-surface-400">Everyone enrolled has submitted. 🎉</p>
-                                ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                        {data.pending.map((p) => (
-                                            <span key={p.student} className="text-xs px-2.5 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
-                                                {p.student_name || p.student_email}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
-            </motion.div>
-        </motion.div>
-    )
-}
 
 const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {
+    const navigate = useNavigate()
+    const { courseId } = useParams()
     const { data: assignments = [], isLoading } = useQuery({
         queryKey: ['cb-assignments', topic.id],
         queryFn: () => svc.getAssignments(topic.id),
     })
-    const [viewing, setViewing] = useState(null)
 
     if (isLoading) {
         return <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
@@ -601,7 +478,7 @@ const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <button onClick={() => setViewing(a)} className="btn-secondary text-xs px-2.5 py-1.5">
+                                <button onClick={() => navigate(`/courses/${courseId}/manage/assignments/${a.id}`)} className="btn-secondary text-xs px-2.5 py-1.5">
                                     <Users className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Submissions</span>
                                 </button>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -615,10 +492,6 @@ const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {
                     ))}
                 </div>
             )}
-
-            <AnimatePresence>
-                {viewing && <SubmissionsDrawer assignment={viewing} onClose={() => setViewing(null)} />}
-            </AnimatePresence>
         </div>
     )
 }
