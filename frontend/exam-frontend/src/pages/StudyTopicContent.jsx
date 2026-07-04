@@ -289,53 +289,71 @@ const AllTab = ({ reading, videos, quizzes, navigate }) => {
   )
 }
 
+// Uniform grid + tile shared by all tabs so every card is the same size.
+const TILE_GRID = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4'
+
+const Tile = ({ icon: Icon, iconColor, label, title, meta, onClick, completed, bookmarked, badge, action }) => (
+  <motion.div
+    whileHover={{ y: -4 }}
+    onClick={onClick}
+    className={`card p-4 cursor-pointer transition-all relative overflow-hidden h-full flex flex-col ${
+      completed ? 'border-success-200 dark:border-success-800' : 'hover:border-primary-200 hover:shadow-md'
+    }`}
+  >
+    <div className="absolute top-2 right-2 flex items-center gap-1">
+      {badge}
+      {completed && <CheckCircle2 size={18} className="text-success-500" />}
+    </div>
+    {bookmarked && (
+      <div className="absolute top-2 left-2">
+        <Bookmark size={14} className="text-warning-500 fill-warning-500" />
+      </div>
+    )}
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${iconColor}`}>
+      <Icon size={24} />
+    </div>
+    <h4 className="font-medium text-sm leading-snug line-clamp-2 mb-1.5">{title}</h4>
+    <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-surface-100 dark:border-surface-700">
+      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-500 shrink-0">
+        {label}
+      </span>
+      {meta && (
+        <span className="text-[10px] text-surface-400 flex items-center gap-1 truncate">
+          {meta}
+        </span>
+      )}
+    </div>
+    {action}
+  </motion.div>
+)
+
+const READING_CFG = {
+  notes: { icon: FileText, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30', label: 'Notes' },
+  pdf: { icon: FileText, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'PDF' },
+  revision: { icon: RefreshCw, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30', label: 'Revision' },
+  formula: { icon: BarChart3, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', label: 'Formulas' },
+}
+
 const ReadingTab = ({ items, navigate }) => {
   if (items.length === 0) {
     return <EmptyState icon={BookOpen} message="No reading materials available yet" />
   }
-  const typeConfig = {
-    notes: { icon: FileText, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30', label: 'Notes' },
-    pdf: { icon: FileText, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'PDF' },
-    revision: { icon: RefreshCw, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30', label: 'Revision' },
-    formula: { icon: BarChart3, color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30', label: 'Formulas' },
-  }
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className={TILE_GRID}>
       {items.map((item) => {
-        const cfg = typeConfig[item.content_type] || typeConfig.notes
-        const Icon = cfg.icon
+        const cfg = READING_CFG[item.content_type] || READING_CFG.notes
         return (
-          <motion.div
+          <Tile
             key={item.id}
-            whileHover={{ y: -4 }}
+            icon={cfg.icon}
+            iconColor={cfg.color}
+            label={cfg.label}
+            title={item.title}
+            meta={<><Clock size={10} /> {item.estimated_time_minutes}m</>}
+            completed={item.is_completed}
+            bookmarked={item.is_bookmarked}
             onClick={() => navigate(`/content/${item.id}`)}
-            className={`card p-4 cursor-pointer transition-all relative overflow-hidden ${
-              item.is_completed ? 'border-success-200 dark:border-success-800' : 'hover:border-primary-200'
-            }`}
-          >
-            {item.is_completed && (
-              <div className="absolute top-2 right-2">
-                <CheckCircle2 size={18} className="text-success-500" />
-              </div>
-            )}
-            {item.is_bookmarked && (
-              <div className="absolute top-2 left-2">
-                <Bookmark size={14} className="text-warning-500 fill-warning-500" />
-              </div>
-            )}
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${cfg.color}`}>
-              <Icon size={24} />
-            </div>
-            <h4 className="font-medium text-sm leading-snug line-clamp-2 mb-1.5">{item.title}</h4>
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-surface-100 dark:border-surface-700">
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-500">
-                {cfg.label}
-              </span>
-              <span className="text-[10px] text-surface-400 flex items-center gap-1">
-                <Clock size={10} /> {item.estimated_time_minutes}m
-              </span>
-            </div>
-          </motion.div>
+          />
         )
       })}
     </div>
@@ -347,39 +365,31 @@ const VideosTab = ({ items, navigate }) => {
     return <EmptyState icon={PlayCircle} message="No videos available yet" />
   }
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          onClick={() => navigate(`/content/${item.id}`)}
-          className="card overflow-hidden cursor-pointer hover:border-primary-200 hover:shadow-md transition-all"
-        >
-          <div className="relative bg-surface-100 dark:bg-surface-800 h-36 flex items-center justify-center">
-            <PlayCircle size={48} className="text-surface-300" />
-            {item.is_completed && (
-              <div className="absolute top-2 right-2 bg-success-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle2 size={12} /> Watched
-              </div>
+    <div className={TILE_GRID}>
+      {items.map((item) => {
+        const inProgress = !item.is_completed && item.progress_percentage > 0
+        return (
+          <Tile
+            key={item.id}
+            icon={PlayCircle}
+            iconColor="bg-red-50 text-red-600 dark:bg-red-900/30"
+            label="Video"
+            title={item.title}
+            meta={
+              item.video_duration_minutes
+                ? <><Clock size={10} /> {item.video_duration_minutes}m</>
+                : <><Eye size={10} /> {item.views_count || 0}</>
+            }
+            completed={item.is_completed}
+            badge={inProgress && (
+              <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/30 px-1.5 py-0.5 rounded-full">
+                {Math.round(item.progress_percentage)}%
+              </span>
             )}
-            {item.video_duration_minutes && (
-              <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                {item.video_duration_minutes} min
-              </div>
-            )}
-            {item.progress_percentage > 0 && item.progress_percentage < 100 && (
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-200">
-                <div className="h-full bg-primary-500" style={{ width: `${item.progress_percentage}%` }} />
-              </div>
-            )}
-          </div>
-          <div className="p-3">
-            <h4 className="font-medium text-sm truncate">{item.title}</h4>
-            <p className="text-xs text-surface-500 mt-0.5 flex items-center gap-2">
-              <span className="flex items-center gap-0.5"><Eye size={10} /> {item.views_count}</span>
-            </p>
-          </div>
-        </div>
-      ))}
+            onClick={() => navigate(`/content/${item.id}`)}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -389,51 +399,47 @@ const QuizzesTab = ({ items, navigate }) => {
     return <EmptyState icon={PenTool} message="No practice quizzes available yet" />
   }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {items.map((quiz) => (
-        <motion.div
-          key={quiz.id}
-          whileHover={{ y: -4 }}
-          className={`card p-4 transition-all relative overflow-hidden ${
-            quiz.attempts_count > 0 ? 'border-primary-100 dark:border-primary-900' : 'hover:border-primary-200'
-          }`}
-        >
-          {quiz.attempts_count > 0 && (
-            <div className="absolute top-3 right-3 flex items-center gap-1">
-              <Star size={14} className="text-warning-500 fill-warning-500" />
-              <span className="font-bold text-xs">{Math.round(quiz.best_score)}%</span>
-            </div>
-          )}
-          <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
-            quiz.attempts_count > 0 ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30' : 'bg-green-50 text-green-600 dark:bg-green-900/30'
-          }`}>
-            <PenTool size={22} />
-          </div>
-          <h4 className="font-semibold text-sm leading-snug line-clamp-2 mb-1">{quiz.title}</h4>
-          <div className="flex items-center gap-3 text-[11px] text-surface-500 mb-3">
-            <span>{quiz.total_questions} Qs</span>
-            <span className="flex items-center gap-0.5"><Clock size={10} /> {quiz.duration_minutes}m</span>
-            {quiz.attempts_count > 0 && (
-              <span>{quiz.attempts_count} attempt{quiz.attempts_count > 1 ? 's' : ''}</span>
+    <div className={TILE_GRID}>
+      {items.map((quiz) => {
+        const attempted = quiz.attempts_count > 0
+        return (
+          <Tile
+            key={quiz.id}
+            icon={PenTool}
+            iconColor={attempted
+              ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30'
+              : 'bg-green-50 text-green-600 dark:bg-green-900/30'}
+            label="Quiz"
+            title={quiz.title}
+            meta={<>{quiz.total_questions} Qs · <Clock size={10} /> {quiz.duration_minutes}m</>}
+            badge={attempted && (
+              <span className="flex items-center gap-0.5 text-[11px] font-bold text-warning-600">
+                <Star size={12} className="text-warning-500 fill-warning-500" />
+                {Math.round(quiz.best_score)}%
+              </span>
             )}
-          </div>
-          {quiz.attempts_count > 0 && quiz.last_attempt && (
-            <div className="text-[10px] text-surface-400 mb-3 p-1.5 bg-surface-50 dark:bg-surface-800 rounded">
-              Last: {Math.round(quiz.last_attempt.percentage)}% ({quiz.last_attempt.correct_answers}/{quiz.last_attempt.total_questions})
-            </div>
-          )}
-          <div className="flex gap-2 mt-auto">
-            {quiz.attempts_count > 0 ? (
-              <>
-                <button onClick={() => navigate(`/quiz/${quiz.id}`)} className="flex-1 btn-primary text-xs py-1.5">Retry</button>
-                <button onClick={() => navigate(`/quiz/review/${quiz.last_attempt?.id}`)} className="flex-1 btn-outline text-xs py-1.5">Review</button>
-              </>
-            ) : (
-              <button onClick={() => navigate(`/quiz/${quiz.id}`)} className="flex-1 btn-primary text-xs py-1.5">Start Quiz</button>
-            )}
-          </div>
-        </motion.div>
-      ))}
+            onClick={() => navigate(`/quiz/${quiz.id}`)}
+            action={
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/quiz/${quiz.id}`) }}
+                  className="flex-1 btn-primary text-xs py-1.5"
+                >
+                  {attempted ? 'Retry' : 'Start'}
+                </button>
+                {attempted && quiz.last_attempt && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/quiz/review/${quiz.last_attempt.id}`) }}
+                    className="flex-1 btn-outline text-xs py-1.5"
+                  >
+                    Review
+                  </button>
+                )}
+              </div>
+            }
+          />
+        )
+      })}
     </div>
   )
 }
