@@ -32,10 +32,17 @@ class Content(OrderedModel):
         ('archived', 'Archived'),
     ]
 
+    MATERIAL_KIND_CHOICES = [
+        ('study', 'Study material'),
+        ('practice', 'Practice questions'),
+    ]
+
     title = models.CharField(max_length=500)
     slug = models.SlugField(max_length=500, unique=True)
     description = models.TextField(blank=True)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPES)
+    # For reading material (notes/pdf): distinguishes study material from practice questions
+    material_kind = models.CharField(max_length=20, choices=MATERIAL_KIND_CHOICES, default='study')
     
     # Relationships
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='contents')

@@ -13,7 +13,7 @@ class ContentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Content
         fields = [
-            'id', 'title', 'slug', 'description', 'content_type',
+            'id', 'title', 'slug', 'description', 'content_type', 'material_kind',
             'topic', 'topic_name', 'subject', 'subject_name',
             'video_url', 'video_duration_minutes', 'thumbnail',
             'difficulty', 'status', 'is_free', 'is_premium',

@@ -528,6 +528,7 @@ class StudyChapterDetailView(APIView):
                 'id': str(c.id),
                 'title': c.title,
                 'content_type': c.content_type,
+                'material_kind': c.material_kind,
                 'order': c.order,
                 'estimated_time_minutes': c.estimated_time_minutes,
                 'video_duration_minutes': c.video_duration_minutes,

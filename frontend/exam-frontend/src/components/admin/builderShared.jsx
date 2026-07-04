@@ -175,6 +175,10 @@ export const CONTENT_TYPE_OPTIONS = [
     { value: 'pdf', label: 'PDF Notes' },
     { value: 'video', label: 'Video' },
 ]
+export const MATERIAL_KIND_OPTIONS = [
+    { value: 'study', label: 'Study material' },
+    { value: 'practice', label: 'Practice questions' },
+]
 export const CONTENT_DIFFICULTY = ['beginner', 'intermediate', 'advanced']
 export const CONTENT_STATUS = ['draft', 'published', 'archived']
 export const QUIZ_TYPES = ['topic', 'subject', 'chapter', 'daily', 'custom', 'pyq']
@@ -245,6 +249,7 @@ export const SCHEMAS = {
         fields: [
             { name: 'title', label: 'Title', type: 'text', required: true, full: true },
             { name: 'content_type', label: 'Type', type: 'select', options: CONTENT_TYPE_OPTIONS, default: 'notes' },
+            { name: 'material_kind', label: 'Reading purpose', type: 'select', options: MATERIAL_KIND_OPTIONS, default: 'study', showIf: (v) => v.content_type === 'notes' || v.content_type === 'pdf', hint: 'Study material is for learning; Practice questions groups worksheets/question PDFs separately for students.' },
             { name: 'status', label: 'Status', type: 'select', options: opt(CONTENT_STATUS), default: 'draft' },
             { name: 'difficulty', label: 'Difficulty', type: 'select', options: opt(CONTENT_DIFFICULTY), default: 'intermediate' },
             { name: 'estimated_time_minutes', label: 'Read Time (min)', type: 'number', default: 10 },
