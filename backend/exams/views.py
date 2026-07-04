@@ -259,6 +259,7 @@ class StudySubjectsView(APIView):
     def get(self, request):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
+        from assignments.models import Assignment, AssignmentSubmission
 
         student = request.user.profile
         course_id = request.query_params.get('course_id')
@@ -281,18 +282,36 @@ class StudySubjectsView(APIView):
                 {'error': 'Enrollment pending admin approval'}, status=403
             )
 
+        reading_types = ['notes', 'pdf', 'revision', 'formula']
+
         subjects = Subject.objects.filter(course=course).order_by('order')
         result = []
         for subj in subjects:
-            content_count = Content.objects.filter(
-                subject=subj, status='published'
+            subj_topic_ids = list(subj.topics.values_list('id', flat=True))
+
+            reading_total = Content.objects.filter(
+                subject=subj, status='published',
+                content_type__in=reading_types,
             ).count()
-            content_done = ContentProgress.objects.filter(
+            reading_done = ContentProgress.objects.filter(
                 student=student,
                 content__subject=subj,
                 content__status='published',
+                content__content_type__in=reading_types,
                 is_completed=True,
             ).count()
+
+            video_total = Content.objects.filter(
+                subject=subj, status='published', content_type='video',
+            ).count()
+            video_done = ContentProgress.objects.filter(
+                student=student,
+                content__subject=subj,
+                content__status='published',
+                content__content_type='video',
+                is_completed=True,
+            ).count()
+
             quiz_count = Quiz.objects.filter(
                 subject=subj, course=course, status='published'
             ).count()
@@ -304,8 +323,20 @@ class StudySubjectsView(APIView):
                 status='completed',
             ).values('quiz').distinct().count()
 
-            total_content = content_count + quiz_count
-            completed_content = content_done + quiz_done
+            assignment_total = Assignment.objects.filter(
+                topic_id__in=subj_topic_ids, status='published',
+            ).count()
+            assignment_done = AssignmentSubmission.objects.filter(
+                student=student,
+                assignment__topic_id__in=subj_topic_ids,
+                assignment__status='published',
+            ).values('assignment').distinct().count()
+
+            content_count = reading_total + video_total
+            content_done = reading_done + video_done
+
+            total_content = content_count + quiz_count + assignment_total
+            completed_content = content_done + quiz_done + assignment_done
             progress = (
                 round((completed_content / total_content) * 100)
                 if total_content > 0 else 0
@@ -327,6 +358,10 @@ class StudySubjectsView(APIView):
                 'total_content': total_content,
                 'completed_content': completed_content,
                 'progress': progress,
+                'reading': {'total': reading_total, 'completed': reading_done},
+                'videos': {'total': video_total, 'completed': video_done},
+                'quizzes': {'total': quiz_count, 'attempted': quiz_done},
+                'assignments': {'total': assignment_total, 'completed': assignment_done},
             })
 
         return Response(result)
@@ -342,6 +377,7 @@ class StudyChaptersView(APIView):
     def get(self, request, subject_id):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
+        from assignments.models import Assignment, AssignmentSubmission
 
         student = request.user.profile
         try:
@@ -385,9 +421,6 @@ class StudyChaptersView(APIView):
                 status='completed',
             ).values('quiz').distinct().count()
 
-            total_content = content_count + quiz_count
-            completed_content = content_done + quiz_done
-
             reading_total = Content.objects.filter(
                 topic_id__in=topic_ids, status='published',
                 content_type__in=['notes', 'pdf', 'revision', 'formula'],
@@ -421,6 +454,18 @@ class StudyChaptersView(APIView):
                 status='completed',
             ).values('quiz').distinct().count()
 
+            assignment_total = Assignment.objects.filter(
+                topic_id__in=topic_ids, status='published',
+            ).count()
+            assignment_done = AssignmentSubmission.objects.filter(
+                student=student,
+                assignment__topic_id__in=topic_ids,
+                assignment__status='published',
+            ).values('assignment').distinct().count()
+
+            total_content = content_count + quiz_count + assignment_total
+            completed_content = content_done + quiz_done + assignment_done
+
             progress = (
                 round((completed_content / total_content) * 100)
                 if total_content > 0 else 0
@@ -439,6 +484,7 @@ class StudyChaptersView(APIView):
                 'reading': {'total': reading_total, 'completed': reading_done},
                 'videos': {'total': video_total, 'completed': video_done},
                 'quizzes': {'total': quiz_total, 'attempted': quiz_attempted},
+                'assignments': {'total': assignment_total, 'completed': assignment_done},
             })
 
         return Response({
@@ -462,6 +508,7 @@ class StudyChapterDetailView(APIView):
     def get(self, request, chapter_id):
         from content.models import Content, ContentProgress
         from quiz.models import Quiz, QuizAttempt
+        from assignments.models import Assignment, AssignmentSubmission
 
         student = request.user.profile
         try:
@@ -564,6 +611,33 @@ class StudyChapterDetailView(APIView):
                 'last_attempt': attempts[0] if attempts else None,
             })
 
+        assignments = Assignment.objects.filter(
+            topic_id__in=topic_ids, status='published'
+        ).order_by('topic_id', 'order')
+        submission_map = {
+            s.assignment_id: s
+            for s in AssignmentSubmission.objects.filter(
+                student=student, assignment__in=assignments
+            )
+        }
+        assignment_by_topic = {}
+        for a in assignments:
+            tid = str(a.topic_id)
+            if tid not in assignment_by_topic:
+                assignment_by_topic[tid] = []
+            sub = submission_map.get(a.id)
+            assignment_by_topic[tid].append({
+                'id': str(a.id),
+                'title': a.title,
+                'submission_type': a.submission_type,
+                'is_timed': a.is_timed,
+                'due_at': a.due_at.isoformat() if a.due_at else None,
+                'max_marks': a.max_marks,
+                'is_open': a.is_open,
+                'is_completed': sub is not None,
+                'submission_status': sub.status if sub else None,
+            })
+
         topics_payload = []
         for ct in chapter_topics:
             t = ct.topic
@@ -581,6 +655,7 @@ class StudyChapterDetailView(APIView):
                 'reading': content_by_topic.get(tid, {}).get('reading', []),
                 'videos': content_by_topic.get(tid, {}).get('videos', []),
                 'quizzes': quiz_by_topic.get(tid, []),
+                'assignments': assignment_by_topic.get(tid, []),
             })
 
         return Response({
