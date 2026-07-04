@@ -11,7 +11,8 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 
-from core.permissions import IsTenantAdmin
+from core.permissions import IsCourseEditor, resolve_course_id
+from rest_framework.exceptions import PermissionDenied
 from .models import Course, Subject, Topic, Chapter, ChapterTopic
 from .admin_serializers import (
     AdminCourseSerializer, AdminSubjectSerializer,
@@ -27,8 +28,9 @@ class BuilderPagination(PageNumberPagination):
 
 
 class TenantAdminModelViewSet(viewsets.ModelViewSet):
-    """Base CRUD viewset: tenant-admin only, tenant-scoped, searchable."""
-    permission_classes = [IsTenantAdmin]
+    """Base CRUD viewset: editable by tenant admins and assigned instructors,
+    tenant-scoped, searchable."""
+    permission_classes = [IsCourseEditor]
     pagination_class = BuilderPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code']
@@ -37,19 +39,43 @@ class TenantAdminModelViewSet(viewsets.ModelViewSet):
 
     # Lookup path from the model to the owning Course's tenant.
     tenant_lookup = 'tenant'
+    # Lookup path from the model to the owning Course (for instructor scoping).
+    # ``None`` means the model *is* a Course.
+    course_lookup = None
 
     def _tenant(self):
         return getattr(self.request, 'tenant', None)
+
+    def _is_instructor(self):
+        return getattr(self.request.user, 'role', None) == 'instructor'
+
+    def _instructing_course_ids(self):
+        return list(self.request.user.instructing_courses.values_list('id', flat=True))
 
     def get_queryset(self):
         qs = super().get_queryset()
         tenant = self._tenant()
         if not tenant:
             return qs.none()
-        return qs.filter(**{self.tenant_lookup: tenant})
+        qs = qs.filter(**{self.tenant_lookup: tenant})
+        # Instructors only see courses they are assigned to.
+        if self._is_instructor():
+            ids = self._instructing_course_ids()
+            if self.course_lookup is None:
+                qs = qs.filter(id__in=ids)
+            else:
+                qs = qs.filter(**{f'{self.course_lookup}__in': ids})
+        return qs
 
     def perform_create(self, serializer):
-        serializer.save(tenant=self._tenant())
+        obj = serializer.save(tenant=self._tenant())
+        # Guard: an instructor must not create content under a course they don't own.
+        if self._is_instructor():
+            course_id = resolve_course_id(obj, self.course_lookup)
+            allowed = {str(i) for i in self._instructing_course_ids()}
+            if course_id is None or str(course_id) not in allowed:
+                obj.delete()
+                raise PermissionDenied('You can only edit courses assigned to you.')
 
     @action(detail=False, methods=['post'])
     def reorder(self, request):
@@ -73,7 +99,37 @@ class AdminCourseViewSet(TenantAdminModelViewSet):
     serializer_class = AdminCourseSerializer
     filterset_fields = ['course_type', 'status', 'is_featured']
     tenant_lookup = 'tenant'
+    course_lookup = None  # the object is itself a Course
     ordering = ['name']
+
+    def create(self, request, *args, **kwargs):
+        # Only admins create courses; instructors edit assigned ones.
+        if request.user.role != 'admin':
+            raise PermissionDenied('Only admins can create courses.')
+        return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'admin':
+            raise PermissionDenied('Only admins can delete courses.')
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        # Instructors may edit course details but never the instructor roster.
+        if self.request.user.role != 'admin':
+            serializer.validated_data.pop('instructors', None)
+        serializer.save()
+
+    @action(detail=False, methods=['get'])
+    def instructors(self, request):
+        """List tenant users with the instructor role (for assignment). Admin only."""
+        if request.user.role != 'admin':
+            raise PermissionDenied('Only admins can view instructors.')
+        from users.models import User
+        users = User.objects.filter(tenant=self._tenant(), role='instructor').order_by('first_name', 'email')
+        return Response([
+            {'id': str(u.id), 'name': u.full_name or u.email, 'email': u.email}
+            for u in users
+        ])
 
 
 class AdminSubjectViewSet(TenantAdminModelViewSet):
@@ -81,6 +137,7 @@ class AdminSubjectViewSet(TenantAdminModelViewSet):
     serializer_class = AdminSubjectSerializer
     filterset_fields = ['course']
     tenant_lookup = 'course__tenant'
+    course_lookup = 'course'
 
 
 class AdminChapterViewSet(TenantAdminModelViewSet):
@@ -88,6 +145,7 @@ class AdminChapterViewSet(TenantAdminModelViewSet):
     serializer_class = AdminChapterSerializer
     filterset_fields = ['subject', 'grade']
     tenant_lookup = 'subject__course__tenant'
+    course_lookup = 'subject__course'
 
 
 class AdminTopicViewSet(TenantAdminModelViewSet):
@@ -95,6 +153,7 @@ class AdminTopicViewSet(TenantAdminModelViewSet):
     serializer_class = AdminTopicSerializer
     filterset_fields = ['subject', 'difficulty', 'importance', 'parent_topic']
     tenant_lookup = 'subject__course__tenant'
+    course_lookup = 'subject__course'
 
     def get_queryset(self):
         qs = super().get_queryset()

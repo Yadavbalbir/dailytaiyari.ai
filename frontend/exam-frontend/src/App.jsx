@@ -68,6 +68,17 @@ const AdminRoute = ({ children }) => {
   return children
 }
 
+// Course editor route: admins and instructors (backend scopes instructors to
+// their assigned courses).
+const EditorRoute = ({ children }) => {
+  const { user, profile } = useAuthStore()
+  const role = user?.role || profile?.user?.role
+  if (role !== 'admin' && role !== 'instructor') {
+    return <Navigate to="/dashboard" replace />
+  }
+  return children
+}
+
 // Public Route (redirect if authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, isOnboarded } = useAuthStore()
@@ -129,7 +140,7 @@ function App() {
         >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:courseId/manage" element={<AdminRoute><CourseManager /></AdminRoute>} />
+          <Route path="/courses/:courseId/manage" element={<EditorRoute><CourseManager /></EditorRoute>} />
           <Route path="/study" element={<Study />} />
           <Route path="/study/course/:courseId" element={<StudyCourse />} />
           <Route path="/study/:subjectId" element={<StudyChapters />} />

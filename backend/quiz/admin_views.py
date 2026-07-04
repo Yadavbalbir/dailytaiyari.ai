@@ -20,6 +20,7 @@ class AdminQuizViewSet(TenantAdminModelViewSet):
     ordering = ['-created_at']
     filterset_fields = ['course', 'subject', 'topic', 'quiz_type', 'status']
     tenant_lookup = 'course__tenant'
+    course_lookup = 'course'
 
 
 class AdminQuestionViewSet(TenantAdminModelViewSet):
@@ -30,6 +31,7 @@ class AdminQuestionViewSet(TenantAdminModelViewSet):
     ordering = ['created_at']
     filterset_fields = ['topic', 'subject', 'difficulty', 'status', 'question_type']
     tenant_lookup = 'subject__course__tenant'
+    course_lookup = 'subject__course'
 
     def get_queryset(self):
         qs = super().get_queryset()

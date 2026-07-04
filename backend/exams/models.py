@@ -55,6 +55,16 @@ class Course(TimeStampedModel):
     total_students = models.PositiveIntegerField(default=0)
     total_questions = models.PositiveIntegerField(default=0)
 
+    # Instructors assigned by a tenant admin. Assigned instructors can edit the
+    # course content (chapters, topics, quizzes, etc.) but cannot manage the
+    # instructor list themselves — that stays admin-only.
+    instructors = models.ManyToManyField(
+        'users.User',
+        related_name='instructing_courses',
+        blank=True,
+        limit_choices_to={'role': 'instructor'},
+    )
+
     class Meta:
         verbose_name = 'Course'
         verbose_name_plural = 'Courses'

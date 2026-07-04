@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
+import { contentBuilderService } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
@@ -13,7 +14,18 @@ const Courses = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user, profile } = useAuthStore()
-  const isAdmin = (user?.role || profile?.user?.role) === 'admin'
+  const role = user?.role || profile?.user?.role
+  const isAdmin = role === 'admin'
+  const isInstructor = role === 'instructor'
+  const canManage = isAdmin || isInstructor
+
+  // Courses this user can manage (backend scopes instructors to assigned courses).
+  const { data: manageableRaw } = useQuery({
+    queryKey: ['manageableCourses'],
+    queryFn: () => contentBuilderService.getExams(),
+    enabled: canManage,
+  })
+  const manageable = Array.isArray(manageableRaw) ? manageableRaw : (manageableRaw?.results || [])
 
   const { data: availableRaw, isLoading: availLoading } = useQuery({
     queryKey: ['availableCourses'],
@@ -56,6 +68,50 @@ const Courses = () => {
         <h1 className="text-2xl font-display font-bold">Courses</h1>
         <p className="text-surface-500 mt-1">Explore all available courses and request enrollment</p>
       </div>
+
+      {isInstructor && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Settings2 size={18} className="text-primary-500" />
+            <h2 className="text-lg font-display font-bold">Courses you teach</h2>
+          </div>
+          {manageable.length === 0 ? (
+            <div className="card p-6 text-center text-surface-500">
+              <p>You haven't been assigned to any courses yet. Ask an admin to add you as an instructor.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {manageable.map((course) => (
+                <motion.div
+                  key={course.id}
+                  whileHover={{ y: -4 }}
+                  className="card p-5 flex flex-col gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                      style={{ backgroundColor: course.color || '#f97316' }}
+                    >
+                      <GraduationCap size={20} />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold truncate">{course.name}</h3>
+                      <p className="text-xs text-surface-400">{course.subjects_count || 0} subjects</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/courses/${course.id}/manage`)}
+                    className="btn-primary w-full inline-flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Settings2 size={15} /> Manage course
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {available.length === 0 ? (
         <div className="card p-8 text-center text-surface-500">
