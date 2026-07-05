@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
+import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import toast from 'react-hot-toast'
 import {
@@ -20,7 +21,9 @@ import {
   CheckCircle2,
   X,
   ChevronLeft,
-  RotateCcw
+  RotateCcw,
+  Trophy,
+  Clock
 } from 'lucide-react'
 
 const REPORT_TYPES = [
@@ -47,6 +50,12 @@ const QuizReview = () => {
   const { data: attempt, isLoading, error } = useQuery({
     queryKey: ['attemptReview', attemptId],
     queryFn: () => quizService.getAttemptReview(attemptId),
+  })
+
+  const { data: leaderboard } = useQuery({
+    queryKey: ['quizLeaderboard', attempt?.quiz],
+    queryFn: () => courseService.getStudyLeaderboard('quiz', attempt.quiz),
+    enabled: !!attempt?.quiz,
   })
 
   const reportMutation = useMutation({
@@ -202,6 +211,69 @@ const QuizReview = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Quiz Leaderboard */}
+      {leaderboard && leaderboard.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card p-5"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy size={20} className="text-warning-500" />
+            <h2 className="font-semibold text-lg">Quiz Leaderboard</h2>
+            <span className="text-sm text-surface-500">Top scores</span>
+          </div>
+
+          <div className="space-y-2">
+            {leaderboard.map((entry) => (
+              <div
+                key={entry.rank}
+                className={`p-3 rounded-xl flex items-center gap-3 border ${
+                  entry.is_current_user
+                    ? 'border-primary-300 bg-primary-50/60 dark:border-primary-700 dark:bg-primary-900/20'
+                    : 'border-surface-200 dark:border-surface-700'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                  entry.rank === 1 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
+                  entry.rank === 2 ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' :
+                  entry.rank === 3 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400' :
+                  'bg-surface-100 dark:bg-surface-800 text-surface-500'
+                }`}>
+                  {entry.rank <= 3 ? ['🥇', '🥈', '🥉'][entry.rank - 1] : `#${entry.rank}`}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {entry.student_name}
+                    {entry.is_current_user && (
+                      <span className="text-xs text-primary-600 dark:text-primary-400 ml-2">(You)</span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-surface-500 mt-0.5">
+                    <span className={getScoreColor(entry.accuracy)}>{Math.round(entry.accuracy)}%</span>
+                    {entry.time_taken_seconds > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {Math.floor(entry.time_taken_seconds / 60)}:{String(entry.time_taken_seconds % 60).padStart(2, '0')}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {entry.total_marks > 0 && (
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-sm">{entry.marks_obtained}<span className="text-surface-400 font-normal">/{entry.total_marks}</span></p>
+                    <p className="text-xs text-surface-500">marks</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
