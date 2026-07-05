@@ -6,6 +6,7 @@ const TYPE_LABELS = {
   board: 'Board',
   entrance: 'Entrance',
   government: 'Government',
+  skill: 'Skill Development',
 }
 
 /**

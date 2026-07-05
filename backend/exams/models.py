@@ -15,6 +15,7 @@ class Course(TimeStampedModel):
         ('board', 'Board Course'),
         ('entrance', 'Entrance Course'),
         ('government', 'Government Job Course'),
+        ('skill', 'Skill Development'),
     ]
     
     STATUS_CHOICES = [

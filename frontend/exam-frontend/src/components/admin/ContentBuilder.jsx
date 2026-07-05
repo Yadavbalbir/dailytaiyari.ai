@@ -12,7 +12,7 @@ import { contentBuilderService as svc } from '../../services/contentBuilderServi
 /* ===========================================================================
  * Field / form configuration per entity
  * ========================================================================= */
-const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government']
+const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government', 'skill']
 const EXAM_STATUS = ['active', 'coming_soon', 'inactive']
 const DIFFICULTY = ['easy', 'medium', 'hard']
 const IMPORTANCE = ['low', 'medium', 'high', 'critical']
