@@ -388,7 +388,15 @@ const Dashboard = () => {
           value={`${Math.round(stats.weekly.accuracy || 0)}%`}
           icon={<Target className="text-success-500" />}
           subtitle="Weekly average"
-          variant={stats.weekly.accuracy >= 70 ? 'success' : stats.weekly.accuracy >= 50 ? 'warning' : 'default'}
+          valueClassName={
+            stats.weekly.accuracy >= 70
+              ? 'text-success-600 dark:text-success-400'
+              : stats.weekly.accuracy >= 50
+              ? 'text-amber-600 dark:text-amber-400'
+              : stats.weekly.questions > 0
+              ? 'text-rose-600 dark:text-rose-400'
+              : ''
+          }
         />
         <StatCard
           title="Topics Mastered"
