@@ -1,0 +1,16 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('gamification', '0007_alter_course_fk_metadata'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='xptransaction',
+            name='transaction_type',
+            field=models.CharField(choices=[('quiz_complete', 'Quiz Completed'), ('mock_complete', 'Mock Test Completed'), ('content_complete', 'Content Completed'), ('ai_quiz', 'AI Quiz Completed'), ('coding_solved', 'Coding Problem Solved'), ('assignment_graded', 'Assignment Graded'), ('daily_goal', 'Daily Goal Met'), ('streak_bonus', 'Streak Bonus'), ('badge_earned', 'Badge Earned'), ('level_up', 'Level Up Bonus'), ('referral', 'Referral Bonus'), ('challenge_win', 'Challenge Won'), ('community', 'Community Activity'), ('manual', 'Manual Adjustment')], max_length=30),
+        ),
+    ]

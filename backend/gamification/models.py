@@ -91,6 +91,8 @@ class XPTransaction(TimeStampedModel):
         ('mock_complete', 'Mock Test Completed'),
         ('content_complete', 'Content Completed'),
         ('ai_quiz', 'AI Quiz Completed'),
+        ('coding_solved', 'Coding Problem Solved'),
+        ('assignment_graded', 'Assignment Graded'),
         ('daily_goal', 'Daily Goal Met'),
         ('streak_bonus', 'Streak Bonus'),
         ('badge_earned', 'Badge Earned'),
