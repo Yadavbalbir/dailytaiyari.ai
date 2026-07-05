@@ -39,12 +39,23 @@ class ContentViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Auto-filter by student's primary course
+        # Scope to every course the student is actively enrolled in, not just
+        # their primary course, so multi-course students can open content from
+        # any of their enrolled courses (e.g. a Python topic while primary is
+        # Class XI). Falls back to no course filter when the student has no
+        # enrollments (still tenant-scoped by the base viewset).
         if self.request.user.is_authenticated:
             try:
-                course = self.request.user.profile.primary_course
-                if course:
-                    queryset = queryset.filter(courses=course)
+                student = self.request.user.profile
+                enrolled_course_ids = list(
+                    student.enrollments.filter(
+                        status='approved', is_active=True
+                    ).values_list('course_id', flat=True)
+                )
+                if enrolled_course_ids:
+                    queryset = queryset.filter(
+                        courses__in=enrolled_course_ids
+                    ).distinct()
             except Exception:
                 pass
         return queryset
