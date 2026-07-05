@@ -103,6 +103,23 @@ class AdminSubmissionViewSet(TenantAdminModelViewSet):
             obj.graded_by = self.request.user
             obj.save(update_fields=['status', 'graded_at', 'graded_by'])
 
+            # Award XP the first time this submission is graded.
+            from gamification.models import XPTransaction
+            from gamification.services import GamificationService
+            from core.utils import calculate_xp_for_assignment
+
+            already_awarded = XPTransaction.objects.filter(
+                student=obj.student, transaction_type='assignment_graded', reference_id=obj.id,
+            ).exists()
+            if not already_awarded:
+                GamificationService.award_xp(
+                    obj.student,
+                    calculate_xp_for_assignment(obj.marks, obj.assignment.max_marks),
+                    'assignment_graded',
+                    f'Assignment graded: {obj.assignment.title}',
+                    str(obj.id),
+                )
+
     @action(detail=True, methods=['get'], url_path='file')
     def file(self, request, pk=None):
         """Stream a student's submitted file inline (view-only) for grading."""

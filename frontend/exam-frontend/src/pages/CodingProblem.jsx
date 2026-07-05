@@ -85,8 +85,11 @@ const CodingProblem = () => {
     onSuccess: (data) => {
       setSubmitResult(data)
       setRunResult(null)
-      if (data.all_passed) toast.success('All test cases passed! 🎉')
-      else toast(`${data.passed_count}/${data.total_count} test cases passed`)
+      if (data.all_passed) {
+        toast.success(data.xp_awarded > 0 ? `All test cases passed! +${data.xp_awarded} XP 🎉` : 'All test cases passed! 🎉')
+      } else {
+        toast(`${data.passed_count}/${data.total_count} test cases passed`)
+      }
     },
     onError: (err) => toast.error(err?.response?.data?.error || 'Submission failed. Try again.'),
   })
@@ -248,6 +251,9 @@ const SubmitResultPanel = ({ result, maxMarks }) => {
           <p className="font-bold">{allPassed ? 'Accepted' : 'Partial'} — {result.passed_count}/{result.total_count} test cases passed</p>
           {maxMarks != null && result.marks != null && (
             <p className="text-sm text-surface-600 dark:text-surface-300">Score: {result.marks} / {maxMarks} marks</p>
+          )}
+          {result.xp_awarded > 0 && (
+            <p className="text-sm font-semibold text-success-600 dark:text-success-400">+{result.xp_awarded} XP earned</p>
           )}
         </div>
       </div>

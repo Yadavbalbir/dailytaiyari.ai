@@ -173,7 +173,30 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
             total_points=outcome['total_points'],
             marks=marks,
         )
-        return Response(SubmissionResultSerializer(submission).data, status=status.HTTP_201_CREATED)
+
+        # Award XP the first time the student fully solves this problem.
+        xp_awarded = 0
+        if submission.total_count > 0 and submission.passed_count == submission.total_count:
+            from gamification.models import XPTransaction
+            from gamification.services import GamificationService
+            from core.utils import calculate_xp_for_coding
+
+            already_awarded = XPTransaction.objects.filter(
+                student=student, transaction_type='coding_solved', reference_id=problem.id,
+            ).exists()
+            if not already_awarded:
+                xp_awarded = calculate_xp_for_coding(problem.difficulty)
+                GamificationService.award_xp(
+                    student,
+                    xp_awarded,
+                    'coding_solved',
+                    f'Solved coding problem: {problem.title}',
+                    str(problem.id),
+                )
+
+        data = SubmissionResultSerializer(submission).data
+        data['xp_awarded'] = xp_awarded
+        return Response(data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'], url_path='my-submissions')
     def my_submissions(self, request, pk=None):

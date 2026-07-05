@@ -77,6 +77,28 @@ def get_mastery_level(accuracy):
 QUIZ_XP_CAP = 25
 QUIZ_XP_CAP_DAILY_CHALLENGE = 40
 
+# Coding-problem solve XP by difficulty. Awarded once, on the first fully-passing
+# submission. A solve is more effort than a single quiz, so it sits above the quiz cap.
+CODING_XP_BY_DIFFICULTY = {'easy': 15, 'medium': 25, 'hard': 40}
+
+# Assignment XP. Awarded once, when a submission is first graded. Scaled by the
+# score when the assignment defines max_marks; otherwise a flat completion award.
+ASSIGNMENT_XP_MAX = 30
+ASSIGNMENT_XP_MIN = 5
+
+
+def calculate_xp_for_coding(difficulty):
+    """XP for solving a coding problem (all test cases passed)."""
+    return CODING_XP_BY_DIFFICULTY.get(difficulty, CODING_XP_BY_DIFFICULTY['easy'])
+
+
+def calculate_xp_for_assignment(marks, max_marks):
+    """XP for a graded assignment submission, scaled by score when possible."""
+    if max_marks and marks is not None:
+        ratio = max(0.0, min(1.0, float(marks) / float(max_marks)))
+        return max(ASSIGNMENT_XP_MIN, round(ASSIGNMENT_XP_MAX * ratio))
+    return ASSIGNMENT_XP_MAX
+
 
 def calculate_xp_for_quiz(accuracy, questions_count, is_daily_challenge=False):
     """
