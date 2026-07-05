@@ -165,7 +165,7 @@ export const NotesTextarea = ({ value, onChange, rows }) => {
  * tools (ContentBuilder table view and the focused CourseManager).
  * Single source of truth so both stay in sync.
  * ========================================================================= */
-export const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government']
+export const EXAM_TYPES = ['competitive', 'board', 'entrance', 'government', 'skill']
 export const EXAM_STATUS = ['active', 'coming_soon', 'inactive']
 export const DIFFICULTY = ['easy', 'medium', 'hard']
 export const IMPORTANCE = ['low', 'medium', 'high', 'critical']
