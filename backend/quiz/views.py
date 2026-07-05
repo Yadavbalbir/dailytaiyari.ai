@@ -35,15 +35,28 @@ class QuizSubmitThrottle(UserRateThrottle):
     rate = '3000/hour'
 
 
-def _get_student_course(request):
-    """Helper to get the student's primary course for filtering."""
+def _get_student_course_ids(request):
+    """
+    Return the IDs of every course the student is actively enrolled in.
+
+    Access to quizzes / questions / mock tests is scoped to all of a
+    student's approved, active enrollments — not just their primary course —
+    so multi-course students can open items from any enrolled course (e.g. a
+    Python quiz while their primary course is Class XI). Returns None when the
+    user isn't an enrolled student (leaving the queryset tenant-scoped only).
+    """
     if not request.user.is_authenticated:
         return None
     try:
         profile = request.user.profile
-        return profile.primary_course
     except Exception:
         return None
+    ids = list(
+        profile.enrollments.filter(
+            status='approved', is_active=True
+        ).values_list('course_id', flat=True)
+    )
+    return ids or None
 
 
 class QuestionViewSet(TenantAwareReadOnlyViewSet):
@@ -64,10 +77,10 @@ class QuestionViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Auto-filter by student's primary course
-        course = _get_student_course(self.request)
-        if course:
-            queryset = queryset.filter(courses=course)
+        # Scope to every course the student is actively enrolled in.
+        course_ids = _get_student_course_ids(self.request)
+        if course_ids:
+            queryset = queryset.filter(courses__in=course_ids).distinct()
         return queryset
 
     @action(detail=False, methods=['get'])
@@ -110,11 +123,13 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         if self.action == 'list' and 'is_daily_challenge' not in request.query_params:
             queryset = queryset.filter(is_daily_challenge=False)
         
-        # Auto-filter by student's primary course (unless explicit course filter is provided)
+        # Auto-filter by the student's enrolled courses (unless an explicit
+        # course filter is provided). Scopes to ALL approved enrollments so a
+        # quiz from any enrolled course opens, not just the primary course.
         if not request.query_params.get('course'):
-            course = _get_student_course(request)
-            if course:
-                queryset = queryset.filter(course=course)
+            course_ids = _get_student_course_ids(request)
+            if course_ids:
+                queryset = queryset.filter(course__in=course_ids)
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -143,11 +158,11 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         """Get available filter options for quizzes (scoped to student's course)."""
         from exams.models import Subject, Topic, Course
         
-        # Scope to student's primary course
-        course = _get_student_course(request)
+        # Scope to the student's enrolled courses
+        course_ids = _get_student_course_ids(request)
         quiz_qs = Quiz.objects.filter(status='published')
-        if course:
-            quiz_qs = quiz_qs.filter(course=course)
+        if course_ids:
+            quiz_qs = quiz_qs.filter(course__in=course_ids)
         
         # Get subjects that have quizzes for this course
         subjects_with_quizzes = Subject.objects.filter(
@@ -573,11 +588,13 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         queryset = super().get_queryset()
         request = self.request
         
-        # Auto-filter by student's primary course (unless explicit course filter is provided)
+        # Auto-filter by the student's enrolled courses (unless an explicit
+        # course filter is provided). Scopes to ALL approved enrollments so a
+        # mock test from any enrolled course opens, not just the primary course.
         if not request.query_params.get('course'):
-            course = _get_student_course(request)
-            if course:
-                queryset = queryset.filter(course=course)
+            course_ids = _get_student_course_ids(request)
+            if course_ids:
+                queryset = queryset.filter(course__in=course_ids)
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -600,11 +617,11 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         """Get available filter options for mock tests (scoped to student's course)."""
         from exams.models import Course
         
-        # Scope to student's primary course
-        course = _get_student_course(request)
+        # Scope to the student's enrolled courses
+        course_ids = _get_student_course_ids(request)
         test_qs = MockTest.objects.filter(status='published')
-        if course:
-            test_qs = test_qs.filter(course=course)
+        if course_ids:
+            test_qs = test_qs.filter(course__in=course_ids)
         
         # Get courses that have mock tests
         courses_with_tests = Course.objects.filter(
