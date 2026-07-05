@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,7 +8,7 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2 } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X } from 'lucide-react'
 
 const Courses = () => {
   const navigate = useNavigate()
@@ -44,6 +44,41 @@ const Courses = () => {
     ;(studyData.pending || []).forEach((c) => { map[c.id] = 'pending' })
     return map
   }, [studyData])
+
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
+
+  const counts = useMemo(() => {
+    let enrolled = 0
+    let pending = 0
+    available.forEach((c) => {
+      const s = statusById[c.id]
+      if (s === 'approved') enrolled += 1
+      else if (s === 'pending') pending += 1
+    })
+    return { all: available.length, enrolled, pending }
+  }, [available, statusById])
+
+  const visibleCourses = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return available.filter((c) => {
+      const status = statusById[c.id]
+      if (filter === 'enrolled' && status !== 'approved') return false
+      if (filter === 'pending' && status !== 'pending') return false
+      if (!q) return true
+      const haystack = [c.name, c.description, c.code, c.course_type]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [available, statusById, query, filter])
+
+  const filterTabs = [
+    { key: 'all', label: 'All', count: counts.all },
+    { key: 'enrolled', label: 'Enrolled', count: counts.enrolled },
+    { key: 'pending', label: 'Pending', count: counts.pending },
+  ]
 
   const requestEnroll = async (courseId) => {
     try {
@@ -118,8 +153,76 @@ const Courses = () => {
           <p>No courses available yet. Check back soon.</p>
         </div>
       ) : (
+        <>
+          {/* Toolbar: search + status filters */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-xs">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search courses..."
+                className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 focus:border-primary-400 dark:focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-surface-400 hover:text-surface-600 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-100 dark:bg-surface-800 self-start sm:self-auto">
+              {filterTabs.map((tab) => {
+                const isActive = filter === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setFilter(tab.key)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-white dark:bg-surface-900 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                    }`}
+                  >
+                    {tab.label}
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold ${
+                      isActive
+                        ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                        : 'bg-surface-200 dark:bg-surface-700 text-surface-500'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {visibleCourses.length === 0 ? (
+            <div className="card p-8 text-center text-surface-500">
+              <Search size={40} className="mx-auto mb-3 text-surface-300" />
+              <p className="font-medium">No courses match your filters</p>
+              <p className="text-sm mt-1">Try a different search term or filter.</p>
+              {(query || filter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => { setQuery(''); setFilter('all') }}
+                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors"
+                >
+                  <X size={14} /> Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {available.map((course, index) => {
+          {visibleCourses.map((course, index) => {
             const status = statusById[course.id]
             const statusBadge =
               status === 'approved' ? (
@@ -188,6 +291,8 @@ const Courses = () => {
             )
           })}
         </div>
+          )}
+        </>
       )}
     </div>
   )
