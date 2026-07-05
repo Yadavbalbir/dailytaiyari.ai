@@ -92,14 +92,16 @@ const Study = () => {
                   <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => navigate(`/study/course/${course.id}`)}
-                  className="btn-primary mt-auto w-full group/btn"
-                >
-                  Enter course
-                  <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
-                </button>
+                <div className="mt-auto pt-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/study/course/${course.id}`)}
+                    className="btn-primary w-full group/btn"
+                  >
+                    Enter course
+                    <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
+                  </button>
+                </div>
               </div>
             </motion.div>
             )
