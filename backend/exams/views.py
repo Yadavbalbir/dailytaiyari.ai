@@ -19,6 +19,29 @@ from .serializers import (
 from core.views import TenantAwareReadOnlyViewSet
 
 
+def _enrolled_course_ids(request):
+    """
+    IDs of every course the student is actively enrolled in (approved + active).
+
+    Scoping subjects/topics to all enrolled courses — not just the primary
+    course — lets multi-course students open subjects/topics from any enrolled
+    course (e.g. Python while primary is Class XI). Returns None for
+    non-students so the queryset stays tenant-scoped only.
+    """
+    if not request.user.is_authenticated:
+        return None
+    try:
+        profile = request.user.profile
+    except Exception:
+        return None
+    ids = list(
+        profile.enrollments.filter(
+            status='approved', is_active=True
+        ).values_list('course_id', flat=True)
+    )
+    return ids or None
+
+
 class CourseViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for course operations.
@@ -72,13 +95,10 @@ class SubjectViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.request.user.is_authenticated:
-            try:
-                course = self.request.user.profile.primary_course
-                if course and not self.request.query_params.get('courses'):
-                    queryset = queryset.filter(course=course)
-            except Exception:
-                pass
+        if self.request.user.is_authenticated and not self.request.query_params.get('courses'):
+            course_ids = _enrolled_course_ids(self.request)
+            if course_ids:
+                queryset = queryset.filter(course__in=course_ids)
         return queryset
 
     @action(detail=True, methods=['get'])
@@ -115,13 +135,10 @@ class TopicViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.request.user.is_authenticated:
-            try:
-                course = self.request.user.profile.primary_course
-                if course:
-                    queryset = queryset.filter(subject__course=course)
-            except Exception:
-                pass
+        if self.request.user.is_authenticated and not self.request.query_params.get('subject'):
+            course_ids = _enrolled_course_ids(self.request)
+            if course_ids:
+                queryset = queryset.filter(subject__course__in=course_ids)
         return queryset
 
     @action(detail=True, methods=['get'])
