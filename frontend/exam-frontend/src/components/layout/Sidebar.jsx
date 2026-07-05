@@ -112,7 +112,7 @@ const Sidebar = () => {
               {isActive && (
                 <motion.div
                   layoutId="activeNav"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full"
+                  className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-500 rounded-r-full"
                 />
               )}
               <IconComponent
