@@ -759,6 +759,9 @@ class StudyLeaderboardView(APIView):
         scope_id = request.query_params.get('scope_id')
         student = request.user.profile
 
+        if scope == 'quiz' and scope_id:
+            return self._quiz_leaderboard(tenant, student, scope_id)
+
         if scope == 'subject' and scope_id:
             topic_ids = Topic.objects.filter(subject_id=scope_id).values_list('id', flat=True)
         elif scope == 'chapter' and scope_id:
@@ -862,3 +865,50 @@ class StudyLeaderboardView(APIView):
 
         return Response(entries)
 
+    def _quiz_leaderboard(self, tenant, student, quiz_id):
+        """Rank students by their best completed attempt on a single quiz."""
+        from quiz.models import QuizAttempt
+
+        attempts = (
+            QuizAttempt.objects.filter(
+                quiz_id=quiz_id,
+                status='completed',
+                student__user__tenant=tenant,
+            )
+            .select_related('student__user')
+        )
+
+        # Keep each student's best attempt: highest percentage, then fastest.
+        best = {}
+        for a in attempts:
+            cur = best.get(a.student_id)
+            score = (float(a.percentage or 0), -(a.time_taken_seconds or 0))
+            if cur is None or score > cur[0]:
+                best[a.student_id] = (score, a)
+
+        ranked = sorted(
+            (a for _score, a in best.values()),
+            key=lambda a: (
+                -float(a.percentage or 0),
+                a.time_taken_seconds or 0,
+            ),
+        )[:20]
+
+        entries = []
+        for rank, a in enumerate(ranked, start=1):
+            p = a.student
+            entries.append({
+                'rank': rank,
+                'student_name': p.user.full_name,
+                'role': p.user.role,
+                'avatar': p.user.avatar.url if p.user.avatar else None,
+                'total_xp': a.xp_earned or 0,
+                'xp_earned': a.xp_earned or 0,
+                'accuracy': round(float(a.percentage or 0), 1),
+                'marks_obtained': float(a.marks_obtained or 0),
+                'total_marks': float(a.total_marks or 0),
+                'time_taken_seconds': a.time_taken_seconds or 0,
+                'is_current_user': p.id == student.id,
+            })
+
+        return Response(entries)
