@@ -201,6 +201,11 @@ class MockTest(TimeStampedModel):
         ('archived', 'Archived'),
     ]
 
+    RESULT_VISIBILITY_CHOICES = [
+        ('immediate', 'Show results on submission'),
+        ('on_release', 'Hide results until released by admin'),
+    ]
+
     title = models.CharField(max_length=300)
     description = models.TextField(blank=True)
     tenant = models.ForeignKey(
@@ -209,7 +214,18 @@ class MockTest(TimeStampedModel):
         related_name='mock_tests',
         help_text='Required: no mock test or PYP without tenant.',
     )
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='mock_tests')
+    # Legacy single-course link (kept for existing PYP/competitive mocks).
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name='mock_tests',
+        null=True, blank=True,
+    )
+    # Access control for rich mock tests. If any courses are linked, only their
+    # approved+active enrolled students may attempt. If empty (and no legacy
+    # `course`), every registered student in the tenant may attempt.
+    courses = models.ManyToManyField(
+        Course, related_name='linked_mock_tests', blank=True,
+        help_text='Courses whose enrolled students can attempt. Empty = all registered students in the tenant.',
+    )
     
     # Sections (for courses with multiple subjects)
     sections = models.JSONField(default=list)  # [{subject_id, questions_count, marks}]
@@ -225,6 +241,19 @@ class MockTest(TimeStampedModel):
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     is_free = models.BooleanField(default=False)
+
+    # Result visibility: show immediately on submit, or hide until admin releases.
+    result_visibility = models.CharField(
+        max_length=20, choices=RESULT_VISIBILITY_CHOICES, default='immediate',
+    )
+    results_released = models.BooleanField(
+        default=False,
+        help_text='When result_visibility=on_release, results become visible to students once this is True.',
+    )
+    # Last moment a student is allowed to START the test (independent of duration).
+    start_deadline = models.DateTimeField(null=True, blank=True)
+    # Force fullscreen during the attempt for a distraction-free experience.
+    fullscreen_required = models.BooleanField(default=True)
     
     # Previous Year Paper fields
     is_pyp = models.BooleanField(default=False, help_text='Is this a Previous Year Paper?')
@@ -280,6 +309,73 @@ class MockTestQuestion(OrderedModel):
     def effective_negative_marks(self):
         """Get negative marks for this question in this mock test context."""
         return self.negative_marks_override if self.negative_marks_override is not None else self.question.negative_marks
+
+
+class MockTestItem(OrderedModel):
+    """
+    A self-contained question authored inline in a rich mock test.
+
+    Unlike MockTestQuestion (which references the shared Question bank and only
+    covers MCQ/numerical), a MockTestItem can be any of the four supported
+    types, including subjective and coding, and carries all of its own content
+    so the mock-test builder is fully self-contained.
+    """
+    ITEM_TYPES = [
+        ('mcq', 'Multiple Choice (Single)'),
+        ('mcq_multi', 'Multiple Choice (Multiple)'),
+        ('numerical', 'Numerical'),
+        ('subjective', 'Subjective'),
+        ('coding', 'Coding'),
+    ]
+
+    mock_test = models.ForeignKey(MockTest, on_delete=models.CASCADE, related_name='items')
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPES, default='mcq')
+    section = models.PositiveIntegerField(default=0)
+
+    # Common content
+    question_text = models.TextField(blank=True)
+    question_html = models.TextField(blank=True, help_text='Optional rich-text/HTML statement.')
+    question_image = models.ImageField(upload_to='mock_items/', blank=True, null=True)
+    explanation = models.TextField(blank=True)
+    marks = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    negative_marks = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    # MCQ / MCQ-multi: [{"text": str, "image": url|null, "is_correct": bool}]
+    options = models.JSONField(default=list, blank=True)
+
+    # Numerical
+    numerical_answer = models.DecimalField(max_digits=20, decimal_places=10, null=True, blank=True)
+    numerical_tolerance = models.DecimalField(max_digits=10, decimal_places=5, default=0.01)
+
+    # Subjective (manually graded)
+    max_words = models.PositiveIntegerField(null=True, blank=True)
+    rubric = models.TextField(blank=True, help_text='Grading guidance shown to admins only.')
+    model_answer = models.TextField(blank=True, help_text='Reference answer shown to admins only.')
+
+    # Coding (auto-graded via Piston)
+    allowed_languages = models.JSONField(default=list, blank=True)
+    starter_code = models.JSONField(default=dict, blank=True)
+    time_limit_ms = models.PositiveIntegerField(default=3000)
+    memory_limit_mb = models.PositiveIntegerField(default=256)
+    # [{"stdin": str, "expected_output": str, "points": int, "is_sample": bool, "explanation": str}]
+    coding_test_cases = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['section', 'order']
+        verbose_name = 'Mock Test Item'
+        verbose_name_plural = 'Mock Test Items'
+
+    def __str__(self):
+        return f'{self.get_item_type_display()} item ({self.mock_test_id})'
+
+    @property
+    def is_auto_gradable(self):
+        return self.item_type in ('mcq', 'mcq_multi', 'numerical', 'coding')
+
+    @property
+    def correct_option_indices(self):
+        """Indices of options flagged is_correct (for MCQ types)."""
+        return [i for i, opt in enumerate(self.options or []) if opt.get('is_correct')]
 
 
 class QuizAttempt(TimeStampedModel):
@@ -388,6 +484,7 @@ class MockTestAttempt(TimeStampedModel):
     
     # Scoring
     marks_obtained = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    total_marks = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     
     # Section-wise results
@@ -396,6 +493,17 @@ class MockTestAttempt(TimeStampedModel):
     # Rank (calculated after submission)
     rank = models.PositiveIntegerField(null=True, blank=True)
     percentile = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    # Grading lifecycle. Rich mock tests with subjective items stay
+    # 'pending_manual' until an admin grades every subjective answer.
+    GRADING_STATUS_CHOICES = [
+        ('auto_graded', 'Auto-graded'),
+        ('pending_manual', 'Pending manual grading'),
+        ('graded', 'Fully graded'),
+    ]
+    grading_status = models.CharField(
+        max_length=20, choices=GRADING_STATUS_CHOICES, default='auto_graded',
+    )
     
     # XP
     xp_earned = models.PositiveIntegerField(default=0)
@@ -407,6 +515,60 @@ class MockTestAttempt(TimeStampedModel):
 
     def __str__(self):
         return f"{self.student.user.email} - {self.mock_test.title}"
+
+
+class MockTestAnswer(TimeStampedModel):
+    """
+    A student's response to a single inline MockTestItem.
+
+    (Reused bank questions are still recorded via the shared `Answer` model,
+    which already links to MockTestAttempt. This model covers the inline items,
+    including subjective + coding, and carries both auto-grade and manual-grade
+    fields.)
+    """
+    attempt = models.ForeignKey(
+        MockTestAttempt, on_delete=models.CASCADE, related_name='item_answers',
+    )
+    item = models.ForeignKey(
+        MockTestItem, on_delete=models.CASCADE, related_name='answers',
+    )
+
+    # Responses (only the relevant field is used per item_type)
+    selected_options = models.JSONField(default=list, blank=True)  # option indices for MCQ types
+    numerical_answer = models.DecimalField(max_digits=20, decimal_places=10, null=True, blank=True)
+    answer_text = models.TextField(blank=True)  # subjective
+    code = models.TextField(blank=True)          # coding
+    language = models.CharField(max_length=20, blank=True)
+
+    # Coding auto-grade detail
+    coding_results = models.JSONField(default=list, blank=True)
+    passed_count = models.PositiveIntegerField(default=0)
+    total_count = models.PositiveIntegerField(default=0)
+
+    # Grading
+    is_correct = models.BooleanField(default=False)
+    is_auto_graded = models.BooleanField(default=False)
+    needs_manual_grading = models.BooleanField(default=False)
+    marks_obtained = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    max_marks = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    feedback = models.TextField(blank=True)
+    graded_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='graded_mock_answers',
+    )
+    graded_at = models.DateTimeField(null=True, blank=True)
+
+    # Meta
+    time_taken_seconds = models.PositiveIntegerField(default=0)
+    is_marked_for_review = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['attempt', 'item']
+        verbose_name = 'Mock Test Answer'
+        verbose_name_plural = 'Mock Test Answers'
+
+    def __str__(self):
+        return f'Answer to item {self.item_id} (attempt {self.attempt_id})'
 
 
 class Answer(TimeStampedModel):
