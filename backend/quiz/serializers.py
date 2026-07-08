@@ -167,7 +167,9 @@ class MockTestSerializer(serializers.ModelSerializer):
         ]
     
     def get_questions_count(self, obj):
-        return obj.questions.count()
+        # Count both legacy bank questions and rich inline items so the card
+        # reflects the true question count for either mock-test style.
+        return obj.questions.count() + obj.items.count()
     
     def get_user_attempt_info(self, obj):
         """Get user's attempt info for this mock test."""
