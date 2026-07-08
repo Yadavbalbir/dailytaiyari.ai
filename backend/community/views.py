@@ -76,12 +76,21 @@ class PostViewSet(TenantAwareViewSet):
             'author__user', 'course', 'subject'
         ).prefetch_related('poll_options', 'quiz', 'courses')
 
-        # Status filtering. Non-staff only ever see active posts. Staff may pass
-        # ?status=hidden|closed|active|all to moderate/review other states.
+        # Status filtering.
+        #  - Non-staff only ever see active posts.
+        #  - Staff on the list feed see active posts by default, but may pass
+        #    ?status=hidden|closed|active|all to review other states.
+        #  - Staff on detail/member actions (retrieve, hide, unhide, destroy)
+        #    can operate on posts in ANY status, so a hidden post can still be
+        #    fetched, unhidden or deleted.
         status_param = (self.request.query_params.get('status') or '').lower()
-        if is_staff and status_param:
-            if status_param != 'all':
-                queryset = queryset.filter(status=status_param)
+        if is_staff:
+            if self.action == 'list':
+                if not status_param:
+                    queryset = queryset.filter(status='active')
+                elif status_param != 'all':
+                    queryset = queryset.filter(status=status_param)
+            # non-list staff actions: no status restriction
         else:
             queryset = queryset.filter(status='active')
 
