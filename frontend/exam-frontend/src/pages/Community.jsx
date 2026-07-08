@@ -12,6 +12,7 @@ import Loading from '../components/common/Loading'
 import CreatePostModal from '../components/community/CreatePostModal'
 import PostCard from '../components/community/PostCard'
 import CommunityLeaderboard from '../components/community/CommunityLeaderboard'
+import SearchableSelect from '../components/common/SearchableSelect'
 import toast from 'react-hot-toast'
 
 const Community = () => {
@@ -211,18 +212,19 @@ const Community = () => {
                             <Globe size={14} />
                             Everyone
                         </button>
-                        {courses.map((course) => (
-                            <button
-                                key={course.id}
-                                onClick={() => setCourseFilter(course.id)}
-                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${courseFilter === course.id
-                                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
-                                    : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
+                        {courses.length > 0 && (
+                            <SearchableSelect
+                                options={courses.map((c) => ({ value: c.id, label: c.name }))}
+                                value={courseFilter === 'all' || courseFilter === 'global' ? '' : courseFilter}
+                                onChange={(val) => setCourseFilter(val || 'all')}
+                                placeholder="Filter by course"
+                                searchPlaceholder="Search courses..."
+                                buttonClassName={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all border ${courseFilter !== 'all' && courseFilter !== 'global'
+                                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 border-primary-200 dark:border-primary-800'
+                                    : 'text-surface-500 border-surface-200 dark:border-surface-700 hover:bg-surface-100 dark:hover:bg-surface-800'
                                     }`}
-                            >
-                                {course.name}
-                            </button>
-                        ))}
+                            />
+                        )}
                     </div>
 
                     {/* Sort Options */}
