@@ -270,6 +270,11 @@ class PostCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'poll_options': 'Poll must have at least 2 options.'
                 })
+            poll_check = ContentModerationService.validate_text(
+                *poll_options, label='Poll options'
+            )
+            if not poll_check['is_valid']:
+                raise serializers.ValidationError({'poll_options': poll_check['errors']})
         
         # Validate quiz
         if data.get('post_type') == 'quiz':
@@ -290,6 +295,13 @@ class PostCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'quiz_data': 'Quiz must have a correct_answer index.'
                 })
+            quiz_texts = [quiz_data.get('question'), quiz_data.get('explanation')]
+            quiz_texts += list(quiz_data.get('options', []))
+            quiz_check = ContentModerationService.validate_text(
+                *quiz_texts, label='Quiz'
+            )
+            if not quiz_check['is_valid']:
+                raise serializers.ValidationError({'quiz_data': quiz_check['errors']})
         
         return data
     

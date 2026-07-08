@@ -8,6 +8,7 @@ import {
     BarChart3, Zap, Trophy, Users, BookOpen, Globe
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CreatePostModal from '../components/community/CreatePostModal'
 import PostCard from '../components/community/PostCard'
@@ -18,6 +19,9 @@ import toast from 'react-hot-toast'
 const Community = () => {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const { user, profile } = useAuthStore()
+    const role = user?.role || profile?.user?.role
+    const isAdmin = role === 'admin' || role === 'instructor'
     const [activeTab, setActiveTab] = useState('all')
     const [sortBy, setSortBy] = useState('recent')
     const [courseFilter, setCourseFilter] = useState('all')
@@ -54,6 +58,33 @@ const Community = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['communityPosts'])
         }
+    })
+
+    const hideMutation = useMutation({
+        mutationFn: (postId) => communityService.hidePost(postId),
+        onSuccess: () => {
+            toast.success('Post hidden')
+            queryClient.invalidateQueries(['communityPosts'])
+        },
+        onError: () => toast.error('Could not hide post')
+    })
+
+    const unhideMutation = useMutation({
+        mutationFn: (postId) => communityService.unhidePost(postId),
+        onSuccess: () => {
+            toast.success('Post restored')
+            queryClient.invalidateQueries(['communityPosts'])
+        },
+        onError: () => toast.error('Could not restore post')
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: (postId) => communityService.deletePost(postId),
+        onSuccess: () => {
+            toast.success('Post deleted')
+            queryClient.invalidateQueries(['communityPosts'])
+        },
+        onError: () => toast.error('Could not delete post')
     })
 
     const posts = postsData?.results || postsData || []
@@ -262,6 +293,15 @@ const Community = () => {
                                             post={post}
                                             onLike={() => likeMutation.mutate(post.id)}
                                             onClick={() => navigate(`/community/${post.id}`)}
+                                            isAdmin={isAdmin}
+                                            isAuthor={user?.id === post.author?.id}
+                                            onHide={() => hideMutation.mutate(post.id)}
+                                            onUnhide={() => unhideMutation.mutate(post.id)}
+                                            onDelete={() => {
+                                                if (window.confirm('Delete this post permanently?')) {
+                                                    deleteMutation.mutate(post.id)
+                                                }
+                                            }}
                                         />
                                     </motion.div>
                                 ))

@@ -70,14 +70,25 @@ class PostViewSet(TenantAwareViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        queryset = Post.objects.filter(status='active').select_related(
+        is_staff = _is_staff_user(self.request.user)
+
+        queryset = Post.objects.all().select_related(
             'author__user', 'course', 'subject'
         ).prefetch_related('poll_options', 'quiz', 'courses')
+
+        # Status filtering. Non-staff only ever see active posts. Staff may pass
+        # ?status=hidden|closed|active|all to moderate/review other states.
+        status_param = (self.request.query_params.get('status') or '').lower()
+        if is_staff and status_param:
+            if status_param != 'all':
+                queryset = queryset.filter(status=status_param)
+        else:
+            queryset = queryset.filter(status='active')
 
         # Course-scoped visibility: global posts are visible to all, but posts
         # linked to course(s) are only visible to enrolled students (the author
         # and admins/instructors always see them).
-        if not _is_staff_user(self.request.user):
+        if not is_staff:
             queryset = queryset.filter(accessible_posts_q(self.request.user)).distinct()
 
         # Filters
@@ -155,6 +166,46 @@ class PostViewSet(TenantAwareViewSet):
         instance.refresh_from_db()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    def _is_author(self, post):
+        profile = getattr(self.request.user, 'profile', None)
+        return profile is not None and post.author_id == profile.id
+
+    def destroy(self, request, *args, **kwargs):
+        """Only the author or staff (admin/instructor) may delete a post."""
+        instance = self.get_object()
+        if not (self._is_author(instance) or _is_staff_user(request.user)):
+            return Response(
+                {'detail': 'You do not have permission to delete this post.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def hide(self, request, pk=None):
+        """Staff-only: hide a post from the community feed."""
+        if not _is_staff_user(request.user):
+            return Response(
+                {'detail': 'Only admins and instructors can hide posts.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        post = self.get_object()
+        post.status = 'hidden'
+        post.save(update_fields=['status'])
+        return Response({'status': 'hidden', 'id': str(post.id)})
+
+    @action(detail=True, methods=['post'])
+    def unhide(self, request, pk=None):
+        """Staff-only: restore a hidden post to the community feed."""
+        if not _is_staff_user(request.user):
+            return Response(
+                {'detail': 'Only admins and instructors can unhide posts.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        post = self.get_object()
+        post.status = 'active'
+        post.save(update_fields=['status'])
+        return Response({'status': 'active', 'id': str(post.id)})
     
     def perform_create(self, serializer):
         post = serializer.save()
@@ -340,6 +391,18 @@ class CommentViewSet(TenantAwareViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return CommentCreateSerializer
         return CommentSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        """Only the author or staff (admin/instructor) may delete a comment."""
+        instance = self.get_object()
+        profile = getattr(request.user, 'profile', None)
+        is_author = profile is not None and instance.author_id == profile.id
+        if not (is_author or _is_staff_user(request.user)):
+            return Response(
+                {'detail': 'You do not have permission to delete this comment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         comment = serializer.save()

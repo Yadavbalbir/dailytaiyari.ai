@@ -1,6 +1,8 @@
 """
 Community services - Content moderation, XP rewards, leaderboard.
 """
+import re
+import unicodedata
 from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q
@@ -16,53 +18,137 @@ from gamification.models import XPTransaction
 
 class ContentModerationService:
     """
-    Service for filtering inappropriate content.
+    Strict, evasion-resistant profanity filter for English + Hinglish.
+
+    The matcher normalises text before checking so common bypass tricks are
+    defeated:
+      - leetspeak substitution (f4ck, ch00t, @ss, $ex, b1tch ...),
+      - separators / spacing between letters (c.h.u.t.i.y.a, m a d a r c h o d),
+      - repeated characters (fuuuuck, chuuutiya),
+      - accents / unicode look-alikes.
+
+    Two word lists are kept to balance strictness against false positives:
+      - ``PREFIX_WORDS``: unambiguous abuse stems (long / clearly offensive).
+        These match even with a trailing suffix (chutiya, chutiyapa) but still
+        require a word boundary at the start, so embeddings like "parachute"
+        (contains "chut") or "grandiose" (contains "randi") are NOT flagged.
+      - ``EXACT_WORDS``: short / ambiguous tokens (sala, mc, bc, ass ...) that
+        only match as standalone whole words, so "salad", "class", "assignment"
+        are safe.
     """
-    
-    # Additional custom bad words (Hindi transliterated abuses, etc.)
-    CUSTOM_BAD_WORDS = [
-        'bhosdike', 'bhosdi', 'madarchod', 'behenchod', 'chutiya', 
-        'gandu', 'laude', 'lodu', 'randi', 'harami', 'sala', 'saala',
-        'bakchod', 'chut', 'lawde', 'bsdk', 'mc', 'bc', 'lodu'
+
+    # Long / unambiguous abusive stems (English + Hindi/Hinglish transliterations
+    # and their common spellings). Matched as a prefix at a word boundary.
+    PREFIX_WORDS = [
+        # English
+        'fuck', 'fuk', 'fuc', 'motherfuck', 'fucker', 'shit', 'bullshit',
+        'bitch', 'bastard', 'asshole', 'dickhead', 'cunt', 'pussy', 'nigger',
+        'nigga', 'faggot', 'retard', 'slut', 'whore', 'wank', 'jerkoff',
+        'cocksuck', 'dumbass', 'jackass', 'bollock', 'bugger', 'prick',
+        # Hindi / Hinglish
+        'madarchod', 'madarchd', 'maderchod', 'behenchod', 'bhenchod',
+        'bhosdike', 'bhosdika', 'bhosdiwala', 'bhosdi', 'bhosad', 'bhosda',
+        'chutiya', 'chutiye', 'chutiyapa', 'chutmar', 'chodu', 'chod',
+        'gandu', 'gaandu', 'gaand', 'gawar', 'harami', 'haramkhor',
+        'haramzada', 'haramzade', 'bhadwa', 'bhadve',
+        'lawda', 'lawde', 'lauda', 'laude', 'laund', 'lund', 'loda', 'lodu',
+        'jhaant', 'jhant', 'tatti', 'tatte', 'bakchod', 'bakchodi',
+        'chinaal', 'kutta', 'kutti', 'kaminey', 'kamina', 'kamine',
+        'chodna', 'chudai', 'chudwa', 'gaandfat', 'najayaz', 'phuck',
     ]
-    
+
+    # Short / ambiguous tokens — matched only as complete words.
+    EXACT_WORDS = [
+        'ass', 'sex', 'dick', 'cock', 'damn', 'crap', 'piss', 'tits', 'boob',
+        'sala', 'saala', 'chut', 'choot', 'fck', 'bsdk', 'mkc', 'mkb', 'bkl',
+        'lvda', 'lawd', 'randi', 'raand',
+    ]
+
+    _LEET_MAP = {
+        '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b',
+        '@': 'a', '$': 's', '+': 't', '(': 'c', '|': 'i', '!': 'i',
+    }
+
+    _compiled = None
+
+    @classmethod
+    def _normalize(cls, text: str) -> str:
+        """Lowercase, strip accents and apply leetspeak substitutions."""
+        if not text:
+            return ''
+        text = unicodedata.normalize('NFKD', str(text))
+        text = text.encode('ascii', 'ignore').decode('ascii')
+        text = text.lower()
+        return ''.join(cls._LEET_MAP.get(ch, ch) for ch in text)
+
+    @classmethod
+    def _build_patterns(cls):
+        """Compile regexes once. Letters may repeat and be split by separators."""
+        if cls._compiled is not None:
+            return cls._compiled
+
+        def core(word):
+            # Each letter -> letter+ (repeats) joined by optional separators.
+            return r'[\W_0-9]*'.join(re.escape(c) + '+' for c in word)
+
+        patterns = []
+        for w in cls.PREFIX_WORDS:
+            # Word boundary at start, allow a trailing suffix.
+            patterns.append(re.compile(r'\b' + core(w) + r'\w*', re.IGNORECASE))
+        for w in cls.EXACT_WORDS:
+            # Whole word only.
+            patterns.append(re.compile(r'\b' + core(w) + r'\b', re.IGNORECASE))
+        cls._compiled = patterns
+        return patterns
+
     @classmethod
     def initialize(cls):
-        """Initialize the profanity filter with custom words."""
+        """Initialize the secondary (better_profanity) English filter."""
         profanity.load_censor_words()
-        profanity.add_censor_words(cls.CUSTOM_BAD_WORDS)
-    
+        profanity.add_censor_words(cls.PREFIX_WORDS + cls.EXACT_WORDS)
+
+    @classmethod
+    def contains_profanity(cls, text: str) -> bool:
+        """True if the text contains disallowed language (any layer trips)."""
+        if not text:
+            return False
+        normalized = cls._normalize(text)
+        for pattern in cls._build_patterns():
+            if pattern.search(normalized):
+                return True
+        # Secondary English dictionary as a safety net.
+        cls.initialize()
+        return bool(profanity.contains_profanity(normalized))
+
     @classmethod
     def is_clean(cls, text: str) -> bool:
-        """Check if text is free of profanity."""
-        cls.initialize()
-        return not profanity.contains_profanity(text)
-    
+        return not cls.contains_profanity(text)
+
     @classmethod
     def censor(cls, text: str) -> str:
-        """Censor profanity in text with asterisks."""
         cls.initialize()
-        return profanity.censor(text)
-    
+        return profanity.censor(text or '')
+
     @classmethod
     def validate_content(cls, title: str = None, content: str = None) -> dict:
-        """
-        Validate title and content for profanity.
-        Returns: {'is_valid': bool, 'errors': list}
-        """
-        cls.initialize()
+        """Validate title and content. Returns {'is_valid', 'errors'}."""
         errors = []
-        
-        if title and profanity.contains_profanity(title):
+        if title and cls.contains_profanity(title):
             errors.append("Title contains inappropriate language. Please revise.")
-        
-        if content and profanity.contains_profanity(content):
+        if content and cls.contains_profanity(content):
             errors.append("Content contains inappropriate language. Please revise.")
-        
-        return {
-            'is_valid': len(errors) == 0,
-            'errors': errors
-        }
+        return {'is_valid': len(errors) == 0, 'errors': errors}
+
+    @classmethod
+    def validate_text(cls, *texts, label: str = 'Content') -> dict:
+        """Validate an arbitrary set of text fields (poll options, quiz, etc.)."""
+        for t in texts:
+            if t and cls.contains_profanity(t):
+                return {
+                    'is_valid': False,
+                    'errors': [f"{label} contains inappropriate language. Please revise."],
+                }
+        return {'is_valid': True, 'errors': []}
 
 
 class CommunityXPService:

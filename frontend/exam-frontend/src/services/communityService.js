@@ -40,6 +40,16 @@ export const communityService = {
         await api.delete(`/community/posts/${id}/`)
     },
 
+    hidePost: async (id) => {
+        const response = await api.post(`/community/posts/${id}/hide/`)
+        return response.data
+    },
+
+    unhidePost: async (id) => {
+        const response = await api.post(`/community/posts/${id}/unhide/`)
+        return response.data
+    },
+
     likePost: async (id) => {
         const response = await api.post(`/community/posts/${id}/like/`)
         return response.data
