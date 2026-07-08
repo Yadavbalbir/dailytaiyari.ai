@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     MessageCircle, MessageSquare, ThumbsUp, Eye, CheckCircle,
     Plus, Filter, TrendingUp, Clock, HelpCircle,
-    BarChart3, Zap, Trophy, Users
+    BarChart3, Zap, Trophy, Users, BookOpen, Globe
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import Loading from '../components/common/Loading'
@@ -19,16 +19,25 @@ const Community = () => {
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState('all')
     const [sortBy, setSortBy] = useState('recent')
+    const [courseFilter, setCourseFilter] = useState('all')
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createType, setCreateType] = useState('question')
 
+    // Courses the user belongs to (for scoping the forum by course).
+    const { data: filterOptions } = useQuery({
+        queryKey: ['communityFilterOptions'],
+        queryFn: () => communityService.getFilterOptions()
+    })
+    const courses = filterOptions?.courses || []
+
     // Fetch posts
     const { data: postsData, isLoading: postsLoading } = useQuery({
-        queryKey: ['communityPosts', activeTab, sortBy],
+        queryKey: ['communityPosts', activeTab, sortBy, courseFilter],
         queryFn: () => communityService.getPosts({
             type: activeTab === 'all' ? undefined : activeTab,
             sort: sortBy,
-            my_posts: activeTab === 'my_posts' ? 'true' : undefined
+            my_posts: activeTab === 'my_posts' ? 'true' : undefined,
+            course: courseFilter === 'all' ? undefined : courseFilter
         })
     })
 
@@ -176,6 +185,44 @@ const Community = () => {
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* Course Filter */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <BookOpen size={16} className="text-surface-500" />
+                        <span className="text-sm text-surface-500">Course:</span>
+                        <button
+                            onClick={() => setCourseFilter('all')}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${courseFilter === 'all'
+                                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
+                                : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
+                                }`}
+                        >
+                            <Users size={14} />
+                            All
+                        </button>
+                        <button
+                            onClick={() => setCourseFilter('global')}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${courseFilter === 'global'
+                                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
+                                : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
+                                }`}
+                        >
+                            <Globe size={14} />
+                            Everyone
+                        </button>
+                        {courses.map((course) => (
+                            <button
+                                key={course.id}
+                                onClick={() => setCourseFilter(course.id)}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${courseFilter === course.id
+                                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600'
+                                    : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'
+                                    }`}
+                            >
+                                {course.name}
+                            </button>
+                        ))}
                     </div>
 
                     {/* Sort Options */}

@@ -36,11 +36,23 @@ class Post(TimeStampedModel):
     )
     
     # Categorization
+    # Legacy single-course link (kept for backward compatibility). New posts use
+    # the ``courses`` M2M below; a post may belong to one or more courses.
     course = models.ForeignKey(
         Course,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='community_posts'
+    )
+    # A post can be scoped to one or more courses. If no course is linked (this
+    # M2M is empty AND the legacy ``course`` FK is null) the post is global and
+    # visible to every user in the tenant. When course(s) are linked, only users
+    # enrolled in at least one of those courses (plus the author and
+    # admins/instructors) may see the post.
+    courses = models.ManyToManyField(
+        Course,
+        blank=True,
+        related_name='linked_community_posts'
     )
     subject = models.ForeignKey(
         Subject,

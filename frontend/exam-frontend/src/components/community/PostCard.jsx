@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
     MessageCircle, ThumbsUp, Eye, CheckCircle,
-    BarChart3, Zap, Clock, User, BadgeCheck
+    BarChart3, Zap, Clock, User, BadgeCheck, BookOpen, Globe
 } from 'lucide-react'
 
 const PostCard = ({ post, onLike, onClick }) => {
@@ -79,10 +79,36 @@ const PostCard = ({ post, onLike, onClick }) => {
                     </div>
                 </div>
 
-                {/* Type Badge */}
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-                    <TypeIcon size={12} />
-                    {config.label}
+                {/* Type + Course Badges */}
+                <div className="flex flex-col items-end gap-1.5">
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                        <TypeIcon size={12} />
+                        {config.label}
+                    </div>
+                    {post.courses && post.courses.length > 0 ? (
+                        <div className="flex flex-wrap justify-end gap-1">
+                            {post.courses.slice(0, 2).map((c) => (
+                                <span
+                                    key={c.id}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-600 border border-primary-200 dark:border-primary-800"
+                                    title={c.name}
+                                >
+                                    <BookOpen size={11} />
+                                    <span className="max-w-[120px] truncate">{c.name}</span>
+                                </span>
+                            ))}
+                            {post.courses.length > 2 && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-surface-100 dark:bg-surface-700 text-surface-500">
+                                    +{post.courses.length - 2}
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-surface-100 dark:bg-surface-700 text-surface-500">
+                            <Globe size={11} />
+                            Everyone
+                        </span>
+                    )}
                 </div>
             </div>
 

@@ -8,6 +8,7 @@ from .models import (
 )
 from .services import ContentModerationService
 from users.serializers import UserSerializer
+from exams.models import Course
 
 
 class AuthorSerializer(serializers.Serializer):
@@ -151,12 +152,13 @@ class PostSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     user_poll_vote = serializers.SerializerMethodField()
     top_comments = serializers.SerializerMethodField()
-    
+    courses = serializers.SerializerMethodField()
+
     class Meta:
         model = Post
         fields = [
             'id', 'post_type', 'title', 'content', 'image', 'author',
-            'course', 'subject', 'tags',
+            'course', 'courses', 'subject', 'tags',
             'likes_count', 'comments_count', 'views_count',
             'is_solved', 'best_answer', 'status',
             'poll_options', 'quiz', 'is_liked', 'user_poll_vote',
@@ -166,7 +168,17 @@ class PostSerializer(serializers.ModelSerializer):
             'id', 'author', 'likes_count', 'comments_count', 'views_count',
             'is_solved', 'best_answer', 'created_at', 'updated_at'
         ]
-    
+
+    def get_courses(self, obj):
+        """Linked courses (M2M), falling back to the legacy single course FK."""
+        linked = list(obj.courses.all())
+        if not linked and obj.course_id:
+            linked = [obj.course]
+        return [
+            {'id': str(c.id), 'name': c.name, 'code': c.code}
+            for c in linked
+        ]
+
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
@@ -198,15 +210,50 @@ class PostCreateSerializer(serializers.ModelSerializer):
         write_only=True
     )
     quiz_data = serializers.JSONField(required=False, write_only=True)
-    
+    courses = serializers.PrimaryKeyRelatedField(
+        many=True,
+        required=False,
+        queryset=Course.objects.all(),
+    )
+
     class Meta:
         model = Post
         fields = [
-            'post_type', 'title', 'content', 'image', 'course', 'subject', 'tags',
-            'poll_options', 'quiz_data'
+            'post_type', 'title', 'content', 'image', 'course', 'courses',
+            'subject', 'tags', 'poll_options', 'quiz_data'
         ]
 
-    
+    def validate_courses(self, value):
+        """Students may only link courses they are actively enrolled in.
+
+        Admins/instructors can link any course in their tenant.
+        """
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not value or user is None:
+            return value
+
+        role = getattr(user, 'role', None)
+        is_staff = role in ('admin', 'instructor') or getattr(user, 'is_staff', False)
+        if is_staff:
+            return value
+
+        try:
+            enrolled_ids = set(
+                user.profile.enrollments.filter(
+                    status='approved', is_active=True
+                ).values_list('course_id', flat=True)
+            )
+        except Exception:
+            enrolled_ids = set()
+
+        invalid = [c for c in value if c.id not in enrolled_ids]
+        if invalid:
+            raise serializers.ValidationError(
+                'You can only post to courses you are enrolled in.'
+            )
+        return value
+
     def validate(self, data):
         # Validate content for profanity
         result = ContentModerationService.validate_content(
@@ -249,10 +296,14 @@ class PostCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         poll_options = validated_data.pop('poll_options', [])
         quiz_data = validated_data.pop('quiz_data', None)
-        
+        courses = validated_data.pop('courses', [])
+
         validated_data['author'] = self.context['request'].user.profile
         post = super().create(validated_data)
-        
+
+        # Link course(s) for course-scoped visibility. Empty => global post.
+        if courses:
+            post.courses.set(courses)
         # Create poll options
         if poll_options:
             for i, option_text in enumerate(poll_options):

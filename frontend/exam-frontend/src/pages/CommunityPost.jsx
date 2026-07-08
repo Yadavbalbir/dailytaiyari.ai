@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     ArrowLeft, ThumbsUp, MessageCircle, Eye, Share2,
     CheckCircle, Clock, BarChart3, Zap, Trophy, Send,
-    BadgeCheck, Camera, Image as ImageIcon, X
+    BadgeCheck, Camera, Image as ImageIcon, X, BookOpen, Globe
 } from 'lucide-react'
 
 import { communityService } from '../services/communityService'
@@ -241,6 +241,26 @@ const CommunityPost = () => {
 
                 {/* Title */}
                 <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
+
+                {/* Course Visibility */}
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                    {post.courses && post.courses.length > 0 ? (
+                        post.courses.map((c) => (
+                            <span
+                                key={c.id}
+                                className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-600 border border-primary-200 dark:border-primary-800"
+                            >
+                                <BookOpen size={12} />
+                                {c.name}
+                            </span>
+                        ))
+                    ) : (
+                        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-surface-100 dark:bg-surface-700 text-surface-500">
+                            <Globe size={12} />
+                            Visible to everyone
+                        </span>
+                    )}
+                </div>
 
                 {/* Content */}
                 <div className="prose dark:prose-invert max-w-none mb-6">
