@@ -216,3 +216,37 @@ def _grade_coding(item, ans, marks):
         fraction = Decimal(result['passed_points']) / Decimal(total_points)
         ans.marks_obtained = (marks * fraction).quantize(Decimal('0.01'))
     ans.is_correct = total_points > 0 and result['passed_points'] == total_points
+
+
+# ---------------------------------------------------------------------------
+# Attempt aggregation + manual-grading finalization (Phase 5)
+# ---------------------------------------------------------------------------
+
+def recompute_attempt(attempt):
+    """Recompute an attempt's aggregate score fields from its answers.
+
+    Covers both bank answers (shared ``Answer``) and inline ``MockTestAnswer``.
+    Answers still flagged ``needs_manual_grading`` contribute 0 and are not
+    counted as wrong. Does not save.
+    """
+    bank_qs = attempt.answers.all()
+    item_qs = attempt.item_answers.all()
+    bank_marks = sum((x.marks_obtained for x in bank_qs), Decimal('0'))
+    item_marks = sum((x.marks_obtained for x in item_qs), Decimal('0'))
+    attempt.marks_obtained = bank_marks + item_marks
+    attempt.attempted_questions = bank_qs.count() + item_qs.count()
+    attempt.correct_answers = (
+        bank_qs.filter(is_correct=True).count() + item_qs.filter(is_correct=True).count()
+    )
+    attempt.wrong_answers = (
+        bank_qs.filter(is_correct=False).count()
+        + item_qs.filter(is_correct=False, needs_manual_grading=False).count()
+    )
+    total = float(attempt.mock_test.total_marks) or 0
+    attempt.percentage = max(0, (float(attempt.marks_obtained) / total) * 100) if total > 0 else 0
+    return attempt
+
+
+def pending_manual_count(attempt):
+    """Number of inline answers still awaiting manual grading."""
+    return attempt.item_answers.filter(needs_manual_grading=True).count()

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Plus, ClipboardList, Clock, Users, Trash2, Pencil, Search,
-  CheckCircle2, FileEdit, Archive, Loader2, ArrowLeft,
+  CheckCircle2, FileEdit, Archive, Loader2, ArrowLeft, ClipboardCheck,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
 
@@ -69,14 +69,22 @@ export default function MockTestManager() {
             Create and manage full exams with MCQ, numerical, subjective and coding questions.
           </p>
         </div>
-        <button
-          onClick={() => createMut.mutate()}
-          disabled={createMut.isPending}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm disabled:opacity-60"
-        >
-          {createMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          New Mock Test
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/admin/mock-tests/grading')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 font-medium"
+          >
+            <ClipboardCheck className="w-4 h-4" /> Grading
+          </button>
+          <button
+            onClick={() => createMut.mutate()}
+            disabled={createMut.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm disabled:opacity-60"
+          >
+            {createMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            New Mock Test
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">

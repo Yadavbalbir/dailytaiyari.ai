@@ -45,6 +45,16 @@ export const mockTestBuilderService = {
     list(await api.get('/courses/admin/courses/', { params: PAGE })),
   getLanguages: async () => (await api.get('/coding/meta/')).data,
 
+  // --- admin: manual grading (Phase 5) ---
+  pendingGrading: async (params = {}) =>
+    (await api.get('/quiz/admin/mock-tests/pending-grading/', { params })).data,
+  attemptDetail: async (attemptId) =>
+    (await api.get(`/quiz/admin/mock-tests/attempts/${attemptId}/`)).data,
+  gradeAnswer: async (payload) =>
+    (await api.post('/quiz/admin/mock-tests/grade-answer/', payload)).data,
+  finalizeAttempt: async (attemptId) =>
+    (await api.post('/quiz/admin/mock-tests/finalize-attempt/', { attempt_id: attemptId })).data,
+
   // --- student: rich attempt flow ---
   getPaper: async (testId) =>
     (await api.get(`/quiz/mock-tests/${testId}/paper/`)).data,

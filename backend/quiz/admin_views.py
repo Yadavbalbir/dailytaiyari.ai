@@ -61,6 +61,8 @@ class AdminQuestionViewSet(TenantAdminModelViewSet):
 # ---------------------------------------------------------------------------
 from decimal import Decimal
 
+from django.utils import timezone
+
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -69,7 +71,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsTenantAdmin
 from exams.admin_views import BuilderPagination
-from .models import MockTest, MockTestItem, MockTestQuestion, Question
+from .models import MockTest, MockTestItem, MockTestQuestion, Question, MockTestAttempt, MockTestAnswer
 from .admin_serializers import (
     AdminMockTestSerializer, AdminMockTestItemSerializer,
     AdminMockTestQuestionSerializer,
@@ -173,6 +175,177 @@ class AdminMockTestViewSet(viewsets.ModelViewSet):
         mock_test = self.get_object()
         total = recompute_mock_total(mock_test)
         return Response({'total_marks': float(total)})
+
+    # --- manual grading (Phase 5) ----------------------------------------
+
+    def _attempt_grading_payload(self, attempt):
+        """Serialize an attempt with its inline answers for the grading UI."""
+        u = getattr(attempt.student, 'user', None)
+        answers = []
+        for ans in (attempt.item_answers.select_related('item')
+                    .order_by('item__section', 'item__order')):
+            item = ans.item
+            answers.append({
+                'answer_id': str(ans.id),
+                'item_id': str(item.id),
+                'item_type': item.item_type,
+                'question_text': item.question_text,
+                'question_html': item.question_html or '',
+                'max_marks': float(ans.max_marks or item.marks),
+                'max_words': item.max_words,
+                'answer_text': ans.answer_text,
+                'code': ans.code,
+                'language': ans.language,
+                'coding_results': ans.coding_results,
+                'passed_count': ans.passed_count,
+                'total_count': ans.total_count,
+                'marks_obtained': float(ans.marks_obtained),
+                'feedback': ans.feedback,
+                'needs_manual_grading': ans.needs_manual_grading,
+                'is_auto_graded': ans.is_auto_graded,
+                'graded_at': ans.graded_at.isoformat() if ans.graded_at else None,
+            })
+        return {
+            'attempt_id': str(attempt.id),
+            'student_name': (getattr(u, 'full_name', '') or (u.email if u else '')).strip() if u else '',
+            'student_email': u.email if u else '',
+            'mock_test_id': str(attempt.mock_test_id),
+            'mock_test_title': attempt.mock_test.title,
+            'total_marks': float(attempt.mock_test.total_marks),
+            'marks_obtained': float(attempt.marks_obtained),
+            'percentage': float(attempt.percentage),
+            'grading_status': attempt.grading_status,
+            'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
+            'pending_count': attempt.item_answers.filter(needs_manual_grading=True).count(),
+            'answers': answers,
+        }
+
+    @action(detail=False, methods=['get'], url_path='pending-grading')
+    def pending_grading(self, request):
+        """List completed attempts (this tenant) awaiting manual grading."""
+        tenant = self._tenant()
+        qs = (MockTestAttempt.objects.filter(
+                mock_test__tenant=tenant, status='completed',
+                grading_status='pending_manual')
+              .select_related('student__user', 'mock_test')
+              .order_by('completed_at'))
+        mock_id = request.query_params.get('mock_test')
+        if mock_id:
+            qs = qs.filter(mock_test_id=mock_id)
+        out = []
+        for a in qs:
+            u = getattr(a.student, 'user', None)
+            out.append({
+                'attempt_id': str(a.id),
+                'student_name': (getattr(u, 'full_name', '') or (u.email if u else '')).strip() if u else '',
+                'student_email': u.email if u else '',
+                'mock_test_id': str(a.mock_test_id),
+                'mock_test_title': a.mock_test.title,
+                'completed_at': a.completed_at.isoformat() if a.completed_at else None,
+                'pending_count': a.item_answers.filter(needs_manual_grading=True).count(),
+            })
+        return Response(out)
+
+    @action(detail=False, methods=['get'], url_path='attempts/(?P<attempt_id>[^/.]+)')
+    def attempt_detail(self, request, attempt_id=None):
+        """Full grading view for a single attempt."""
+        tenant = self._tenant()
+        attempt = (MockTestAttempt.objects.filter(id=attempt_id, mock_test__tenant=tenant)
+                   .select_related('student__user', 'mock_test').first())
+        if not attempt:
+            raise NotFound('Attempt not found.')
+        return Response(self._attempt_grading_payload(attempt))
+
+    @action(detail=False, methods=['post'], url_path='grade-answer')
+    def grade_answer(self, request):
+        """Set marks + feedback on one inline answer (marks it manually graded)."""
+        tenant = self._tenant()
+        answer_id = request.data.get('answer_id')
+        ans = (MockTestAnswer.objects.filter(id=answer_id, attempt__mock_test__tenant=tenant)
+               .select_related('item', 'attempt__mock_test').first())
+        if not ans:
+            raise NotFound('Answer not found.')
+        try:
+            marks = Decimal(str(request.data.get('marks')))
+        except (TypeError, ValueError):
+            raise ValidationError({'marks': 'A numeric marks value is required.'})
+        max_marks = Decimal(str(ans.max_marks or ans.item.marks))
+        if marks < 0 or marks > max_marks:
+            raise ValidationError({'marks': f'Marks must be between 0 and {max_marks}.'})
+        ans.marks_obtained = marks
+        ans.feedback = request.data.get('feedback', '') or ''
+        ans.is_correct = marks >= max_marks and max_marks > 0
+        ans.needs_manual_grading = False
+        ans.is_auto_graded = False
+        ans.graded_by = request.user
+        ans.graded_at = timezone.now()
+        ans.save(update_fields=[
+            'marks_obtained', 'feedback', 'is_correct', 'needs_manual_grading',
+            'is_auto_graded', 'graded_by', 'graded_at', 'updated_at',
+        ])
+        from .mock_grading import recompute_attempt
+        attempt = ans.attempt
+        recompute_attempt(attempt)
+        attempt.save(update_fields=[
+            'marks_obtained', 'attempted_questions', 'correct_answers',
+            'wrong_answers', 'percentage', 'updated_at',
+        ])
+        return Response({
+            'answer_id': str(ans.id),
+            'marks_obtained': float(ans.marks_obtained),
+            'attempt_marks': float(attempt.marks_obtained),
+            'attempt_percentage': float(attempt.percentage),
+            'pending_count': attempt.item_answers.filter(needs_manual_grading=True).count(),
+        })
+
+    @action(detail=False, methods=['post'], url_path='finalize-attempt')
+    def finalize_attempt(self, request):
+        """Finalize a fully-graded attempt: mark graded + award deferred XP."""
+        tenant = self._tenant()
+        attempt = (MockTestAttempt.objects.filter(
+                    id=request.data.get('attempt_id'), mock_test__tenant=tenant)
+                   .select_related('student__user', 'mock_test').first())
+        if not attempt:
+            raise NotFound('Attempt not found.')
+        remaining = attempt.item_answers.filter(needs_manual_grading=True).count()
+        if remaining:
+            raise ValidationError(
+                {'error': f'{remaining} answer(s) still need grading before finalizing.'})
+
+        from .mock_grading import recompute_attempt
+        recompute_attempt(attempt)
+        attempt.grading_status = 'graded'
+        attempt.save(update_fields=[
+            'marks_obtained', 'attempted_questions', 'correct_answers',
+            'wrong_answers', 'percentage', 'grading_status', 'updated_at',
+        ])
+
+        # Award XP once (deferred from submit for manual-grading attempts).
+        awarded = 0
+        from gamification.models import XPTransaction
+        already = XPTransaction.objects.filter(
+            student=attempt.student, transaction_type='mock_complete',
+            reference_id=attempt.id,
+        ).exists()
+        if not already and attempt.xp_earned == 0:
+            from gamification.services import GamificationService
+            from core.utils import calculate_xp_for_quiz
+            awarded = calculate_xp_for_quiz(
+                float(attempt.percentage), attempt.total_questions, is_daily_challenge=False
+            ) * 2
+            attempt.xp_earned = awarded
+            attempt.save(update_fields=['xp_earned'])
+            GamificationService.award_xp(
+                attempt.student, awarded, 'mock_complete',
+                f'Completed mock test: {attempt.mock_test.title}', str(attempt.id),
+            )
+        return Response({
+            'attempt_id': str(attempt.id),
+            'grading_status': attempt.grading_status,
+            'marks_obtained': float(attempt.marks_obtained),
+            'percentage': float(attempt.percentage),
+            'xp_awarded': awarded,
+        })
 
 
 class AdminMockTestItemViewSet(viewsets.ModelViewSet):
