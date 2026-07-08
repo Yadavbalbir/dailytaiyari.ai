@@ -7,6 +7,7 @@ import {
   CheckCircle2, AlertCircle, Award,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
+import MathRenderer from '../components/chat/MathRenderer'
 
 export default function MockTestGrading() {
   const navigate = useNavigate()
@@ -159,7 +160,7 @@ function GradeCard({ answer, index, onSave, saving }) {
 
       {answer.question_html
         ? <div className="prose dark:prose-invert max-w-none text-sm mb-3" dangerouslySetInnerHTML={{ __html: answer.question_html }} />
-        : <p className="text-surface-800 dark:text-surface-100 text-sm mb-3 whitespace-pre-wrap">{answer.question_text}</p>}
+        : <div className="mb-3"><MathRenderer content={answer.question_text} className="prose-sm" /></div>}
 
       <div className="rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200 dark:border-surface-700 p-4 mb-4">
         {answer.item_type === 'coding' ? (

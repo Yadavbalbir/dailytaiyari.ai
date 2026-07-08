@@ -7,6 +7,7 @@ import {
   ListChecks, Calculator, FileText, Code2, CheckSquare, Library, X, Search,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
+import RichMarkdownEditor from '../components/common/RichMarkdownEditor'
 
 const ITEM_TYPES = [
   { value: 'mcq', label: 'MCQ (single)', icon: ListChecks, color: 'text-blue-500' },
@@ -308,7 +309,7 @@ function ItemEditor({ testId, item, onClose }) {
   const saveMut = useMutation({
     mutationFn: () => {
       const payload = {
-        item_type: f.item_type, question_text: f.question_text || '', question_html: f.question_html || '',
+        item_type: f.item_type, question_text: f.question_text || '', question_html: '',
         explanation: f.explanation || '', marks: f.marks, negative_marks: f.negative_marks || 0, section: f.section || 0,
       }
       if (['mcq', 'mcq_multi'].includes(f.item_type)) payload.options = f.options
@@ -341,7 +342,7 @@ function ItemEditor({ testId, item, onClose }) {
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4 max-h-[70vh] overflow-auto">
-          <Field label="Question"><textarea value={f.question_text || ''} onChange={(e) => set('question_text')(e.target.value)} rows={3} className={inputCls} /></Field>
+          <Field label="Question"><RichMarkdownEditor value={f.question_text} onChange={set('question_text')} rows={4} /></Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Marks"><input type="number" step="0.5" value={f.marks} onChange={(e) => set('marks')(Number(e.target.value))} className={inputCls} /></Field>
             <Field label="Negative"><input type="number" step="0.5" value={f.negative_marks || 0} onChange={(e) => set('negative_marks')(Number(e.target.value))} className={inputCls} /></Field>
@@ -353,10 +354,12 @@ function ItemEditor({ testId, item, onClose }) {
               <p className="text-sm font-medium mb-2">Options <span className="text-xs text-surface-400">(check the correct one{f.item_type === 'mcq_multi' ? 's' : ''})</span></p>
               <div className="space-y-2">
                 {f.options.map((o, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input type={f.item_type === 'mcq' ? 'radio' : 'checkbox'} checked={!!o.is_correct} name="correct" onChange={(e) => setOpt(i, { is_correct: e.target.checked })} />
-                    <input value={o.text || ''} onChange={(e) => setF((s) => ({ ...s, options: s.options.map((x, idx) => idx === i ? { ...x, text: e.target.value } : x) }))} placeholder={`Option ${i + 1}`} className={inputCls} />
-                    <button onClick={() => setF((s) => ({ ...s, options: s.options.filter((_, idx) => idx !== i) }))} className="p-1.5 text-surface-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
+                  <div key={i} className="flex items-start gap-2">
+                    <input type={f.item_type === 'mcq' ? 'radio' : 'checkbox'} checked={!!o.is_correct} name="correct" onChange={(e) => setOpt(i, { is_correct: e.target.checked })} className="mt-3.5" />
+                    <div className="flex-1">
+                      <RichMarkdownEditor value={o.text} onChange={(v) => setF((s) => ({ ...s, options: s.options.map((x, idx) => idx === i ? { ...x, text: v } : x) }))} rows={2} />
+                    </div>
+                    <button onClick={() => setF((s) => ({ ...s, options: s.options.filter((_, idx) => idx !== i) }))} className="mt-3 p-1.5 text-surface-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
@@ -374,8 +377,8 @@ function ItemEditor({ testId, item, onClose }) {
           {f.item_type === 'subjective' && (
             <>
               <Field label="Max words" hint="optional"><input type="number" value={f.max_words ?? ''} onChange={(e) => set('max_words')(e.target.value === '' ? null : Number(e.target.value))} className={inputCls} /></Field>
-              <Field label="Grading rubric" hint="admins only"><textarea value={f.rubric || ''} onChange={(e) => set('rubric')(e.target.value)} rows={2} className={inputCls} /></Field>
-              <Field label="Model answer" hint="admins only"><textarea value={f.model_answer || ''} onChange={(e) => set('model_answer')(e.target.value)} rows={2} className={inputCls} /></Field>
+              <Field label="Grading rubric" hint="admins only"><RichMarkdownEditor value={f.rubric} onChange={set('rubric')} rows={2} /></Field>
+              <Field label="Model answer" hint="admins only"><RichMarkdownEditor value={f.model_answer} onChange={set('model_answer')} rows={2} /></Field>
             </>
           )}
 
@@ -419,7 +422,7 @@ function ItemEditor({ testId, item, onClose }) {
             </div>
           )}
 
-          <Field label="Explanation" hint="shown after submission"><textarea value={f.explanation || ''} onChange={(e) => set('explanation')(e.target.value)} rows={2} className={inputCls} /></Field>
+          <Field label="Explanation" hint="shown after submission"><RichMarkdownEditor value={f.explanation} onChange={set('explanation')} rows={2} /></Field>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-surface-200 dark:border-surface-700">
           <button onClick={onClose} className="px-4 py-2 rounded-xl border border-surface-200 dark:border-surface-700 text-sm">Cancel</button>

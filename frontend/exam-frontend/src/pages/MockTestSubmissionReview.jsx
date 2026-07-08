@@ -7,6 +7,7 @@ import {
   Award, Hash, ListChecks, User, Clock, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { mockTestBuilderService as svc } from '../services/mockTestBuilderService'
+import MathRenderer from '../components/chat/MathRenderer'
 
 const TYPE_META = {
   mcq: { label: 'Multiple Choice', icon: ListChecks },
@@ -162,7 +163,7 @@ function ReviewCard({ answer, index, onSave, saving }) {
 
       {answer.question_html
         ? <div className="prose dark:prose-invert max-w-none text-sm mb-3" dangerouslySetInnerHTML={{ __html: answer.question_html }} />
-        : <p className="text-surface-800 dark:text-surface-100 text-sm mb-3 whitespace-pre-wrap">{answer.question_text}</p>}
+        : <div className="mb-3"><MathRenderer content={answer.question_text} className="prose-sm" /></div>}
 
       {(answer.item_type === 'mcq' || answer.item_type === 'mcq_multi') && (
         <McqReview answer={answer} />
@@ -173,7 +174,8 @@ function ReviewCard({ answer, index, onSave, saving }) {
 
       {answer.explanation && (
         <div className="mt-3 text-xs text-surface-500 bg-surface-50 dark:bg-surface-800/50 rounded-lg p-3">
-          <span className="font-semibold">Explanation: </span>{answer.explanation}
+          <span className="font-semibold">Explanation: </span>
+          <MathRenderer content={answer.explanation} className="prose-sm inline" />
         </div>
       )}
 
@@ -208,7 +210,7 @@ function McqReview({ answer }) {
             {isCorrect ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               : isSelected ? <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
               : <span className="w-4 h-4 shrink-0" />}
-            <span className="flex-1">{opt.text}</span>
+            <div className="flex-1 min-w-0"><MathRenderer content={opt.text} className="prose-sm prose-p:my-0" /></div>
             {isSelected && <span className="text-xs font-medium text-surface-500">student</span>}
           </div>
         )
@@ -266,7 +268,7 @@ function SubjectiveReview({ answer }) {
           {answer.model_answer && (
             <div className="bg-surface-100 dark:bg-surface-800 rounded-lg p-3">
               <span className="font-semibold">Model answer: </span>
-              <span className="whitespace-pre-wrap">{answer.model_answer}</span>
+              <MathRenderer content={answer.model_answer} className="prose-sm" />
             </div>
           )}
         </div>
