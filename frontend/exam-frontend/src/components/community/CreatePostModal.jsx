@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera, Users, BookOpen } from 'lucide-react'
 
 import { communityService } from '../../services/communityService'
+import SearchableSelect from '../common/SearchableSelect'
 import toast from 'react-hot-toast'
 
 const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
@@ -301,24 +302,41 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                             </label>
                             {availableCourses.length > 0 ? (
                                 <>
-                                    <div className="flex flex-wrap gap-2">
-                                        {availableCourses.map((course) => {
-                                            const active = selectedCourses.includes(course.id)
-                                            return (
-                                                <button
-                                                    key={course.id}
-                                                    type="button"
-                                                    onClick={() => toggleCourse(course.id)}
-                                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${active
-                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                                                        : 'border-surface-200 dark:border-surface-700 text-surface-600 hover:border-surface-300'
-                                                        }`}
-                                                >
-                                                    {course.name}
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
+                                    <SearchableSelect
+                                        multiple
+                                        options={availableCourses.map((c) => ({ value: c.id, label: c.name }))}
+                                        value={selectedCourses}
+                                        onChange={setSelectedCourses}
+                                        placeholder="Select course(s)"
+                                        searchPlaceholder="Search courses..."
+                                        buttonClassName="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg text-sm border border-surface-200 dark:border-surface-700 text-surface-600 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                                        renderTriggerLabel={(vals) =>
+                                            vals.length ? `${vals.length} course${vals.length > 1 ? 's' : ''} selected` : 'Select course(s) — leave empty for everyone'
+                                        }
+                                    />
+                                    {selectedCourses.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {selectedCourses.map((id) => {
+                                                const course = availableCourses.find((c) => c.id === id)
+                                                if (!course) return null
+                                                return (
+                                                    <span
+                                                        key={id}
+                                                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-sm bg-primary-50 dark:bg-primary-900/20 text-primary-600 border border-primary-200 dark:border-primary-800"
+                                                    >
+                                                        {course.name}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleCourse(id)}
+                                                            className="hover:text-error-500"
+                                                        >
+                                                            <X size={13} />
+                                                        </button>
+                                                    </span>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
                                     <p className="text-xs text-surface-500 mt-2 flex items-center gap-1">
                                         <Users size={12} />
                                         {selectedCourses.length === 0
