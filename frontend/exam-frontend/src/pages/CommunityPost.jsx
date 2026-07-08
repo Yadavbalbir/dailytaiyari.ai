@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     ArrowLeft, ThumbsUp, MessageCircle, Eye, Share2,
     CheckCircle, Clock, BarChart3, Zap, Trophy, Send,
-    BadgeCheck, Camera, Image as ImageIcon, X, BookOpen, Globe
+    BadgeCheck, Camera, Image as ImageIcon, X, BookOpen, Globe,
+    EyeOff, Trash2
 } from 'lucide-react'
 
 import { communityService } from '../services/communityService'
@@ -45,6 +46,34 @@ const CommunityPost = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['communityPost', id])
         }
+    })
+
+    const hideMutation = useMutation({
+        mutationFn: () => communityService.hidePost(id),
+        onSuccess: () => {
+            toast.success('Post hidden')
+            queryClient.invalidateQueries(['communityPost', id])
+        },
+        onError: () => toast.error('Could not hide post')
+    })
+
+    const unhideMutation = useMutation({
+        mutationFn: () => communityService.unhidePost(id),
+        onSuccess: () => {
+            toast.success('Post restored')
+            queryClient.invalidateQueries(['communityPost', id])
+        },
+        onError: () => toast.error('Could not restore post')
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: () => communityService.deletePost(id),
+        onSuccess: () => {
+            toast.success('Post deleted')
+            queryClient.invalidateQueries(['communityPosts'])
+            navigate('/community')
+        },
+        onError: () => toast.error('Could not delete post')
     })
 
     // Add comment
@@ -168,6 +197,9 @@ const CommunityPost = () => {
     }
 
     const isAuthor = user?.id === post.author?.id
+    const role = user?.role || profile?.user?.role
+    const isAdmin = role === 'admin' || role === 'instructor'
+    const canModerate = isAdmin || isAuthor
     const comments = commentsData?.results || commentsData || []
     const hasVoted = post.user_poll_vote !== null
     const hasAttemptedQuiz = post.quiz?.user_attempt !== null
@@ -201,12 +233,52 @@ const CommunityPost = () => {
                         {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
                     </div>
 
-                    {post.is_solved && (
-                        <div className="flex items-center gap-1 text-success-500 text-sm font-medium">
-                            <CheckCircle size={16} />
-                            Solved
-                        </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {post.status === 'hidden' && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200 dark:border-red-800">
+                                <EyeOff size={12} /> Hidden
+                            </span>
+                        )}
+                        {post.is_solved && (
+                            <div className="flex items-center gap-1 text-success-500 text-sm font-medium">
+                                <CheckCircle size={16} />
+                                Solved
+                            </div>
+                        )}
+                        {canModerate && (
+                            <div className="flex items-center gap-2">
+                                {isAdmin && post.status !== 'hidden' && (
+                                    <button
+                                        onClick={() => hideMutation.mutate()}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-700 hover:bg-surface-200 dark:hover:bg-surface-600 transition-colors"
+                                        title="Hide post"
+                                    >
+                                        <EyeOff size={14} /> Hide
+                                    </button>
+                                )}
+                                {isAdmin && post.status === 'hidden' && (
+                                    <button
+                                        onClick={() => unhideMutation.mutate()}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-700 hover:bg-surface-200 dark:hover:bg-surface-600 transition-colors"
+                                        title="Unhide post"
+                                    >
+                                        <Eye size={14} /> Unhide
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm('Delete this post permanently?')) {
+                                            deleteMutation.mutate()
+                                        }
+                                    }}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                    title="Delete post"
+                                >
+                                    <Trash2 size={14} /> Delete
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Author */}

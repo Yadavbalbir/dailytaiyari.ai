@@ -1,10 +1,14 @@
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import {
     MessageCircle, ThumbsUp, Eye, CheckCircle,
-    BarChart3, Zap, Clock, User, BadgeCheck, BookOpen, Globe
+    BarChart3, Zap, Clock, User, BadgeCheck, BookOpen, Globe,
+    MoreVertical, EyeOff, Trash2
 } from 'lucide-react'
 
-const PostCard = ({ post, onLike, onClick }) => {
+const PostCard = ({ post, onLike, onClick, isAdmin = false, isAuthor = false, onHide, onUnhide, onDelete }) => {
+    const [menuOpen, setMenuOpen] = useState(false)
+    const canModerate = isAdmin || isAuthor
     const typeConfig = {
         question: {
             icon: MessageCircle,
@@ -80,11 +84,18 @@ const PostCard = ({ post, onLike, onClick }) => {
                 </div>
 
                 {/* Type + Course Badges */}
-                <div className="flex flex-col items-end gap-1.5">
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-col items-end gap-1.5">
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
                         <TypeIcon size={12} />
                         {config.label}
                     </div>
+                    {post.status === 'hidden' && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-200 dark:border-red-800">
+                            <EyeOff size={11} />
+                            Hidden
+                        </span>
+                    )}
                     {post.courses && post.courses.length > 0 ? (
                         <div className="flex flex-wrap justify-end gap-1">
                             {post.courses.slice(0, 2).map((c) => (
@@ -109,6 +120,51 @@ const PostCard = ({ post, onLike, onClick }) => {
                             Everyone
                         </span>
                     )}
+                  </div>
+
+                  {canModerate && (
+                    <div className="relative">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
+                            className="p-1 rounded-lg text-surface-400 hover:text-surface-700 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                            title="Options"
+                        >
+                            <MoreVertical size={16} />
+                        </button>
+                        {menuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }}
+                                />
+                                <div className="absolute right-0 mt-1 w-40 py-1 rounded-lg shadow-lg bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 z-20">
+                                    {isAdmin && post.status !== 'hidden' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onHide?.() }}
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700"
+                                        >
+                                            <EyeOff size={14} /> Hide post
+                                        </button>
+                                    )}
+                                    {isAdmin && post.status === 'hidden' && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onUnhide?.() }}
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700"
+                                        >
+                                            <Eye size={14} /> Unhide post
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.() }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    >
+                                        <Trash2 size={14} /> Delete post
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                  )}
                 </div>
             </div>
 

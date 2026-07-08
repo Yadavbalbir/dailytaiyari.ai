@@ -48,9 +48,15 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         },
         onError: (error) => {
             console.error('Post creation error:', error.response?.data)
-            const message = error.response?.data?.content?.[0] ||
-                error.response?.data?.title?.[0] ||
-                error.response?.data?.detail ||
+            const data = error.response?.data || {}
+            const firstOf = (v) => Array.isArray(v) ? v[0] : v
+            const message = firstOf(data.content) ||
+                firstOf(data.title) ||
+                firstOf(data.poll_options) ||
+                firstOf(data.quiz_data) ||
+                firstOf(data.courses) ||
+                firstOf(data.non_field_errors) ||
+                data.detail ||
                 'Failed to create post'
             toast.error(message)
         }
