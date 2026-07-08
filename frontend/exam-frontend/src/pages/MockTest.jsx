@@ -26,9 +26,11 @@ const MockTest = () => {
   const isAdmin = (user?.role || profile?.user?.role) === 'admin'
   const [showFilters, setShowFilters] = useState(false)
 
-  // Filter state
+  // Filter state. Course defaults to '' (All courses) so mock tests from every
+  // enrolled course are visible by default — otherwise a test created in a
+  // course other than the last-used one stays hidden until manually selected.
   const [filters, setFilters] = useState({
-    course: localStorage.getItem('study:lastCourseId') || '',
+    course: '',
     attempted: '', // '', 'true', 'false'
     is_free: '',
     search: '',
@@ -59,16 +61,8 @@ const MockTest = () => {
     queryFn: () => quizService.getMockAttempts(),
   })
 
-  // Default the exam to the shared selection (or first available) and persist it.
-  useEffect(() => {
-    const exams = filterOptions?.courses
-    if (!exams?.length) return
-    const isValid = (id) => id && exams.some((e) => e.id === id)
-    if (isValid(filters.course)) return
-    const stored = localStorage.getItem('study:lastCourseId')
-    setFilters((prev) => ({ ...prev, course: (isValid(stored) && stored) || exams[0].id }))
-  }, [filterOptions?.courses, filters.course])
-
+  // Persist a specific course selection for cross-page context, but never force
+  // one — an empty selection ("All courses") is a valid, respected state.
   useEffect(() => {
     if (filters.course) localStorage.setItem('study:lastCourseId', filters.course)
   }, [filters.course])
@@ -220,6 +214,15 @@ const MockTest = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Course</label>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('course', '')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.course === ''
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                      }`}
+                  >
+                    All courses
+                  </button>
                   {filterOptions?.courses?.map((course) => (
                     <button
                       key={course.id}
