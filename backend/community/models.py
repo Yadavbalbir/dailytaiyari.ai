@@ -15,6 +15,7 @@ class Post(TimeStampedModel):
         ('question', 'Question'),
         ('poll', 'Poll'),
         ('quiz', 'Quiz'),
+        ('event', 'Event'),
     ]
     
     STATUS_CHOICES = [
@@ -265,6 +266,46 @@ class CommunityQuiz(TimeStampedModel):
 
     def __str__(self):
         return f"Quiz: {self.question[:50]}"
+
+
+class CommunityEvent(TimeStampedModel):
+    """
+    Event details attached to a post (post_type='event').
+
+    Created only by admins/instructors. Minimal by design: a scheduled time
+    and a join link (e.g. Google Meet / Zoom). The title & description live on
+    the parent Post.
+    """
+    post = models.OneToOneField(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='event'
+    )
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(null=True, blank=True)
+    meeting_url = models.URLField(max_length=500)
+
+    class Meta:
+        verbose_name = 'Community Event'
+        verbose_name_plural = 'Community Events'
+        indexes = [
+            models.Index(fields=['start_at']),
+        ]
+
+    @property
+    def state(self):
+        """Derived lifecycle: upcoming -> live -> ended."""
+        from django.utils import timezone
+        now = timezone.now()
+        if now < self.start_at:
+            return 'upcoming'
+        if self.end_at:
+            return 'live' if now <= self.end_at else 'ended'
+        # No end time: treated as live once it starts.
+        return 'live'
+
+    def __str__(self):
+        return f"Event: {self.post.title[:50]} @ {self.start_at}"
 
 
 class QuizAttempt(TimeStampedModel):

@@ -74,7 +74,7 @@ class PostViewSet(TenantAwareViewSet):
 
         queryset = Post.objects.all().select_related(
             'author__user', 'course', 'subject'
-        ).prefetch_related('poll_options', 'quiz', 'courses')
+        ).prefetch_related('poll_options', 'quiz', 'event', 'courses')
 
         # Status filtering.
         #  - Non-staff only ever see active posts.

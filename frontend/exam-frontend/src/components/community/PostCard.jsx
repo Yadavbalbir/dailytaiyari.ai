@@ -3,7 +3,7 @@ import { useState } from 'react'
 import {
     MessageCircle, ThumbsUp, Eye, CheckCircle,
     BarChart3, Zap, Clock, User, BadgeCheck, BookOpen, Globe,
-    MoreVertical, EyeOff, Trash2
+    MoreVertical, EyeOff, Trash2, Calendar, Video
 } from 'lucide-react'
 
 const PostCard = ({ post, onLike, onClick, isAdmin = false, isAuthor = false, onHide, onUnhide, onDelete }) => {
@@ -25,6 +25,11 @@ const PostCard = ({ post, onLike, onClick, isAdmin = false, isAuthor = false, on
             label: 'Quiz',
             color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
         },
+        event: {
+            icon: Calendar,
+            label: 'Event',
+            color: 'text-green-600 bg-green-50 dark:bg-green-900/20'
+        },
     }
 
     const config = typeConfig[post.post_type] || typeConfig.question
@@ -43,6 +48,21 @@ const PostCard = ({ post, onLike, onClick, isAdmin = false, isAuthor = false, on
         if (diffHours < 24) return `${diffHours}h ago`
         if (diffDays < 7) return `${diffDays}d ago`
         return date.toLocaleDateString()
+    }
+
+    const formatEventTime = (dateString) => {
+        if (!dateString) return ''
+        const d = new Date(dateString)
+        return d.toLocaleString(undefined, {
+            weekday: 'short', day: 'numeric', month: 'short',
+            hour: '2-digit', minute: '2-digit'
+        })
+    }
+
+    const eventStateBadge = {
+        upcoming: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600',
+        live: 'bg-green-50 dark:bg-green-900/20 text-green-600 animate-pulse',
+        ended: 'bg-surface-100 dark:bg-surface-700 text-surface-500',
     }
 
     return (
@@ -217,6 +237,37 @@ const PostCard = ({ post, onLike, onClick, isAdmin = false, isAuthor = false, on
                         <span>{post.quiz.attempts_count} attempts</span>
                         <span>{post.quiz.success_rate}% success rate</span>
                     </div>
+                </div>
+            )}
+
+            {/* Event Preview */}
+            {post.post_type === 'event' && post.event && (
+                <div className="rounded-lg p-3 mb-4 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                            <Calendar size={15} />
+                            {formatEventTime(post.event.start_at)}
+                            {post.event.end_at && (
+                                <span className="text-green-600/70">
+                                    – {new Date(post.event.end_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            )}
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${eventStateBadge[post.event.state] || eventStateBadge.upcoming}`}>
+                            {post.event.state === 'live' ? '● Live now' : post.event.state}
+                        </span>
+                    </div>
+                    {post.event.meeting_url && post.event.state !== 'ended' && (
+                        <a
+                            href={post.event.meeting_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                        >
+                            <Video size={14} /> Join
+                        </a>
+                    )}
                 </div>
             )}
 
