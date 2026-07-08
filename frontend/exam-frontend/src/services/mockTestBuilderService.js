@@ -54,6 +54,8 @@ export const mockTestBuilderService = {
     (await api.post('/quiz/admin/mock-tests/grade-answer/', payload)).data,
   finalizeAttempt: async (attemptId) =>
     (await api.post('/quiz/admin/mock-tests/finalize-attempt/', { attempt_id: attemptId })).data,
+  submissions: async (testId) =>
+    (await api.get(`/quiz/admin/mock-tests/${testId}/submissions/`)).data,
 
   // --- student: rich attempt flow ---
   getPaper: async (testId) =>

@@ -189,17 +189,31 @@ class AdminMockTestViewSet(viewsets.ModelViewSet):
                 'answer_id': str(ans.id),
                 'item_id': str(item.id),
                 'item_type': item.item_type,
+                'section': item.section,
+                'order': item.order,
                 'question_text': item.question_text,
                 'question_html': item.question_html or '',
+                'explanation': item.explanation or '',
                 'max_marks': float(ans.max_marks or item.marks),
                 'max_words': item.max_words,
+                # Student response (only the field relevant to item_type is used).
+                'selected_options': ans.selected_options or [],
+                'numerical_answer': float(ans.numerical_answer) if ans.numerical_answer is not None else None,
                 'answer_text': ans.answer_text,
                 'code': ans.code,
                 'language': ans.language,
                 'coding_results': ans.coding_results,
                 'passed_count': ans.passed_count,
                 'total_count': ans.total_count,
+                # Correct-answer reference (admin-only) for review display.
+                'options': item.options or [],
+                'correct_option_indices': list(item.correct_option_indices or []),
+                'numerical_correct': float(item.numerical_answer) if item.numerical_answer is not None else None,
+                'numerical_tolerance': float(item.numerical_tolerance) if item.numerical_tolerance is not None else None,
+                'model_answer': item.model_answer or '',
+                'rubric': item.rubric or '',
                 'marks_obtained': float(ans.marks_obtained),
+                'is_correct': ans.is_correct,
                 'feedback': ans.feedback,
                 'needs_manual_grading': ans.needs_manual_grading,
                 'is_auto_graded': ans.is_auto_graded,
@@ -245,6 +259,82 @@ class AdminMockTestViewSet(viewsets.ModelViewSet):
                 'pending_count': a.item_answers.filter(needs_manual_grading=True).count(),
             })
         return Response(out)
+
+    @action(detail=True, methods=['get'], url_path='submissions')
+    def submissions(self, request, pk=None):
+        """All completed attempts for one mock test, plus summary counts.
+
+        Mirrors the assignment/coding submissions views: eligible-student count,
+        submitted/graded/pending breakdown, average score, and a per-attempt
+        list the admin can drill into for review + grading.
+        """
+        mock_test = self.get_object()
+        attempts = (MockTestAttempt.objects.filter(
+                        mock_test=mock_test, status='completed')
+                    .select_related('student__user')
+                    .prefetch_related('item_answers')
+                    .order_by('-completed_at'))
+
+        rows, graded, pending, score_sum = [], 0, 0, 0.0
+        for a in attempts:
+            u = getattr(a.student, 'user', None)
+            pending_count = a.item_answers.filter(needs_manual_grading=True).count()
+            is_graded = a.grading_status == 'graded' or (
+                a.grading_status == 'auto_graded' and pending_count == 0)
+            if pending_count > 0:
+                pending += 1
+            else:
+                graded += 1
+            score_sum += float(a.percentage)
+            rows.append({
+                'attempt_id': str(a.id),
+                'student_name': (getattr(u, 'full_name', '') or (u.email if u else '')).strip() if u else '',
+                'student_email': u.email if u else '',
+                'marks_obtained': float(a.marks_obtained),
+                'total_marks': float(mock_test.total_marks),
+                'percentage': float(a.percentage),
+                'grading_status': a.grading_status,
+                'pending_count': pending_count,
+                'is_fully_graded': pending_count == 0,
+                'completed_at': a.completed_at.isoformat() if a.completed_at else None,
+                'time_taken_seconds': a.time_taken_seconds,
+            })
+
+        # Eligible students: enrolled (approved+active) in any linked/legacy
+        # course, or every student in the tenant when the test is open to all.
+        from users.models import StudentProfile, CourseEnrollment
+        course_ids = list(mock_test.courses.values_list('id', flat=True))
+        if mock_test.course_id:
+            course_ids.append(mock_test.course_id)
+        if course_ids:
+            eligible = (CourseEnrollment.objects.filter(
+                            course_id__in=course_ids, status='approved', is_active=True)
+                        .values('student_id').distinct().count())
+        else:
+            eligible = StudentProfile.objects.filter(
+                user__tenant=mock_test.tenant_id, user__role='student').count()
+
+        submitted = len(rows)
+        avg_score = round(score_sum / submitted, 2) if submitted else 0.0
+        return Response({
+            'mock_test': {
+                'id': str(mock_test.id),
+                'title': mock_test.title,
+                'status': mock_test.status,
+                'total_marks': float(mock_test.total_marks),
+                'duration_minutes': mock_test.duration_minutes,
+                'result_visibility': mock_test.result_visibility,
+                'results_released': mock_test.results_released,
+            },
+            'counts': {
+                'eligible': eligible,
+                'submitted': submitted,
+                'graded': graded,
+                'pending': pending,
+            },
+            'average_score': avg_score,
+            'attempts': rows,
+        })
 
     @action(detail=False, methods=['get'], url_path='attempts/(?P<attempt_id>[^/.]+)')
     def attempt_detail(self, request, attempt_id=None):
