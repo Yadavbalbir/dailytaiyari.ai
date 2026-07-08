@@ -399,23 +399,36 @@ const MockTest = () => {
                   <>
                     <div className="text-sm text-surface-500 mb-3">
                       <span>{attemptInfo.attempts_count} attempt{attemptInfo.attempts_count > 1 ? 's' : ''}</span>
+                      {typeof attemptInfo.max_attempts === 'number' && <span> of {attemptInfo.max_attempts} allowed</span>}
                       {attemptInfo.rank && <span> • Rank #{attemptInfo.rank}</span>}
                       {attemptInfo.percentile && <span> • Top {Math.round(100 - attemptInfo.percentile)}%</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => navigate(`/mock-test/live-review/${attemptInfo.best_attempt_id}`)}
-                        className="btn-secondary flex-1"
+                        className={`btn-secondary ${(attemptInfo.active_attempt_id || attemptInfo.can_reattempt) ? 'flex-1' : 'w-full'}`}
                       >
                         View Result
                       </button>
-                      <button
-                        onClick={() => handleStartTest(test.id)}
-                        className="btn-primary flex-1"
-                      >
-                        Retry
-                      </button>
+                      {attemptInfo.active_attempt_id ? (
+                        <button
+                          onClick={() => handleStartTest(test.id)}
+                          className="btn-primary flex-1"
+                        >
+                          Resume
+                        </button>
+                      ) : attemptInfo.can_reattempt ? (
+                        <button
+                          onClick={() => handleStartTest(test.id)}
+                          className="btn-primary flex-1"
+                        >
+                          Retry
+                        </button>
+                      ) : null}
                     </div>
+                    {!attemptInfo.active_attempt_id && !attemptInfo.can_reattempt && (
+                      <p className="text-xs text-surface-400 mt-2 text-center">No attempts remaining</p>
+                    )}
                   </>
                 ) : (
                   <div className="flex items-center justify-between">
