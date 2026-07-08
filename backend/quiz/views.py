@@ -577,7 +577,11 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
     queryset = MockTest.objects.filter(status='published', is_pyp=False)
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['course', 'is_free']
+    # NOTE: `course` is handled manually in get_queryset so it matches both the
+    # legacy `course` FK and the rich `courses` M2M. Keeping it in
+    # filterset_fields would let DjangoFilterBackend re-filter on the legacy FK
+    # only, hiding rich mock tests (course=None) whenever a course is selected.
+    filterset_fields = ['is_free']
     search_fields = ['title', 'description']
 
     def get_serializer_class(self):
@@ -588,17 +592,27 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         request = self.request
-        
-        # Auto-filter to mock tests the student may attempt (unless an explicit
-        # course filter is provided). Access covers: linked `courses` (M2M),
-        # legacy `course`, or fully-open tests (no course links) for any student
-        # in the tenant.
-        if not request.query_params.get('course'):
-            from .mock_grading import accessible_mock_tests_q
-            course_ids = _get_student_course_ids(request)
-            # Non-enrolled viewers (e.g. staff) stay tenant-scoped only.
-            if course_ids is not None:
-                queryset = queryset.filter(accessible_mock_tests_q(course_ids)).distinct()
+
+        from .mock_grading import accessible_mock_tests_q
+
+        # Scope to mock tests this student may attempt. Access covers: linked
+        # `courses` (M2M), legacy `course`, or fully-open tests (no course links)
+        # for any student in the tenant. Non-enrolled viewers (e.g. staff) stay
+        # tenant-scoped only.
+        course_ids = _get_student_course_ids(request)
+        if course_ids is not None:
+            queryset = queryset.filter(accessible_mock_tests_q(course_ids)).distinct()
+
+        # Optional course filter from the UI. Match the selected course against
+        # BOTH the legacy `course` FK and the rich `courses` M2M, and always keep
+        # fully-open tests (no course links) visible regardless of the selection.
+        course_param = request.query_params.get('course')
+        if course_param:
+            queryset = queryset.filter(
+                Q(course_id=course_param)
+                | Q(courses__id=course_param)
+                | (Q(course__isnull=True) & Q(courses__isnull=True))
+            ).distinct()
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -621,15 +635,18 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         """Get available filter options for mock tests (scoped to student's course)."""
         from exams.models import Course
         
-        # Scope to the student's enrolled courses
+        # Scope to the student's enrolled courses (legacy FK or rich M2M).
         course_ids = _get_student_course_ids(request)
         test_qs = MockTest.objects.filter(status='published')
         if course_ids:
-            test_qs = test_qs.filter(course__in=course_ids)
+            test_qs = test_qs.filter(
+                Q(course__in=course_ids) | Q(courses__in=course_ids)
+            ).distinct()
         
-        # Get courses that have mock tests
+        # Courses that have published mock tests, via the legacy `course` FK OR
+        # the rich `courses` M2M, so rich mock tests surface as filter chips too.
         courses_with_tests = Course.objects.filter(
-            mock_tests__status='published'
+            Q(mock_tests__status='published') | Q(linked_mock_tests__status='published')
         ).distinct().annotate(short_name=F('code')).values('id', 'name', 'short_name')
         
         # Get attempted/non-attempted counts for the user (scoped to course)
