@@ -49,6 +49,7 @@ import CodingSubmissionReview from './pages/CodingSubmissionReview'
 import MockTestManager from './pages/MockTestManager'
 import MockTestBuilder from './pages/MockTestBuilder'
 import RichMockAttempt from './pages/RichMockAttempt'
+import MockTestGrading from './pages/MockTestGrading'
 
 
 // Protected Route Component
@@ -183,6 +184,7 @@ function App() {
           {/* Admin Dashboard */}
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/mock-tests" element={<AdminRoute><MockTestManager /></AdminRoute>} />
+          <Route path="/admin/mock-tests/grading" element={<AdminRoute><MockTestGrading /></AdminRoute>} />
           <Route path="/admin/mock-tests/:testId" element={<AdminRoute><MockTestBuilder /></AdminRoute>} />
         </Route>
 
