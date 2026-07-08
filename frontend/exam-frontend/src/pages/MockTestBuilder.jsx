@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  ArrowLeft, Save, Plus, Trash2, GripVertical, Loader2, Settings2,
+  ArrowLeft, Save, Plus, Trash2, GripVertical, Loader2, Settings2, Inbox,
   ListChecks, Calculator, FileText, Code2, CheckSquare, Library, X, Search,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
@@ -104,6 +104,10 @@ export default function MockTestBuilder() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => navigate(`/admin/mock-tests/${testId}/submissions`)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 font-medium text-sm">
+            <Inbox className="w-4 h-4" /> Submissions
+          </button>
           <select value={form.status} onChange={(e) => { set('status')(e.target.value); saveMut.mutate({ status: e.target.value }) }}
             className={`${inputCls} w-auto`}>
             <option value="draft">Draft</option>

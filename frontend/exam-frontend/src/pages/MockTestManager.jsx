@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import {
   Plus, ClipboardList, Clock, Users, Trash2, Pencil, Search,
   CheckCircle2, FileEdit, Archive, Loader2, ArrowLeft, ClipboardCheck,
+  Inbox,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
 
@@ -147,6 +148,13 @@ export default function MockTestManager() {
                     <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {t.total_attempts || 0} attempts</span>
                   </div>
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/admin/mock-tests/${t.id}/submissions`) }}
+                  className="p-2 rounded-lg text-surface-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                  title="View submissions"
+                >
+                  <Inbox className="w-4 h-4" />
+                </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); navigate(`/admin/mock-tests/${t.id}`) }}
                   className="p-2 rounded-lg text-surface-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20"
