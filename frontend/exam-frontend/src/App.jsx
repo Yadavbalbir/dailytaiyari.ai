@@ -46,6 +46,9 @@ import SubmissionReview from './pages/SubmissionReview'
 import CodingProblem from './pages/CodingProblem'
 import CodingGrading from './pages/CodingGrading'
 import CodingSubmissionReview from './pages/CodingSubmissionReview'
+import MockTestManager from './pages/MockTestManager'
+import MockTestBuilder from './pages/MockTestBuilder'
+import RichMockAttempt from './pages/RichMockAttempt'
 
 
 // Protected Route Component
@@ -163,6 +166,7 @@ function App() {
           <Route path="/quiz/:quizId" element={<QuizAttempt />} />
           <Route path="/quiz/review/:attemptId" element={<QuizReview />} />
           <Route path="/mock-test" element={<MockTest />} />
+          <Route path="/mock-test/live/:testId" element={<RichMockAttempt />} />
           <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
           <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
           <Route path="/pyp" element={<PreviousYearPapers />} />
@@ -178,6 +182,8 @@ function App() {
 
           {/* Admin Dashboard */}
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/mock-tests" element={<AdminRoute><MockTestManager /></AdminRoute>} />
+          <Route path="/admin/mock-tests/:testId" element={<AdminRoute><MockTestBuilder /></AdminRoute>} />
         </Route>
 
 
