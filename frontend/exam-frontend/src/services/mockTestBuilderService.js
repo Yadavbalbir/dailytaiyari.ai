@@ -64,6 +64,10 @@ export const mockTestBuilderService = {
     (await api.post(`/quiz/mock-tests/${testId}/submit_rich/`, data)).data,
   runCode: async (testId, payload) =>
     (await api.post(`/quiz/mock-tests/${testId}/run_item/`, payload)).data,
+  richReview: async (attemptId) =>
+    (await api.get(`/quiz/mock-tests/attempts/${attemptId}/review/`)).data,
+  leaderboard: async (testId) =>
+    (await api.get(`/quiz/mock-tests/${testId}/leaderboard/`)).data,
 }
 
 export default mockTestBuilderService

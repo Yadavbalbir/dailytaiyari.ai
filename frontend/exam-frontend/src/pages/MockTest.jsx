@@ -389,7 +389,7 @@ const MockTest = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => navigate(`/mock-test/review/${attemptInfo.best_attempt_id}`)}
+                        onClick={() => navigate(`/mock-test/live-review/${attemptInfo.best_attempt_id}`)}
                         className="btn-secondary flex-1"
                       >
                         View Result
@@ -466,7 +466,7 @@ const MockTest = () => {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => navigate(`/mock-test/review/${attempt.id}`)}
+                      onClick={() => navigate(`/mock-test/live-review/${attempt.id}`)}
                       className="btn-secondary text-xs px-3 py-1.5"
                     >
                       View Result

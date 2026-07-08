@@ -250,3 +250,95 @@ def recompute_attempt(attempt):
 def pending_manual_count(attempt):
     """Number of inline answers still awaiting manual grading."""
     return attempt.item_answers.filter(needs_manual_grading=True).count()
+
+
+# ---------------------------------------------------------------------------
+# Student review (Phase 6)
+# ---------------------------------------------------------------------------
+
+def results_visible_for(attempt):
+    """Whether a student may see graded results for this attempt."""
+    mt = attempt.mock_test
+    if attempt.grading_status == 'pending_manual':
+        return bool(mt.results_released)
+    if mt.results_released:
+        return True
+    return mt.result_visibility == 'immediate'
+
+
+def _bank_review(answer):
+    q = answer.question
+    opts = list(q.options.all().order_by('order'))
+    correct_idx = None
+    if (q.correct_answer or '').strip().lstrip('-').isdigit():
+        correct_idx = int(q.correct_answer)
+    sel_idx = None
+    if (answer.selected_option or '').strip().lstrip('-').isdigit():
+        sel_idx = int(answer.selected_option)
+    return {
+        'kind': 'bank',
+        'item_type': q.question_type,
+        'question_text': q.question_text,
+        'question_html': getattr(q, 'question_html', '') or '',
+        'options': [
+            {'index': i, 'text': o.option_text,
+             'is_correct': i == correct_idx, 'is_selected': i == sel_idx}
+            for i, o in enumerate(opts)
+        ],
+        'your_answer': answer.selected_option or (
+            str(answer.numerical_answer) if answer.numerical_answer is not None else ''),
+        'correct_answer': q.correct_answer if q.question_type in ('mcq', 'true_false', 'fill_blank')
+                          else (str(q.numerical_answer) if q.numerical_answer is not None else ''),
+        'explanation': getattr(q, 'explanation', '') or '',
+        'marks_obtained': float(answer.marks_obtained),
+        'max_marks': float(q.marks),
+        'is_correct': answer.is_correct,
+        'needs_manual_grading': False,
+        'feedback': '',
+    }
+
+
+def _item_review(ans):
+    item = ans.item
+    data = {
+        'kind': 'item',
+        'item_type': item.item_type,
+        'question_text': item.question_text,
+        'question_html': item.question_html or '',
+        'marks_obtained': float(ans.marks_obtained),
+        'max_marks': float(ans.max_marks or item.marks),
+        'is_correct': ans.is_correct,
+        'needs_manual_grading': ans.needs_manual_grading,
+        'feedback': ans.feedback or '',
+        'explanation': item.explanation or '',
+    }
+    if item.item_type in ('mcq', 'mcq_multi'):
+        correct = set(item.correct_option_indices)
+        selected = set(int(i) for i in (ans.selected_options or []))
+        data['options'] = [
+            {'index': i, 'text': o.get('text', ''),
+             'is_correct': i in correct, 'is_selected': i in selected}
+            for i, o in enumerate(item.options or [])
+        ]
+    elif item.item_type == 'numerical':
+        data['your_answer'] = str(ans.numerical_answer) if ans.numerical_answer is not None else ''
+        data['correct_answer'] = str(item.numerical_answer) if item.numerical_answer is not None else ''
+    elif item.item_type == 'subjective':
+        data['your_answer'] = ans.answer_text
+    elif item.item_type == 'coding':
+        data['code'] = ans.code
+        data['language'] = ans.language
+        data['passed_count'] = ans.passed_count
+        data['total_count'] = ans.total_count
+    return data
+
+
+def build_review(attempt):
+    """Per-question review payload (correct answers included). Callers must
+    gate on :func:`results_visible_for` before exposing this."""
+    entries = []
+    for a in attempt.answers.select_related('question').prefetch_related('question__options'):
+        entries.append(_bank_review(a))
+    for ans in attempt.item_answers.select_related('item').order_by('item__section', 'item__order'):
+        entries.append(_item_review(ans))
+    return entries

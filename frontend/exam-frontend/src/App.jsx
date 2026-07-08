@@ -50,6 +50,7 @@ import MockTestManager from './pages/MockTestManager'
 import MockTestBuilder from './pages/MockTestBuilder'
 import RichMockAttempt from './pages/RichMockAttempt'
 import MockTestGrading from './pages/MockTestGrading'
+import RichMockReview from './pages/RichMockReview'
 
 
 // Protected Route Component
@@ -168,6 +169,7 @@ function App() {
           <Route path="/quiz/review/:attemptId" element={<QuizReview />} />
           <Route path="/mock-test" element={<MockTest />} />
           <Route path="/mock-test/live/:testId" element={<RichMockAttempt />} />
+          <Route path="/mock-test/live-review/:attemptId" element={<RichMockReview />} />
           <Route path="/mock-test/:testId" element={<MockTestAttempt />} />
           <Route path="/mock-test/review/:attemptId" element={<MockTestReview />} />
           <Route path="/pyp" element={<PreviousYearPapers />} />
