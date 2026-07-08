@@ -935,6 +935,195 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             )
         return None
 
+    # -- timing / persistence helpers for the server-authoritative timer -----
+
+    def _attempt_timing(self, mock_test, attempt):
+        """Server-authoritative timing for an in-progress attempt.
+
+        The clock is anchored to ``attempt.started_at`` (stored in the DB), so
+        closing the tab never pauses it. Returns server ``now``, the absolute
+        ``expires_at``, whole ``seconds_remaining`` and whether it has expired.
+        """
+        now = timezone.now()
+        expires_at = attempt.started_at + timezone.timedelta(
+            minutes=mock_test.duration_minutes or 0)
+        remaining = int((expires_at - now).total_seconds())
+        return {
+            'server_now': now.isoformat(),
+            'started_at': attempt.started_at.isoformat(),
+            'expires_at': expires_at.isoformat(),
+            'seconds_remaining': max(0, remaining),
+            'expired': remaining <= 0,
+        }
+
+    def _saved_answers(self, attempt):
+        """Previously-saved answers, keyed to match the attempt UI (`kind:ref`).
+
+        Lets a resumed attempt restore what the student had entered before the
+        tab was closed.
+        """
+        out = {}
+        for a in attempt.answers.select_related('question').all():
+            key = f'bank:{a.question_id}'
+            entry = {'is_marked_for_review': a.is_marked_for_review}
+            if a.numerical_answer is not None:
+                entry['numerical_answer'] = float(a.numerical_answer)
+            if a.selected_option:
+                entry['selected'] = [a.selected_option]
+            out[key] = entry
+        for a in attempt.item_answers.select_related('item').all():
+            key = f'item:{a.item_id}'
+            entry = {'is_marked_for_review': a.is_marked_for_review}
+            if a.selected_options:
+                entry['selected'] = list(a.selected_options)
+            if a.numerical_answer is not None:
+                entry['numerical_answer'] = float(a.numerical_answer)
+            if a.answer_text:
+                entry['answer_text'] = a.answer_text
+            if a.code:
+                entry['code'] = a.code
+            if a.language:
+                entry['language'] = a.language
+            out[key] = entry
+        return out
+
+    def _upsert_rich_answers(self, attempt, mock_test, tenant,
+                             bank_answers, item_answers, grade):
+        """Persist submitted answers. When ``grade`` is False (autosave) the
+        answers are stored raw without any grading (never runs code)."""
+        from .mock_grading import grade_item_answer
+        mtq_map = {
+            str(mtq.question_id): mtq
+            for mtq in MockTestQuestion.objects.filter(mock_test=mock_test).select_related('question')
+        }
+        for a in bank_answers or []:
+            mtq = mtq_map.get(str(a.get('question_id')))
+            if not mtq:
+                continue
+            answer, _ = Answer.objects.get_or_create(
+                mock_test_attempt=attempt, question=mtq.question,
+                defaults={'tenant': tenant},
+            )
+            answer.selected_option = a.get('selected_option', '') or ''
+            answer.numerical_answer = a.get('numerical_answer')
+            answer.answer_text = a.get('answer_text', '') or ''
+            answer.time_taken_seconds = int(a.get('time_taken_seconds', 0) or 0)
+            answer.is_marked_for_review = bool(a.get('is_marked_for_review', False))
+            if grade:
+                answer.check_answer(
+                    marks_override=mtq.marks_override,
+                    negative_marks_override=mtq.negative_marks_override,
+                )
+            else:
+                answer.save()
+
+        item_map = {
+            str(it.id): it
+            for it in MockTestItem.objects.filter(mock_test=mock_test)
+        }
+        for a in item_answers or []:
+            item = item_map.get(str(a.get('item_id')))
+            if not item:
+                continue
+            ans, _ = MockTestAnswer.objects.get_or_create(
+                attempt=attempt, item=item, defaults={'tenant': tenant},
+            )
+            ans.selected_options = a.get('selected_options', []) or []
+            ans.numerical_answer = a.get('numerical_answer')
+            ans.answer_text = a.get('answer_text', '') or ''
+            ans.code = a.get('code', '') or ''
+            ans.language = a.get('language', '') or ''
+            ans.time_taken_seconds = int(a.get('time_taken_seconds', 0) or 0)
+            ans.is_marked_for_review = bool(a.get('is_marked_for_review', False))
+            if grade:
+                grade_item_answer(item, ans)
+            ans.save()
+
+    def _finalize_rich_attempt(self, attempt, mock_test, student, timed_out=False):
+        """Grade every saved answer, aggregate results and complete the attempt.
+
+        Used by both explicit submission and server-side auto-submit when the
+        timer expires (e.g. the student never returned to the tab). Idempotent
+        via the attempt's ``in_progress`` guard at the call sites.
+        """
+        from decimal import Decimal
+        from .mock_grading import grade_item_answer
+
+        # (Re)grade any answers that were only autosaved (stored ungraded).
+        mtq_map = {
+            str(mtq.question_id): mtq
+            for mtq in MockTestQuestion.objects.filter(mock_test=mock_test).select_related('question')
+        }
+        for answer in attempt.answers.select_related('question').all():
+            mtq = mtq_map.get(str(answer.question_id))
+            if mtq:
+                answer.check_answer(
+                    marks_override=mtq.marks_override,
+                    negative_marks_override=mtq.negative_marks_override,
+                )
+        for ans in attempt.item_answers.select_related('item').all():
+            grade_item_answer(ans.item, ans)
+            ans.save()
+
+        bank_qs = attempt.answers.all()
+        item_qs = attempt.item_answers.all()
+        bank_marks = sum((x.marks_obtained for x in bank_qs), Decimal('0'))
+        item_marks = sum((x.marks_obtained for x in item_qs), Decimal('0'))
+        attempt.marks_obtained = bank_marks + item_marks
+        attempt.attempted_questions = bank_qs.count() + item_qs.count()
+        attempt.correct_answers = (
+            bank_qs.filter(is_correct=True).count() + item_qs.filter(is_correct=True).count()
+        )
+        attempt.wrong_answers = (
+            bank_qs.filter(is_correct=False).count()
+            + item_qs.filter(is_correct=False, needs_manual_grading=False).count()
+        )
+        total = float(mock_test.total_marks) or 0
+        attempt.percentage = max(0, (float(attempt.marks_obtained) / total) * 100) if total > 0 else 0
+
+        pending_manual = item_qs.filter(needs_manual_grading=True).exists()
+        attempt.grading_status = 'pending_manual' if pending_manual else 'auto_graded'
+        attempt.status = 'timed_out' if timed_out else 'completed'
+        attempt.completed_at = timezone.now()
+        elapsed = int((attempt.completed_at - attempt.started_at).total_seconds())
+        cap = (mock_test.duration_minutes or 0) * 60
+        attempt.time_taken_seconds = min(elapsed, cap) if cap else elapsed
+        attempt.save()
+
+        awarded_xp = 0
+        if not pending_manual:
+            already = MockTestAttempt.objects.filter(
+                student=student, mock_test=mock_test,
+                status__in=['completed', 'timed_out'],
+            ).exclude(id=attempt.id).exists()
+            if not already:
+                awarded_xp = calculate_xp_for_quiz(
+                    attempt.percentage, attempt.total_questions, is_daily_challenge=False
+                ) * 2
+                attempt.xp_earned = awarded_xp
+                attempt.save(update_fields=['xp_earned'])
+                GamificationService.award_xp(
+                    student, awarded_xp, 'mock_complete',
+                    f'Completed mock test: {mock_test.title}', str(attempt.id),
+                )
+
+        mock_test.total_attempts += 1
+        if attempt.marks_obtained > mock_test.highest_score:
+            mock_test.highest_score = attempt.marks_obtained
+        mock_test.save(update_fields=['total_attempts', 'highest_score'])
+
+        results_visible = (
+            mock_test.result_visibility == 'immediate' and not pending_manual
+        ) or mock_test.results_released
+
+        return {
+            'attempt': MockTestAttemptSerializer(attempt).data,
+            'grading_status': attempt.grading_status,
+            'results_visible': results_visible,
+            'pending_manual': pending_manual,
+            'timed_out': timed_out,
+        }
+
     @action(detail=True, methods=['get'])
     def paper(self, request, pk=None):
         """Merged, ordered question paper for the rich attempt UI (no answers)."""
@@ -947,6 +1136,12 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         active = MockTestAttempt.objects.filter(
             student=student, mock_test=mock_test, status='in_progress'
         ).first()
+        attempts_used = MockTestAttempt.objects.filter(
+            student=student, mock_test=mock_test,
+            status__in=['completed', 'timed_out'],
+        ).count()
+        max_attempts = mock_test.max_attempts or 1
+        timing = self._attempt_timing(mock_test, active) if active else None
         return Response({
             'mock_test': {
                 'id': str(mock_test.id),
@@ -958,10 +1153,16 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
                 'fullscreen_required': mock_test.fullscreen_required,
                 'result_visibility': mock_test.result_visibility,
                 'start_deadline': mock_test.start_deadline.isoformat() if mock_test.start_deadline else None,
+                'max_attempts': max_attempts,
                 'sections': mock_test.sections,
             },
             'questions': build_paper(mock_test),
             'active_attempt_id': str(active.id) if active else None,
+            'server_now': timezone.now().isoformat(),
+            'attempts_used': attempts_used,
+            'attempts_remaining': max(0, max_attempts - attempts_used),
+            'can_start': attempts_used < max_attempts,
+            'timing': timing,
         })
 
     @action(detail=True, methods=['post'])
@@ -978,11 +1179,37 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             student=student, mock_test=mock_test, status='in_progress'
         ).first()
         if existing:
+            timing = self._attempt_timing(mock_test, existing)
+            # Timer runs on the server clock, so a tab left closed past the
+            # deadline is auto-submitted here on return rather than resumed.
+            if timing['expired']:
+                result = self._finalize_rich_attempt(
+                    existing, mock_test, student, timed_out=True)
+                return Response({
+                    'expired': True,
+                    'attempt_id': str(existing.id),
+                    **result,
+                })
             return Response({
                 'attempt': MockTestAttemptSerializer(existing).data,
                 'questions': build_paper(mock_test),
+                'saved_answers': self._saved_answers(existing),
+                'timing': timing,
                 'resumed': True,
             })
+
+        # Fresh start: enforce the per-student attempt cap.
+        attempts_used = MockTestAttempt.objects.filter(
+            student=student, mock_test=mock_test,
+            status__in=['completed', 'timed_out'],
+        ).count()
+        max_attempts = mock_test.max_attempts or 1
+        if attempts_used >= max_attempts:
+            return Response(
+                {'error': 'You have used all allowed attempts for this test.',
+                 'attempts_used': attempts_used, 'max_attempts': max_attempts},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if mock_test.start_deadline and timezone.now() > mock_test.start_deadline:
             return Response(
@@ -1002,14 +1229,41 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         return Response({
             'attempt': MockTestAttemptSerializer(attempt).data,
             'questions': build_paper(mock_test),
+            'saved_answers': {},
+            'timing': self._attempt_timing(mock_test, attempt),
             'resumed': False,
         }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def save_rich(self, request, pk=None):
+        """Autosave in-progress answers (no grading) so a resume can restore them."""
+        mock_test = self.get_object()
+        denied = self._rich_access_or_403(mock_test, request)
+        if denied:
+            return denied
+        student = request.user.profile
+        attempt = MockTestAttempt.objects.filter(
+            student=student, mock_test=mock_test, status='in_progress'
+        ).first()
+        if not attempt:
+            return Response({'error': 'No active attempt found'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        timing = self._attempt_timing(mock_test, attempt)
+        if timing['expired']:
+            result = self._finalize_rich_attempt(
+                attempt, mock_test, student, timed_out=True)
+            return Response({'expired': True, 'attempt_id': str(attempt.id), **result})
+        self._upsert_rich_answers(
+            attempt, mock_test, getattr(request, 'tenant', None),
+            request.data.get('bank_answers', []),
+            request.data.get('item_answers', []),
+            grade=False,
+        )
+        return Response({'saved': True, 'timing': timing})
 
     @action(detail=True, methods=['post'], throttle_classes=[QuizSubmitThrottle])
     def submit_rich(self, request, pk=None):
         """Submit a rich attempt: grade bank + inline answers; flag subjective."""
-        from decimal import Decimal
-        from .mock_grading import grade_item_answer, has_subjective_items
         mock_test = self.get_object()
         denied = self._rich_access_or_403(mock_test, request)
         if denied:
@@ -1024,114 +1278,18 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
         tenant = getattr(request, 'tenant', None)
-        bank_answers = request.data.get('bank_answers', []) or []
-        item_answers = request.data.get('item_answers', []) or []
-        time_taken = int(request.data.get('time_taken_seconds', 0) or 0)
-
-        # --- bank questions (shared Answer model, existing autograde) ---
-        mtq_map = {
-            str(mtq.question_id): mtq
-            for mtq in MockTestQuestion.objects.filter(mock_test=mock_test).select_related('question')
-        }
-        for a in bank_answers:
-            qid = str(a.get('question_id'))
-            mtq = mtq_map.get(qid)
-            if not mtq:
-                continue
-            answer, _ = Answer.objects.get_or_create(
-                mock_test_attempt=attempt, question=mtq.question,
-                defaults={'tenant': tenant},
-            )
-            answer.selected_option = a.get('selected_option', '') or ''
-            answer.numerical_answer = a.get('numerical_answer')
-            answer.answer_text = a.get('answer_text', '') or ''
-            answer.time_taken_seconds = int(a.get('time_taken_seconds', 0) or 0)
-            answer.is_marked_for_review = bool(a.get('is_marked_for_review', False))
-            answer.check_answer(
-                marks_override=mtq.marks_override,
-                negative_marks_override=mtq.negative_marks_override,
-            )
-
-        # --- inline items (MockTestAnswer, autograde or manual) ---
-        item_map = {
-            str(it.id): it
-            for it in MockTestItem.objects.filter(mock_test=mock_test)
-        }
-        for a in item_answers:
-            item = item_map.get(str(a.get('item_id')))
-            if not item:
-                continue
-            ans, _ = MockTestAnswer.objects.get_or_create(
-                attempt=attempt, item=item, defaults={'tenant': tenant},
-            )
-            ans.selected_options = a.get('selected_options', []) or []
-            ans.numerical_answer = a.get('numerical_answer')
-            ans.answer_text = a.get('answer_text', '') or ''
-            ans.code = a.get('code', '') or ''
-            ans.language = a.get('language', '') or ''
-            ans.time_taken_seconds = int(a.get('time_taken_seconds', 0) or 0)
-            ans.is_marked_for_review = bool(a.get('is_marked_for_review', False))
-            grade_item_answer(item, ans)
-            ans.save()
-
-        # --- aggregate results ---
-        bank_qs = attempt.answers.all()
-        item_qs = attempt.item_answers.all()
-        bank_marks = sum((x.marks_obtained for x in bank_qs), Decimal('0'))
-        item_marks = sum((x.marks_obtained for x in item_qs), Decimal('0'))
-        attempt.marks_obtained = bank_marks + item_marks
-        attempt.attempted_questions = bank_qs.count() + item_qs.count()
-        attempt.correct_answers = (
-            bank_qs.filter(is_correct=True).count() + item_qs.filter(is_correct=True).count()
+        # Persist and grade the final answers, then finalize. Time is computed
+        # server-side from started_at (never trusts the client clock).
+        self._upsert_rich_answers(
+            attempt, mock_test, tenant,
+            request.data.get('bank_answers', []),
+            request.data.get('item_answers', []),
+            grade=True,
         )
-        attempt.wrong_answers = (
-            bank_qs.filter(is_correct=False).count()
-            + item_qs.filter(is_correct=False, needs_manual_grading=False).count()
-        )
-        total = float(mock_test.total_marks) or 0
-        attempt.percentage = max(0, (float(attempt.marks_obtained) / total) * 100) if total > 0 else 0
-
-        pending_manual = item_qs.filter(needs_manual_grading=True).exists()
-        attempt.grading_status = 'pending_manual' if pending_manual else 'auto_graded'
-        attempt.status = 'completed'
-        attempt.completed_at = timezone.now()
-        attempt.time_taken_seconds = time_taken
-        attempt.save()
-
-        # XP only when fully auto-graded and first completion. Manual-grading
-        # attempts get XP finalized after admin grading (later phase).
-        awarded_xp = 0
-        if not pending_manual:
-            already = MockTestAttempt.objects.filter(
-                student=student, mock_test=mock_test, status='completed'
-            ).exclude(id=attempt.id).exists()
-            if not already:
-                awarded_xp = calculate_xp_for_quiz(
-                    attempt.percentage, attempt.total_questions, is_daily_challenge=False
-                ) * 2
-                attempt.xp_earned = awarded_xp
-                attempt.save(update_fields=['xp_earned'])
-                GamificationService.award_xp(
-                    student, awarded_xp, 'mock_complete',
-                    f'Completed mock test: {mock_test.title}', str(attempt.id),
-                )
-
-        # Stats
-        mock_test.total_attempts += 1
-        if attempt.marks_obtained > mock_test.highest_score:
-            mock_test.highest_score = attempt.marks_obtained
-        mock_test.save(update_fields=['total_attempts', 'highest_score'])
-
-        results_visible = (
-            mock_test.result_visibility == 'immediate' and not pending_manual
-        ) or mock_test.results_released
-
-        return Response({
-            'attempt': MockTestAttemptSerializer(attempt).data,
-            'grading_status': attempt.grading_status,
-            'results_visible': results_visible,
-            'pending_manual': pending_manual,
-        })
+        timing = self._attempt_timing(mock_test, attempt)
+        result = self._finalize_rich_attempt(
+            attempt, mock_test, student, timed_out=timing['expired'])
+        return Response(result)
 
     @action(detail=True, methods=['post'], throttle_classes=[QuizSubmitThrottle])
     def run_item(self, request, pk=None):

@@ -17,7 +17,10 @@ export default function RichMockAttempt() {
   const { testId } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
+  const [phase, setPhase] = useState('instructions') // 'instructions' | 'attempt'
+  const [starting, setStarting] = useState(false)
   const [meta, setMeta] = useState(null)
+  const [paperInfo, setPaperInfo] = useState(null)  // attempts/limits/active id
   const [questions, setQuestions] = useState([])
   const [attemptId, setAttemptId] = useState(null)
   const [current, setCurrent] = useState(0)
@@ -31,22 +34,25 @@ export default function RichMockAttempt() {
   const containerRef = useRef(null)
   const startedRef = useRef(Date.now())
   const submittedRef = useRef(false)
+  const expiryRef = useRef(null)   // absolute deadline in client-clock ms
 
-  /* ------------------------- start attempt ------------------------- */
+  /* ------------------- load paper (no attempt created yet) ------------------- */
   useEffect(() => {
     let alive = true
     ;(async () => {
       try {
         const paper = await mockTestBuilderService.getPaper(testId)
-        const started = await mockTestBuilderService.startRich(testId)
         if (!alive) return
-        const mtMeta = paper.mock_test
-        setMeta({ mock_test: mtMeta })
-        setQuestions(started.questions || paper.questions || [])
-        setAttemptId(started.attempt?.id)
-        setRemaining((mtMeta.duration_minutes || 60) * 60)
+        setMeta({ mock_test: paper.mock_test })
+        setQuestions(paper.questions || [])
+        setPaperInfo({
+          active_attempt_id: paper.active_attempt_id || null,
+          attempts_used: paper.attempts_used ?? 0,
+          attempts_remaining: paper.attempts_remaining ?? null,
+          can_start: paper.can_start !== false,
+        })
       } catch (e) {
-        const msg = e?.response?.data?.error || 'Could not start this test.'
+        const msg = e?.response?.data?.error || 'Could not load this test.'
         toast.error(msg)
         navigate('/mock-test')
       } finally {
@@ -58,6 +64,56 @@ export default function RichMockAttempt() {
 
   const mt = meta?.mock_test
 
+  /* --------------- convert server saved answers into UI state --------------- */
+  const restoreAnswers = useCallback((saved) => {
+    if (!saved || typeof saved !== 'object') return
+    const next = {}
+    const nextFlags = {}
+    Object.entries(saved).forEach(([key, v]) => {
+      const entry = {}
+      if (Array.isArray(v.selected)) entry.selected = v.selected
+      if (v.numerical_answer != null) entry.numerical_answer = v.numerical_answer
+      if (v.answer_text != null) entry.answer_text = v.answer_text
+      if (v.code != null) entry.code = v.code
+      if (v.language != null) entry.language = v.language
+      next[key] = entry
+      if (v.is_marked_for_review) nextFlags[key] = true
+    })
+    setAnswers(next)
+    setFlagged(nextFlags)
+  }, [])
+
+  /* --------------- start (or resume) the attempt on user action --------------- */
+  const beginAttempt = useCallback(async () => {
+    setStarting(true)
+    try {
+      const started = await mockTestBuilderService.startRich(testId)
+      if (started.expired) {
+        toast('Your previous attempt timed out and was submitted.', { icon: '⏰' })
+        navigate(`/mock-test/live-review/${started.attempt_id}`)
+        return
+      }
+      setQuestions(started.questions || questions)
+      setAttemptId(started.attempt?.id)
+      if (started.resumed) restoreAnswers(started.saved_answers)
+      // Anchor the timer to the server clock so a closed tab never pauses it.
+      const t = started.timing
+      if (t) {
+        const offset = Date.now() - Date.parse(t.server_now)
+        expiryRef.current = Date.parse(t.expires_at) + offset
+      } else {
+        expiryRef.current = Date.now() + (mt?.duration_minutes || 60) * 60000
+      }
+      startedRef.current = Date.now()
+      setRemaining(Math.max(0, Math.round((expiryRef.current - Date.now()) / 1000)))
+      setPhase('attempt')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Could not start this test.')
+    } finally {
+      setStarting(false)
+    }
+  }, [testId, navigate, questions, restoreAnswers, mt])
+
   /* ------------------------- fullscreen ------------------------- */
   const enterFullscreen = useCallback(() => {
     const el = containerRef.current
@@ -65,28 +121,30 @@ export default function RichMockAttempt() {
   }, [])
 
   useEffect(() => {
-    if (!mt?.fullscreen_required || loading || result) return
+    if (!mt?.fullscreen_required || phase !== 'attempt' || result) return
     enterFullscreen()
-  }, [mt, loading, result, enterFullscreen])
+  }, [mt, phase, result, enterFullscreen])
 
-  /* ------------------------- timer ------------------------- */
+  /* ------------------------- timer (server-anchored) ------------------------- */
   useEffect(() => {
-    if (loading || result) return
-    const id = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) { clearInterval(id); handleSubmit(true); return 0 }
-        return r - 1
-      })
-    }, 1000)
+    if (phase !== 'attempt' || result) return
+    const tick = () => {
+      const secs = expiryRef.current
+        ? Math.max(0, Math.round((expiryRef.current - Date.now()) / 1000))
+        : 0
+      setRemaining(secs)
+      if (secs <= 0) { clearInterval(id); handleSubmit(true) }
+    }
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, result])
+  }, [phase, result])
 
   /* ------------------- proctoring: tab-switch / fullscreen exit ------------------- */
   useEffect(() => {
-    if (loading || result) return
+    if (phase !== 'attempt' || result) return
     const onVisibility = () => {
-      if (document.hidden) bumpViolation()
+      if (document.hidden) { bumpViolation(); autosave() }
     }
     const onFsChange = () => {
       if (mt?.fullscreen_required && !document.fullscreenElement && !submittedRef.current) {
@@ -100,7 +158,28 @@ export default function RichMockAttempt() {
       document.removeEventListener('fullscreenchange', onFsChange)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, result, mt])
+  }, [phase, result, mt])
+
+  /* ------------------------- autosave (survives tab close) ------------------------- */
+  const savingRef = useRef(false)
+  const autosave = useCallback(async () => {
+    if (phase !== 'attempt' || result || submittedRef.current || savingRef.current) return
+    savingRef.current = true
+    try {
+      const p = buildPayload()
+      const r = await mockTestBuilderService.saveRich(testId, {
+        bank_answers: p.bank_answers, item_answers: p.item_answers,
+      })
+      if (r?.expired) { submittedRef.current = true; setResult(r) }
+    } catch { /* best-effort */ } finally { savingRef.current = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, result, testId])
+
+  useEffect(() => {
+    if (phase !== 'attempt' || result) return
+    const id = setInterval(() => { autosave() }, 15000)
+    return () => clearInterval(id)
+  }, [phase, result, autosave])
 
   const bumpViolation = () => {
     setViolations((v) => v + 1)
@@ -217,6 +296,65 @@ export default function RichMockAttempt() {
 
   const lowTime = remaining < 60
 
+  /* ------------------------- instructions screen ------------------------- */
+  if (phase === 'instructions') {
+    const hasResume = !!paperInfo?.active_attempt_id
+    const remainingAttempts = paperInfo?.attempts_remaining
+    const blocked = !hasResume && paperInfo?.can_start === false
+    const deadlinePassed = mt?.start_deadline && new Date(mt.start_deadline) < new Date()
+    const startBlocked = !hasResume && (blocked || deadlinePassed)
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-surface-50 dark:bg-surface-950">
+        <div className="max-w-lg w-full bg-white dark:bg-surface-900 rounded-3xl shadow-xl p-8">
+          <h1 className="text-2xl font-bold mb-1 text-surface-900 dark:text-white">{mt?.title}</h1>
+          <p className="text-surface-500 mb-6">Please read the instructions carefully before you begin.</p>
+
+          <div className="grid grid-cols-2 gap-3 mb-6 text-sm">
+            <Info label="Duration" value={`${mt?.duration_minutes || 0} min`} />
+            <Info label="Total marks" value={Number(mt?.total_marks || 0)} />
+            <Info label="Questions" value={questions.length} />
+            <Info label="Negative marking" value={mt?.negative_marking ? 'Yes' : 'No'} />
+            {typeof remainingAttempts === 'number' && (
+              <Info label="Attempts left" value={`${remainingAttempts} of ${mt?.max_attempts ?? 1}`} />
+            )}
+            {mt?.start_deadline && (
+              <Info label="Start before" value={new Date(mt.start_deadline).toLocaleString()} />
+            )}
+          </div>
+
+          <ul className="space-y-2 text-sm text-surface-600 dark:text-surface-300 mb-6 list-disc pl-5">
+            <li>The timer starts as soon as you begin and <strong>keeps running even if you close the tab</strong>.</li>
+            <li>If you leave, you can return and <strong>resume</strong> — but the clock will not pause.</li>
+            <li>When the time is up, your test is submitted automatically.</li>
+            {mt?.fullscreen_required && <li>The test runs in <strong>fullscreen</strong>. Leaving fullscreen or switching tabs is recorded.</li>}
+            <li>Your answers are saved automatically as you go.</li>
+            {(mt?.max_attempts ?? 1) <= 1
+              ? <li>Only <strong>one attempt</strong> is allowed — you cannot re-take this test.</li>
+              : <li>You are allowed <strong>{mt?.max_attempts} attempts</strong> in total.</li>}
+          </ul>
+
+          {startBlocked ? (
+            <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-4 py-3 text-sm mb-4">
+              {deadlinePassed ? 'The window to start this test has closed.' : 'You have used all your allowed attempts for this test.'}
+            </div>
+          ) : null}
+
+          <div className="flex gap-3">
+            <button onClick={() => navigate('/mock-test')}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 font-medium">
+              Cancel
+            </button>
+            <button onClick={beginAttempt} disabled={starting || (startBlocked && !hasResume)}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white font-medium flex items-center justify-center gap-2">
+              {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {hasResume ? 'Resume test' : 'Start test'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div ref={containerRef} className="min-h-screen bg-surface-50 dark:bg-surface-950 flex flex-col">
       {/* top bar */}
@@ -328,6 +466,16 @@ export default function RichMockAttempt() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ------------------------- small info tile ------------------------- */
+function Info({ label, value }) {
+  return (
+    <div className="rounded-xl bg-surface-50 dark:bg-surface-800/60 px-3 py-2">
+      <p className="text-[11px] uppercase tracking-wide text-surface-400">{label}</p>
+      <p className="font-semibold text-surface-800 dark:text-surface-100">{value}</p>
     </div>
   )
 }
