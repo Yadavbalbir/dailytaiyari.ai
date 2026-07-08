@@ -1159,6 +1159,45 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(result)
 
+    @action(detail=False, methods=['get'], url_path='attempts/(?P<attempt_id>[^/.]+)/review')
+    def rich_review(self, request, attempt_id=None):
+        """Per-question review for the owning student, gated by result visibility."""
+        from .mock_grading import build_review, results_visible_for
+        attempt = MockTestAttempt.objects.filter(
+            id=attempt_id, student=request.user.profile
+        ).select_related('mock_test').first()
+        if not attempt:
+            return Response({'error': 'Attempt not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        mt = attempt.mock_test
+        visible = results_visible_for(attempt)
+        base = {
+            'attempt_id': str(attempt.id),
+            'mock_test_id': str(mt.id),
+            'mock_test_title': mt.title,
+            'grading_status': attempt.grading_status,
+            'results_visible': visible,
+        }
+        if not visible:
+            base['message'] = (
+                'Your attempt is awaiting grading.'
+                if attempt.grading_status == 'pending_manual'
+                else 'Results will be released by your instructor.'
+            )
+            return Response(base)
+
+        base.update({
+            'marks_obtained': float(attempt.marks_obtained),
+            'total_marks': float(mt.total_marks),
+            'percentage': float(attempt.percentage),
+            'correct_answers': attempt.correct_answers,
+            'wrong_answers': attempt.wrong_answers,
+            'time_taken_seconds': attempt.time_taken_seconds,
+            'xp_earned': attempt.xp_earned,
+            'questions': build_review(attempt),
+        })
+        return Response(base)
+
 
 class PreviousYearPaperViewSet(MockTestViewSet):
     """

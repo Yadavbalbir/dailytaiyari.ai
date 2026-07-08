@@ -203,8 +203,10 @@ export default function RichMockAttempt() {
           )}
           <div className="flex gap-3">
             <button onClick={() => navigate('/mock-test')} className="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium">Back to Mock Tests</button>
-            {visible && !result.pending_manual && attemptId && (
-              <button onClick={() => navigate(`/mock-test/review/${attemptId}`)} className="flex-1 px-4 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 font-medium">Review</button>
+            {attemptId && (
+              <button onClick={() => navigate(`/mock-test/live-review/${attemptId}`)} className="flex-1 px-4 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 font-medium">
+                {result.pending_manual ? 'View status' : 'Review'}
+              </button>
             )}
           </div>
         </div>
