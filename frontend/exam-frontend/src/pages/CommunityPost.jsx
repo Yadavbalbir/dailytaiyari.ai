@@ -6,7 +6,7 @@ import {
     ArrowLeft, ThumbsUp, MessageCircle, Eye, Share2,
     CheckCircle, Clock, BarChart3, Zap, Trophy, Send,
     BadgeCheck, Camera, Image as ImageIcon, X, BookOpen, Globe,
-    EyeOff, Trash2
+    EyeOff, Trash2, Calendar, Video
 } from 'lucide-react'
 
 import { communityService } from '../services/communityService'
@@ -225,11 +225,13 @@ const CommunityPost = () => {
                 <div className="flex items-center justify-between mb-4">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${post.post_type === 'question' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20' :
                         post.post_type === 'poll' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20' :
-                            'bg-amber-50 text-amber-600 dark:bg-amber-900/20'
+                            post.post_type === 'event' ? 'bg-green-50 text-green-600 dark:bg-green-900/20' :
+                                'bg-amber-50 text-amber-600 dark:bg-amber-900/20'
                         }`}>
                         {post.post_type === 'question' && <MessageCircle size={16} />}
                         {post.post_type === 'poll' && <BarChart3 size={16} />}
                         {post.post_type === 'quiz' && <Zap size={16} />}
+                        {post.post_type === 'event' && <Calendar size={16} />}
                         {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
                     </div>
 
@@ -343,6 +345,50 @@ const CommunityPost = () => {
                 {post.image && (
                     <div className="mb-6 rounded-2xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
                         <img src={post.image} alt={post.title} className="w-full max-h-[600px] object-contain mx-auto" />
+                    </div>
+                )}
+
+                {/* Event Details */}
+                {post.post_type === 'event' && post.event && (
+                    <div className="mb-6 rounded-2xl p-5 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-green-600 text-white flex items-center justify-center">
+                                    <Calendar size={22} />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-green-800 dark:text-green-300">
+                                        {new Date(post.event.start_at).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    {post.event.end_at && (
+                                        <p className="text-sm text-green-700/80 dark:text-green-400/80">
+                                            Ends {new Date(post.event.end_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
+                                post.event.state === 'live' ? 'bg-green-600 text-white' :
+                                post.event.state === 'ended' ? 'bg-surface-200 dark:bg-surface-700 text-surface-500' :
+                                'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
+                            }`}>
+                                {post.event.state === 'live' ? '● Live now' : post.event.state}
+                            </span>
+                        </div>
+                        {post.event.meeting_url && (
+                            post.event.state === 'ended' ? (
+                                <p className="mt-4 text-sm text-surface-500">This event has ended.</p>
+                            ) : (
+                                <a
+                                    href={post.event.meeting_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                                >
+                                    <Video size={18} /> Join Meeting
+                                </a>
+                            )
+                        )}
                     </div>
                 )}
 

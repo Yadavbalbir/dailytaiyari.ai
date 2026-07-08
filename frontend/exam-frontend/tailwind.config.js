@@ -4,6 +4,11 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'border-green-500',
+    'bg-green-50',
+    'text-green-600',
+  ],
   darkMode: 'class',
   theme: {
     extend: {

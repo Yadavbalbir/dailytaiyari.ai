@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera, Users, BookOpen } from 'lucide-react'
+import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera, Users, BookOpen, Calendar, Video } from 'lucide-react'
 
 import { communityService } from '../../services/communityService'
+import { useAuthStore } from '../../context/authStore'
 import SearchableSelect from '../common/SearchableSelect'
 import toast from 'react-hot-toast'
 
 const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
     const queryClient = useQueryClient()
+    const { user, profile } = useAuthStore()
+    const role = user?.role || profile?.user?.role
+    const isAdmin = role === 'admin' || role === 'instructor'
     const [type, setType] = useState(postType)
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
@@ -37,6 +41,11 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
     const [correctAnswer, setCorrectAnswer] = useState(0)
     const [explanation, setExplanation] = useState('')
 
+    // Event state
+    const [eventStart, setEventStart] = useState('')
+    const [eventEnd, setEventEnd] = useState('')
+    const [meetingUrl, setMeetingUrl] = useState('')
+
     const createMutation = useMutation({
         mutationFn: (data) => communityService.createPost(data),
         onSuccess: () => {
@@ -54,6 +63,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                 firstOf(data.title) ||
                 firstOf(data.poll_options) ||
                 firstOf(data.quiz_data) ||
+                firstOf(data.event_data) ||
                 firstOf(data.courses) ||
                 firstOf(data.non_field_errors) ||
                 data.detail ||
@@ -73,6 +83,9 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         setQuizOptions(['', '', '', ''])
         setCorrectAnswer(0)
         setExplanation('')
+        setEventStart('')
+        setEventEnd('')
+        setMeetingUrl('')
         setImageFile(null)
         setImagePreview(null)
         setSelectedCourses([])
@@ -172,6 +185,26 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             }))
         }
 
+        if (type === 'event') {
+            if (!eventStart) {
+                toast.error('Please set the event start time')
+                return
+            }
+            if (!meetingUrl.trim()) {
+                toast.error('Please add a meeting / join link')
+                return
+            }
+            if (eventEnd && new Date(eventEnd) <= new Date(eventStart)) {
+                toast.error('End time must be after the start time')
+                return
+            }
+            submitData.append('event_data', JSON.stringify({
+                start_at: new Date(eventStart).toISOString(),
+                end_at: eventEnd ? new Date(eventEnd).toISOString() : null,
+                meeting_url: meetingUrl.trim()
+            }))
+        }
+
         createMutation.mutate(submitData)
     }
 
@@ -180,6 +213,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         { id: 'question', label: 'Question', icon: HelpCircle, color: 'blue' },
         { id: 'poll', label: 'Poll', icon: BarChart3, color: 'purple' },
         { id: 'quiz', label: 'Quiz', icon: Zap, color: 'amber' },
+        ...(isAdmin ? [{ id: 'event', label: 'Event', icon: Calendar, color: 'green' }] : []),
     ]
 
     if (!isOpen) return null
@@ -245,7 +279,8 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                                 placeholder={
                                     type === 'question' ? 'What would you like to ask?' :
                                         type === 'poll' ? 'What do you want to poll about?' :
-                                            'Quiz title'
+                                            type === 'event' ? 'Event title (e.g. Doubt-solving session on Calculus)' :
+                                                'Quiz title'
                                 }
                                 className="input w-full"
                                 maxLength={300}
@@ -457,6 +492,51 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                                     />
                                 </div>
                             </>
+                        )}
+
+                        {/* Event Details */}
+                        {type === 'event' && (
+                            <div className="space-y-4 p-4 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 text-sm font-medium">
+                                    <Calendar size={16} />
+                                    Event details
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">Starts at *</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={eventStart}
+                                            onChange={(e) => setEventStart(e.target.value)}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2">Ends at (optional)</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={eventEnd}
+                                            onChange={(e) => setEventEnd(e.target.value)}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                                        <Video size={15} /> Meeting / Join link *
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={meetingUrl}
+                                        onChange={(e) => setMeetingUrl(e.target.value)}
+                                        placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                                        className="input w-full"
+                                    />
+                                    <p className="text-xs text-surface-500 mt-1">
+                                        Paste a Google Meet, Zoom, Teams or any join link.
+                                    </p>
+                                </div>
+                            </div>
                         )}
 
                         {/* Tags */}

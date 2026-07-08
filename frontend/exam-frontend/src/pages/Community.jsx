@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     MessageCircle, MessageSquare, ThumbsUp, Eye, CheckCircle,
     Plus, Filter, TrendingUp, Clock, HelpCircle,
-    BarChart3, Zap, Trophy, Users, BookOpen, Globe
+    BarChart3, Zap, Trophy, Users, BookOpen, Globe, Calendar
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import { useAuthStore } from '../context/authStore'
@@ -94,6 +94,7 @@ const Community = () => {
         { id: 'question', label: 'Questions', icon: HelpCircle },
         { id: 'poll', label: 'Polls', icon: BarChart3 },
         { id: 'quiz', label: 'Quizzes', icon: Zap },
+        { id: 'event', label: 'Events', icon: Calendar },
         { id: 'my_posts', label: 'My Posts', icon: MessageCircle },
     ]
 
@@ -150,6 +151,17 @@ const Community = () => {
                         <Zap size={18} />
                         <span className="hidden sm:inline">Create Quiz</span>
                     </motion.button>
+                    {isAdmin && (
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleCreatePost('event')}
+                            className="btn-secondary flex items-center gap-2"
+                        >
+                            <Calendar size={18} />
+                            <span className="hidden sm:inline">Create Event</span>
+                        </motion.button>
+                    )}
                 </div>
             </div>
 
