@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
+import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   Filter,
@@ -15,11 +16,14 @@ import {
   ChevronRight,
   TrendingUp,
   Clock,
-  Award
+  Award,
+  Settings2
 } from 'lucide-react'
 
 const MockTest = () => {
   const navigate = useNavigate()
+  const { user, profile } = useAuthStore()
+  const isAdmin = (user?.role || profile?.user?.role) === 'admin'
   const [showFilters, setShowFilters] = useState(false)
 
   // Filter state
@@ -99,18 +103,29 @@ const MockTest = () => {
           <h1 className="text-2xl font-display font-bold">Mock Tests</h1>
           <p className="text-surface-500 mt-1">Practice with full-length exam simulations</p>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`btn-secondary flex items-center gap-2 ${showFilters ? 'bg-primary-100 dark:bg-primary-900/30' : ''}`}
-        >
-          <Filter size={18} />
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center">
-              {activeFilterCount}
-            </span>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin/mock-tests')}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Settings2 size={18} />
+              Manage Mock Tests
+            </button>
           )}
-        </button>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`btn-secondary flex items-center gap-2 ${showFilters ? 'bg-primary-100 dark:bg-primary-900/30' : ''}`}
+          >
+            <Filter size={18} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Info Banner */}
