@@ -195,8 +195,21 @@ class MockTestSerializer(serializers.ModelSerializer):
             can_reattempt = attempts_used < max_attempts
 
             completed = finished.filter(status='completed')
-            best_attempt = completed.order_by('-percentage').first()
+
+            # A score should only surface once an attempt is fully graded AND its
+            # results are visible — otherwise a partial (auto-only) percentage
+            # would misrepresent an attempt still awaiting manual grading.
+            results_visible = (obj.result_visibility == 'immediate') or obj.results_released
+            def scorable(a):
+                return a.grading_status in ('auto_graded', 'graded') and results_visible
+
+            scored = [a for a in completed if scorable(a)]
+            best_attempt = max(scored, key=lambda a: a.percentage) if scored else None
+            latest_completed = completed.first()  # ordered by -completed_at
             latest_attempt = finished.first()
+            # Review target: prefer the best scored attempt, else the latest one.
+            review_attempt = best_attempt or latest_completed or latest_attempt
+            has_score = best_attempt is not None
 
             if not finished.exists() and not active:
                 return {
@@ -214,10 +227,15 @@ class MockTestSerializer(serializers.ModelSerializer):
                 'max_attempts': max_attempts,
                 'can_reattempt': can_reattempt,
                 'active_attempt_id': str(active.id) if active else None,
-                'best_score': float(best_attempt.percentage) if best_attempt else 0,
-                'best_attempt_id': str(best_attempt.id) if best_attempt else None,
+                # Score fields are populated only when a fully-graded, visible
+                # result exists. `results_pending` lets the UI show an
+                # "awaiting grading" state instead of a misleading percentage.
+                'has_score': has_score,
+                'results_pending': completed.exists() and not has_score,
+                'best_score': float(best_attempt.percentage) if has_score else None,
+                'best_attempt_id': str(review_attempt.id) if review_attempt else None,
                 'latest_attempt_id': str(latest_attempt.id) if latest_attempt else None,
-                'latest_score': float(latest_attempt.percentage) if latest_attempt else 0,
+                'latest_score': float(latest_completed.percentage) if has_score and latest_completed else None,
                 'latest_date': latest_attempt.completed_at.isoformat() if latest_attempt and latest_attempt.completed_at else None,
                 'rank': best_attempt.rank if best_attempt else None,
                 'percentile': float(best_attempt.percentile) if best_attempt and best_attempt.percentile else None,

@@ -356,12 +356,15 @@ const MockTest = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="badge-primary">{test.course_name}</span>
-                      {hasAttempted && (
+                      {hasAttempted && attemptInfo.has_score && (
                         <span className={`badge ${attemptInfo.best_score >= 70 ? 'badge-success' :
                           attemptInfo.best_score >= 40 ? 'badge-warning' : 'badge-error'
                           }`}>
                           Best: {Math.round(attemptInfo.best_score)}%
                         </span>
+                      )}
+                      {hasAttempted && !attemptInfo.has_score && attemptInfo.results_pending && (
+                        <span className="badge badge-warning">Awaiting grading</span>
                       )}
                     </div>
                     <h3 className="text-lg font-semibold">{test.title}</h3>
