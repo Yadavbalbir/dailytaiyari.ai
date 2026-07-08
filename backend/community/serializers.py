@@ -4,7 +4,8 @@ Community serializers.
 from rest_framework import serializers
 from .models import (
     Post, Comment, Like, PollOption, PollVote,
-    CommunityQuiz, QuizAttempt, CommunityStats, CommunityLeaderboard
+    CommunityQuiz, QuizAttempt, CommunityStats, CommunityLeaderboard,
+    CommunityEvent
 )
 from .services import ContentModerationService
 from users.serializers import UserSerializer
@@ -88,6 +89,16 @@ class CommunityQuizSerializer(serializers.ModelSerializer):
             return None
 
 
+class CommunityEventSerializer(serializers.ModelSerializer):
+    """Serializer for community event details."""
+    state = serializers.ReadOnlyField()
+
+    class Meta:
+        model = CommunityEvent
+        fields = ['id', 'start_at', 'end_at', 'meeting_url', 'state']
+
+
+
 class CommentSerializer(serializers.ModelSerializer):
     """Serializer for comments."""
     author = AuthorSerializer(read_only=True)
@@ -149,6 +160,7 @@ class PostSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
     poll_options = PollOptionSerializer(many=True, read_only=True)
     quiz = CommunityQuizSerializer(read_only=True)
+    event = CommunityEventSerializer(read_only=True)
     is_liked = serializers.SerializerMethodField()
     user_poll_vote = serializers.SerializerMethodField()
     top_comments = serializers.SerializerMethodField()
@@ -161,7 +173,7 @@ class PostSerializer(serializers.ModelSerializer):
             'course', 'courses', 'subject', 'tags',
             'likes_count', 'comments_count', 'views_count',
             'is_solved', 'best_answer', 'status',
-            'poll_options', 'quiz', 'is_liked', 'user_poll_vote',
+            'poll_options', 'quiz', 'event', 'is_liked', 'user_poll_vote',
             'top_comments', 'created_at', 'updated_at'
         ]
         read_only_fields = [
@@ -210,6 +222,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         write_only=True
     )
     quiz_data = serializers.JSONField(required=False, write_only=True)
+    event_data = serializers.JSONField(required=False, write_only=True)
     courses = serializers.PrimaryKeyRelatedField(
         many=True,
         required=False,
@@ -220,7 +233,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'post_type', 'title', 'content', 'image', 'course', 'courses',
-            'subject', 'tags', 'poll_options', 'quiz_data'
+            'subject', 'tags', 'poll_options', 'quiz_data', 'event_data'
         ]
 
     def validate_courses(self, value):
@@ -302,12 +315,66 @@ class PostCreateSerializer(serializers.ModelSerializer):
             )
             if not quiz_check['is_valid']:
                 raise serializers.ValidationError({'quiz_data': quiz_check['errors']})
-        
+
+        # Validate event (staff-only, requires a schedule + join link)
+        if data.get('post_type') == 'event':
+            request = self.context.get('request')
+            user = getattr(request, 'user', None)
+            role = getattr(user, 'role', None)
+            is_staff = role in ('admin', 'instructor') or getattr(user, 'is_staff', False)
+            if not is_staff:
+                raise serializers.ValidationError({
+                    'event_data': 'Only admins and instructors can create events.'
+                })
+
+            event_data = data.get('event_data')
+            if not event_data:
+                raise serializers.ValidationError({
+                    'event_data': 'Event details are required for event posts.'
+                })
+            if not event_data.get('start_at'):
+                raise serializers.ValidationError({
+                    'event_data': 'Event start time is required.'
+                })
+            if not event_data.get('meeting_url'):
+                raise serializers.ValidationError({
+                    'event_data': 'A meeting/join link is required.'
+                })
+
+            url_field = serializers.URLField()
+            try:
+                url_field.run_validation(event_data.get('meeting_url'))
+            except serializers.ValidationError:
+                raise serializers.ValidationError({
+                    'event_data': 'Please provide a valid meeting/join link (URL).'
+                })
+
+            dt_field = serializers.DateTimeField()
+            try:
+                start_dt = dt_field.run_validation(event_data.get('start_at'))
+            except serializers.ValidationError:
+                raise serializers.ValidationError({
+                    'event_data': 'Invalid event start time.'
+                })
+            end_raw = event_data.get('end_at')
+            if end_raw:
+                try:
+                    end_dt = dt_field.run_validation(end_raw)
+                except serializers.ValidationError:
+                    raise serializers.ValidationError({
+                        'event_data': 'Invalid event end time.'
+                    })
+                if end_dt <= start_dt:
+                    raise serializers.ValidationError({
+                        'event_data': 'Event end time must be after the start time.'
+                    })
+
         return data
     
     def create(self, validated_data):
         poll_options = validated_data.pop('poll_options', [])
         quiz_data = validated_data.pop('quiz_data', None)
+        event_data = validated_data.pop('event_data', None)
         courses = validated_data.pop('courses', [])
 
         validated_data['author'] = self.context['request'].user.profile
@@ -334,7 +401,16 @@ class PostCreateSerializer(serializers.ModelSerializer):
                 correct_answer=quiz_data['correct_answer'],
                 explanation=quiz_data.get('explanation', '')
             )
-        
+
+        # Create event
+        if event_data:
+            CommunityEvent.objects.create(
+                post=post,
+                start_at=event_data['start_at'],
+                end_at=event_data.get('end_at') or None,
+                meeting_url=event_data['meeting_url'],
+            )
+
         return post
 
 
