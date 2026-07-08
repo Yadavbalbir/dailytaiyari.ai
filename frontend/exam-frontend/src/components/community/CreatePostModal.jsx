@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera, Users, BookOpen } from 'lucide-react'
 
 import { communityService } from '../../services/communityService'
 import toast from 'react-hot-toast'
@@ -15,6 +15,16 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
     const [tagInput, setTagInput] = useState('')
     const [imageFile, setImageFile] = useState(null)
     const [imagePreview, setImagePreview] = useState(null)
+    const [selectedCourses, setSelectedCourses] = useState([])
+
+    // Courses the current user can post into (enrolled courses for students;
+    // all tenant courses for admins/instructors).
+    const { data: filterOptions } = useQuery({
+        queryKey: ['communityFilterOptions'],
+        queryFn: () => communityService.getFilterOptions(),
+        enabled: isOpen,
+    })
+    const availableCourses = filterOptions?.courses || []
 
 
     // Poll state
@@ -58,6 +68,15 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         setExplanation('')
         setImageFile(null)
         setImagePreview(null)
+        setSelectedCourses([])
+    }
+
+    const toggleCourse = (courseId) => {
+        setSelectedCourses((prev) =>
+            prev.includes(courseId)
+                ? prev.filter((id) => id !== courseId)
+                : [...prev, courseId]
+        )
     }
 
     const handleImageChange = (e) => {
@@ -117,6 +136,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             submitData.append('image', imageFile)
         }
         tags.forEach(tag => submitData.append('tags', tag))
+        selectedCourses.forEach(courseId => submitData.append('courses', courseId))
 
         if (type === 'poll') {
             const validOptions = pollOptions.filter(o => o.trim())
@@ -270,6 +290,46 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                             </div>
                         </div>
 
+
+                        {/* Course Visibility */}
+                        <div>
+                            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                                <BookOpen size={16} />
+                                Post to Course(s)
+                            </label>
+                            {availableCourses.length > 0 ? (
+                                <>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableCourses.map((course) => {
+                                            const active = selectedCourses.includes(course.id)
+                                            return (
+                                                <button
+                                                    key={course.id}
+                                                    type="button"
+                                                    onClick={() => toggleCourse(course.id)}
+                                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${active
+                                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600'
+                                                        : 'border-surface-200 dark:border-surface-700 text-surface-600 hover:border-surface-300'
+                                                        }`}
+                                                >
+                                                    {course.name}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                    <p className="text-xs text-surface-500 mt-2 flex items-center gap-1">
+                                        <Users size={12} />
+                                        {selectedCourses.length === 0
+                                            ? 'No course selected — visible to everyone in the community.'
+                                            : 'Only students enrolled in the selected course(s) will see this post.'}
+                                    </p>
+                                </>
+                            ) : (
+                                <p className="text-xs text-surface-500">
+                                    You are not enrolled in any course yet. This post will be visible to everyone.
+                                </p>
+                            )}
+                        </div>
 
                         {/* Poll Options */}
                         {type === 'poll' && (

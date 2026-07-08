@@ -10,6 +10,11 @@ export const communityService = {
         return response.data
     },
 
+    getFilterOptions: async () => {
+        const response = await api.get('/community/posts/filter_options/')
+        return response.data
+    },
+
     getPost: async (id) => {
         const response = await api.get(`/community/posts/${id}/`)
         return response.data

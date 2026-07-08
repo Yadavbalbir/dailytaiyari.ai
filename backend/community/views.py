@@ -5,7 +5,7 @@ from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 
 from .models import (
@@ -22,6 +22,47 @@ from .services import CommunityXPService, CommunityLeaderboardService
 from core.views import TenantAwareViewSet
 
 
+def _is_staff_user(user):
+    """Admins and instructors moderate/see every post in the tenant."""
+    role = getattr(user, 'role', None)
+    return role in ('admin', 'instructor') or getattr(user, 'is_staff', False)
+
+
+def _student_course_ids(user):
+    """IDs of every course the user is actively (approved) enrolled in."""
+    try:
+        profile = user.profile
+    except Exception:
+        return []
+    return list(
+        profile.enrollments.filter(
+            status='approved', is_active=True
+        ).values_list('course_id', flat=True)
+    )
+
+
+def accessible_posts_q(user):
+    """Q filtering the posts a user is allowed to see.
+
+    - Post has no course links (legacy ``course`` null AND ``courses`` empty)
+      -> global, visible to everyone in the tenant.
+    - Post is linked to one or more courses -> visible only if the user is
+      enrolled in at least one of them.
+    - The author always sees their own posts.
+    Admins/instructors bypass this entirely (handled by the caller).
+    """
+    global_q = Q(course__isnull=True) & Q(courses__isnull=True)
+    course_ids = _student_course_ids(user)
+    q = global_q
+    if course_ids:
+        q = q | Q(course__in=course_ids) | Q(courses__in=course_ids)
+    try:
+        q = q | Q(author=user.profile)
+    except Exception:
+        pass
+    return q
+
+
 class PostViewSet(TenantAwareViewSet):
     """
     ViewSet for community posts (questions, polls, quizzes).
@@ -31,21 +72,33 @@ class PostViewSet(TenantAwareViewSet):
     def get_queryset(self):
         queryset = Post.objects.filter(status='active').select_related(
             'author__user', 'course', 'subject'
-        ).prefetch_related('poll_options', 'quiz')
-        
+        ).prefetch_related('poll_options', 'quiz', 'courses')
+
+        # Course-scoped visibility: global posts are visible to all, but posts
+        # linked to course(s) are only visible to enrolled students (the author
+        # and admins/instructors always see them).
+        if not _is_staff_user(self.request.user):
+            queryset = queryset.filter(accessible_posts_q(self.request.user)).distinct()
+
         # Filters
         post_type = self.request.query_params.get('type')
         if post_type:
             queryset = queryset.filter(post_type=post_type)
-        
+
         course = self.request.query_params.get('course')
-        if course:
-            queryset = queryset.filter(course_id=course)
-        
+        if course == 'global':
+            # Only globally-visible posts (no course link at all).
+            queryset = queryset.filter(course__isnull=True, courses__isnull=True)
+        elif course:
+            # Posts linked to this course via either the M2M or the legacy FK.
+            queryset = queryset.filter(
+                Q(courses=course) | Q(course_id=course)
+            ).distinct()
+
         subject = self.request.query_params.get('subject')
         if subject:
             queryset = queryset.filter(subject_id=subject)
-        
+
         is_solved = self.request.query_params.get('is_solved')
         if is_solved is not None:
             queryset = queryset.filter(is_solved=is_solved.lower() == 'true')
@@ -69,7 +122,32 @@ class PostViewSet(TenantAwareViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return PostCreateSerializer
         return PostSerializer
-    
+
+    @action(detail=False, methods=['get'])
+    def filter_options(self, request):
+        """Courses the user can filter by / post into.
+
+        Students get their approved enrollments; admins/instructors get every
+        course in the tenant so they can moderate and post to any course.
+        """
+        from exams.models import Course
+
+        if _is_staff_user(request.user):
+            courses_qs = Course.objects.all()
+            if getattr(request, 'tenant', None):
+                courses_qs = courses_qs.filter(tenant=request.tenant)
+        else:
+            course_ids = _student_course_ids(request.user)
+            courses_qs = Course.objects.filter(id__in=course_ids)
+
+        courses = list(
+            courses_qs.values('id', 'name', 'code').order_by('name')
+        )
+        return Response({
+            'courses': courses,
+            'is_staff': _is_staff_user(request.user),
+        })
+
     def retrieve(self, request, *args, **kwargs):
         """Increment view count on retrieve."""
         instance = self.get_object()
