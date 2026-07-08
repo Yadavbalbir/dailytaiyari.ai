@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
 import CodeEditor from '../components/coding/CodeEditor'
+import MathRenderer from '../components/chat/MathRenderer'
 
 const MONACO_MODE = { python: 'python', cpp: 'cpp', java: 'java' }
 
@@ -256,7 +257,7 @@ export default function RichMockAttempt() {
               {q.question_html ? (
                 <div className="prose dark:prose-invert max-w-none mb-5" dangerouslySetInnerHTML={{ __html: q.question_html }} />
               ) : (
-                <p className="text-surface-800 dark:text-surface-100 whitespace-pre-wrap mb-5 text-[15px] leading-relaxed">{q.question_text}</p>
+                <div className="mb-5"><MathRenderer content={q.question_text} className="prose-base" /></div>
               )}
               {q.question_image && <img src={q.question_image} alt="" className="max-h-72 rounded-lg mb-5" />}
 
@@ -342,17 +343,19 @@ function AnswerInput({ q, value, onChange, running, runResult, onRun }) {
     return (
       <div className="space-y-2">
         {(q.options || []).map((o) => (
-          <button key={o.index} onClick={() => toggle(o.index)}
-            className={`w-full text-left px-4 py-3 rounded-xl border transition flex items-center gap-3 ${
+          <div key={o.index} role="button" tabIndex={0}
+            onClick={() => toggle(o.index)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(o.index) } }}
+            className={`w-full cursor-pointer text-left px-4 py-3 rounded-xl border transition flex items-center gap-3 ${
               selected.includes(o.index)
                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                 : 'border-surface-200 dark:border-surface-700 hover:border-surface-300'}`}>
-            <span className={`w-5 h-5 rounded-${q.item_type === 'mcq' ? 'full' : 'md'} border flex items-center justify-center ${selected.includes(o.index) ? 'border-primary-500 bg-primary-500' : 'border-surface-300'}`}>
+            <span className={`shrink-0 w-5 h-5 rounded-${q.item_type === 'mcq' ? 'full' : 'md'} border flex items-center justify-center ${selected.includes(o.index) ? 'border-primary-500 bg-primary-500' : 'border-surface-300'}`}>
               {selected.includes(o.index) && <CheckCircle2 className="w-4 h-4 text-white" />}
             </span>
-            <span className="text-surface-800 dark:text-surface-100">{o.text}</span>
+            <div className="text-surface-800 dark:text-surface-100 flex-1 min-w-0"><MathRenderer content={o.text} className="prose-sm prose-p:my-0" /></div>
             {o.image && <img src={o.image} alt="" className="h-12 rounded ml-auto" />}
-          </button>
+          </div>
         ))}
       </div>
     )

@@ -6,6 +6,7 @@ import {
   FileText, Code2, HelpCircle, Medal,
 } from 'lucide-react'
 import { mockTestBuilderService } from '../services/mockTestBuilderService'
+import MathRenderer from '../components/chat/MathRenderer'
 
 export default function RichMockReview() {
   const { attemptId } = useParams()
@@ -117,7 +118,7 @@ function ReviewCard({ q, index }) {
 
       {q.question_html
         ? <div className="prose dark:prose-invert max-w-none text-sm mb-3" dangerouslySetInnerHTML={{ __html: q.question_html }} />
-        : <p className="text-surface-800 dark:text-surface-100 text-sm mb-3 whitespace-pre-wrap">{q.question_text}</p>}
+        : <div className="mb-3"><MathRenderer content={q.question_text} className="prose-sm" /></div>}
 
       {/* options for MCQ types */}
       {q.options && (
@@ -130,7 +131,7 @@ function ReviewCard({ q, index }) {
               {o.is_correct ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 : o.is_selected ? <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
                 : <span className="w-4 h-4 shrink-0" />}
-              <span>{o.text}</span>
+              <div className="flex-1 min-w-0"><MathRenderer content={o.text} className="prose-sm prose-p:my-0" /></div>
               {o.is_selected && <span className="ml-auto text-xs text-surface-400">your answer</span>}
             </div>
           ))}
@@ -168,7 +169,7 @@ function ReviewCard({ q, index }) {
       {q.explanation && (
         <details className="mt-2 text-sm">
           <summary className="cursor-pointer text-surface-500 font-medium">Explanation</summary>
-          <div className="mt-1 text-surface-600 dark:text-surface-300 whitespace-pre-wrap">{q.explanation}</div>
+          <div className="mt-1 text-surface-600 dark:text-surface-300"><MathRenderer content={q.explanation} className="prose-sm" /></div>
         </details>
       )}
     </div>
