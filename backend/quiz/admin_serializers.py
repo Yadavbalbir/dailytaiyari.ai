@@ -309,7 +309,7 @@ class AdminMockTestSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'course', 'course_name', 'courses',
             'sections', 'duration_minutes', 'total_marks', 'negative_marking',
             'status', 'is_free', 'result_visibility', 'results_released',
-            'start_deadline', 'fullscreen_required',
+            'start_deadline', 'fullscreen_required', 'max_attempts',
             'available_from', 'available_until',
             'is_pyp', 'pyp_year', 'pyp_shift', 'pyp_session', 'pyp_date',
             'items', 'items_count', 'bank_questions_count', 'computed_total_marks',

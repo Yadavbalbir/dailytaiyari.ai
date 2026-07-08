@@ -254,6 +254,11 @@ class MockTest(TimeStampedModel):
     start_deadline = models.DateTimeField(null=True, blank=True)
     # Force fullscreen during the attempt for a distraction-free experience.
     fullscreen_required = models.BooleanField(default=True)
+    # Maximum number of attempts a student may make. Default 1 (no re-attempts).
+    max_attempts = models.PositiveIntegerField(
+        default=1,
+        help_text='Total attempts allowed per student. 1 = no re-attempts (default).',
+    )
     
     # Previous Year Paper fields
     is_pyp = models.BooleanField(default=False, help_text='Is this a Previous Year Paper?')

@@ -160,7 +160,7 @@ class MockTestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'course', 'course_name',
             'duration_minutes', 'total_marks', 'negative_marking',
-            'status', 'is_free', 'sections', 'questions_count',
+            'status', 'is_free', 'sections', 'questions_count', 'max_attempts',
             'total_attempts', 'average_score', 'highest_score',
             'available_from', 'available_until', 'created_at',
             'user_attempt_info'
@@ -179,26 +179,46 @@ class MockTestSerializer(serializers.ModelSerializer):
         
         try:
             profile = request.user.profile
-            attempts = MockTestAttempt.objects.filter(
-                student=profile,
-                mock_test=obj,
-                status='completed'
+            # Attempts that count toward the per-test limit.
+            finished = MockTestAttempt.objects.filter(
+                student=profile, mock_test=obj,
+                status__in=['completed', 'timed_out'],
             ).order_by('-completed_at')
-            
-            if not attempts.exists():
-                return None
-            
-            best_attempt = attempts.order_by('-percentage').first()
-            latest_attempt = attempts.first()
-            
+            active = MockTestAttempt.objects.filter(
+                student=profile, mock_test=obj, status='in_progress',
+            ).order_by('-started_at').first()
+
+            attempts_used = finished.count()
+            max_attempts = obj.max_attempts or 1
+            # A resume doesn't consume a new attempt; a fresh start is allowed
+            # only while used attempts are below the cap.
+            can_reattempt = attempts_used < max_attempts
+
+            completed = finished.filter(status='completed')
+            best_attempt = completed.order_by('-percentage').first()
+            latest_attempt = finished.first()
+
+            if not finished.exists() and not active:
+                return {
+                    'attempted': False,
+                    'attempts_used': 0,
+                    'max_attempts': max_attempts,
+                    'can_reattempt': can_reattempt,
+                    'active_attempt_id': None,
+                }
+
             return {
-                'attempted': True,
-                'attempts_count': attempts.count(),
+                'attempted': completed.exists(),
+                'attempts_count': attempts_used,
+                'attempts_used': attempts_used,
+                'max_attempts': max_attempts,
+                'can_reattempt': can_reattempt,
+                'active_attempt_id': str(active.id) if active else None,
                 'best_score': float(best_attempt.percentage) if best_attempt else 0,
                 'best_attempt_id': str(best_attempt.id) if best_attempt else None,
                 'latest_attempt_id': str(latest_attempt.id) if latest_attempt else None,
                 'latest_score': float(latest_attempt.percentage) if latest_attempt else 0,
-                'latest_date': latest_attempt.completed_at.isoformat() if latest_attempt else None,
+                'latest_date': latest_attempt.completed_at.isoformat() if latest_attempt and latest_attempt.completed_at else None,
                 'rank': best_attempt.rank if best_attempt else None,
                 'percentile': float(best_attempt.percentile) if best_attempt and best_attempt.percentile else None,
             }

@@ -64,6 +64,8 @@ export const mockTestBuilderService = {
     (await api.post(`/quiz/mock-tests/${testId}/start_rich/`)).data,
   submitRich: async (testId, data) =>
     (await api.post(`/quiz/mock-tests/${testId}/submit_rich/`, data)).data,
+  saveRich: async (testId, data) =>
+    (await api.post(`/quiz/mock-tests/${testId}/save_rich/`, data)).data,
   runCode: async (testId, payload) =>
     (await api.post(`/quiz/mock-tests/${testId}/run_item/`, payload)).data,
   richReview: async (attemptId) =>

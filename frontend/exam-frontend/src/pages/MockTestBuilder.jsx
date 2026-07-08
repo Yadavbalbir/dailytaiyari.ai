@@ -147,6 +147,11 @@ export default function MockTestBuilder() {
             </Field>
           </div>
 
+          <Field label="Attempts allowed" hint="1 = no re-attempts (default)">
+            <input type="number" min={1} value={form.max_attempts || 1}
+              onChange={(e) => set('max_attempts')(Math.max(1, Number(e.target.value) || 1))} className={inputCls} />
+          </Field>
+
           <Field label="Result visibility">
             <select value={form.result_visibility} onChange={(e) => set('result_visibility')(e.target.value)} className={inputCls}>
               <option value="immediate">Show results on submission</option>
