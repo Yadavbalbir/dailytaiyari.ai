@@ -1116,6 +1116,49 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             'pending_manual': pending_manual,
         })
 
+    @action(detail=True, methods=['post'], throttle_classes=[QuizSubmitThrottle])
+    def run_item(self, request, pk=None):
+        """Run a coding item's SAMPLE cases against submitted code (ungraded)."""
+        from types import SimpleNamespace
+        from django.conf import settings
+        mock_test = self.get_object()
+        denied = self._rich_access_or_403(mock_test, request)
+        if denied:
+            return denied
+        if not getattr(settings, 'CODING_ENABLED', True):
+            return Response({'error': 'Coding execution is disabled.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        item = MockTestItem.objects.filter(
+            mock_test=mock_test, id=request.data.get('item_id'), item_type='coding'
+        ).first()
+        if not item:
+            return Response({'error': 'Coding item not found.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        code = request.data.get('code', '') or ''
+        language = request.data.get('language', '') or ''
+        if not code or not language:
+            return Response({'error': 'code and language are required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        samples = [
+            SimpleNamespace(
+                stdin=c.get('stdin', ''), expected_output=c.get('expected_output', ''),
+                points=int(c.get('points', 1) or 1), is_sample=True, id=i, order=i,
+            )
+            for i, c in enumerate(item.coding_test_cases or []) if c.get('is_sample')
+        ]
+        if not samples:
+            return Response({'results': [], 'passed_count': 0, 'total_count': 0})
+        try:
+            from coding.services import run_against_cases, EngineError
+            result = run_against_cases(
+                language=language, source=code, cases=samples,
+                time_limit_ms=item.time_limit_ms, memory_limit_mb=item.memory_limit_mb,
+                reveal_io=True,
+            )
+        except EngineError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(result)
+
 
 class PreviousYearPaperViewSet(MockTestViewSet):
     """

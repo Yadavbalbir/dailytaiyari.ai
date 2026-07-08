@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { analyticsService } from '../services/analyticsService'
@@ -40,6 +41,7 @@ import {
     Mail,
     Phone,
     Filter,
+    ClipboardList,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -1176,6 +1178,7 @@ const TABS = [
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('overview')
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
 
     const { data: stats, isLoading, error, isFetching } = useQuery({
         queryKey: ['tenantAdminStats'],
@@ -1225,6 +1228,14 @@ const AdminDashboard = () => {
                     <button onClick={refreshAll} className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
                         <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
                     </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <button onClick={() => navigate('/admin/mock-tests')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
+                            <ClipboardList className="w-4 h-4" /> Mock Tests
+                        </button>
+                        <button onClick={refreshAll} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
+                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+                        </button>
+                    </div>
                 </div>
             </div>
 

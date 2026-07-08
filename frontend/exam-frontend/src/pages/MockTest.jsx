@@ -70,12 +70,7 @@ const MockTest = () => {
   }, [filters.course])
 
   const handleStartTest = async (testId) => {
-    try {
-      await quizService.startMockTest(testId)
-      navigate(`/mock-test/${testId}`)
-    } catch (error) {
-      console.error('Failed to start mock test:', error)
-    }
+    navigate(`/mock-test/live/${testId}`)
   }
 
   const updateFilter = (key, value) => {
