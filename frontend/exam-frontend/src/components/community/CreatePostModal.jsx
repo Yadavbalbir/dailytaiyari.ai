@@ -183,13 +183,15 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
                 onClick={onClose}
             >
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
+                    initial={{ scale: 0.98, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
+                    exit={{ scale: 0.98, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                     onClick={(e) => e.stopPropagation()}
                     className="bg-white dark:bg-surface-900 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
                 >
