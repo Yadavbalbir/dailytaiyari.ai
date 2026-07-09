@@ -41,6 +41,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user and user.check_password(password):
             if not user.is_active:
                 raise serializers.ValidationError('User account is disabled.')
+            if not user.is_email_verified:
+                raise serializers.ValidationError({
+                    'detail': 'Email not verified. Please verify your email to continue.',
+                    'code': 'email_not_verified',
+                    'email': user.email,
+                })
             self.user = user
             refresh = self.get_token(user)
             data = {
@@ -76,6 +82,24 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
+class EmailOTPRequestSerializer(serializers.Serializer):
+    """Request (or re-request) an email verification code for an address."""
+    email = serializers.EmailField()
+
+
+class EmailOTPVerifySerializer(serializers.Serializer):
+    """Verify an email address with a 6-digit code."""
+    email = serializers.EmailField()
+    code = serializers.CharField(min_length=4, max_length=8)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Reset a password using the emailed OTP."""
+    email = serializers.EmailField()
+    code = serializers.CharField(min_length=4, max_length=8)
+    new_password = serializers.CharField(min_length=8, write_only=True)
+
+
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for user data."""
@@ -85,11 +109,12 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'full_name', 'role', 'is_active', 'is_suspended',
+            'is_email_verified',
             'phone', 'avatar', 'is_onboarded', 'preferred_language',
             'notification_enabled', 'dark_mode', 'created_at', 'last_active'
         ]
 
-        read_only_fields = ['id', 'email', 'created_at', 'last_active']
+        read_only_fields = ['id', 'email', 'created_at', 'last_active', 'is_email_verified']
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):

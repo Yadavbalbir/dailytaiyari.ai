@@ -39,9 +39,11 @@ const Register = () => {
 
     const result = await register(formData)
     if (result.success) {
-      toast.success('Account created! Let\'s set up your profile 🚀')
-      // Navigate to onboarding after registration
-      navigate('/onboarding', { replace: true })
+      toast.success('Account created! Check your email for a verification code ✉️')
+      navigate('/verify-email', {
+        replace: true,
+        state: { email: formData.email, password: formData.password },
+      })
     } else {
       toast.error(result.error || 'Registration failed')
     }

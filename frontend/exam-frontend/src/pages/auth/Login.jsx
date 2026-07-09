@@ -28,6 +28,9 @@ const Login = () => {
       } else {
         navigate('/onboarding', { replace: true })
       }
+    } else if (result.needsVerification) {
+      toast('Please verify your email to continue', { icon: '✉️' })
+      navigate('/verify-email', { replace: true, state: { email, password } })
     } else {
       toast.error(result.error || 'Login failed')
     }
@@ -107,9 +110,9 @@ const Login = () => {
 
         {/* Forgot Password */}
         <div className="flex justify-end">
-          <button type="button" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
             Forgot password?
-          </button>
+          </Link>
         </div>
 
         {/* Error Message */}

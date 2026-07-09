@@ -306,6 +306,37 @@ CORS_ALLOW_HEADERS = [
 # OpenAI Configuration (for AI Chatbot)
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 
+# ---------------------------------------------------------------------------
+# Email / OTP verification
+# ---------------------------------------------------------------------------
+# Production uses Azure Communication Services (ACS) Email. In DEBUG we fall
+# back to the console backend so verification codes are printed to the logs
+# instead of dispatched to a real mailbox.
+#
+# EMAIL_PROVIDER options:
+#   'azure'   -> ACS Email (requires django-azure-communication-email)
+#   'smtp'    -> any SMTP host (Hostinger mailbox, SendGrid SMTP, etc.)
+#   'console' -> print emails to stdout (local dev default)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='DoNotReply@dailytaiyari.in')
+EMAIL_PROVIDER = config('EMAIL_PROVIDER', default='console' if DEBUG else 'azure').lower()
+
+if EMAIL_PROVIDER == 'azure':
+    # pip install django-azure-communication-email
+    EMAIL_BACKEND = 'django_azure_communication_email.EmailBackend'
+    AZURE_COMMUNICATION_CONNECTION_STRING = config(
+        'AZURE_COMMUNICATION_CONNECTION_STRING', default=''
+    )
+elif EMAIL_PROVIDER == 'smtp':
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = config('EMAIL_HOST', default='')
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
 # Code-execution engine (Piston) for coding problems.
 PISTON_URL = config('PISTON_URL', default='http://piston:2000')
 CODING_ENABLED = config('CODING_ENABLED', default=True, cast=bool)

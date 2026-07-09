@@ -35,23 +35,90 @@ export const useAuthStore = create(
 
           return { success: true }
         } catch (error) {
-          const message = error.response?.data?.detail || 'Login failed'
+          const data = error.response?.data || {}
+          const pick = (v) => (Array.isArray(v) ? v[0] : v)
+          const code = pick(data.code)
+
+          // Backend blocks login until the email is verified.
+          if (code === 'email_not_verified') {
+            set({ isLoading: false, error: null })
+            return {
+              success: false,
+              needsVerification: true,
+              email: pick(data.email) || email,
+            }
+          }
+
+          const message = pick(data.detail) || 'Login failed'
           set({ error: message, isLoading: false })
           return { success: false, error: message }
         }
       },
 
-      // Register action
+      // Register action — does NOT auto-login; email must be verified first.
       register: async (data) => {
         set({ isLoading: true, error: null })
         try {
           await api.post('/auth/register/', data)
-          // Auto-login after registration
-          return get().login(data.email, data.password)
+          set({ isLoading: false })
+          return { success: true, needsVerification: true, email: data.email }
         } catch (error) {
           const message = error.response?.data?.email?.[0] ||
             error.response?.data?.detail ||
             'Registration failed'
+          set({ error: message, isLoading: false })
+          return { success: false, error: message }
+        }
+      },
+
+      // Verify email with the OTP sent on registration
+      verifyEmail: async (email, code) => {
+        set({ isLoading: true, error: null })
+        try {
+          await api.post('/auth/verify-email/', { email, code })
+          set({ isLoading: false })
+          return { success: true }
+        } catch (error) {
+          const message = error.response?.data?.error ||
+            error.response?.data?.detail || 'Verification failed'
+          set({ error: message, isLoading: false })
+          return { success: false, error: message }
+        }
+      },
+
+      // Resend the email-verification OTP
+      resendOtp: async (email) => {
+        try {
+          await api.post('/auth/resend-otp/', { email })
+          return { success: true }
+        } catch (error) {
+          const message = error.response?.data?.error || 'Could not resend code'
+          return { success: false, error: message }
+        }
+      },
+
+      // Request a password-reset code
+      requestPasswordReset: async (email) => {
+        try {
+          await api.post('/auth/password/forgot/', { email })
+          return { success: true }
+        } catch (error) {
+          const message = error.response?.data?.error || 'Could not send reset code'
+          return { success: false, error: message }
+        }
+      },
+
+      // Confirm a password reset with the OTP + new password
+      resetPassword: async (email, code, new_password) => {
+        set({ isLoading: true, error: null })
+        try {
+          await api.post('/auth/password/reset/', { email, code, new_password })
+          set({ isLoading: false })
+          return { success: true }
+        } catch (error) {
+          const message = error.response?.data?.error ||
+            error.response?.data?.new_password?.[0] ||
+            error.response?.data?.detail || 'Password reset failed'
           set({ error: message, isLoading: false })
           return { success: false, error: message }
         }
