@@ -24,6 +24,16 @@ import {
   UserCheck,
   Users,
   Sliders,
+  Bot,
+  Sparkles,
+  Send,
+  Code2,
+  Play,
+  Trophy,
+  Medal,
+  Crown,
+  Award,
+  FileCheck,
 } from "lucide-react";
 
 /* ---------------------------------------------------------------- */
@@ -271,6 +281,229 @@ function AnalyticsPreview() {
 }
 
 /* ---------------------------------------------------------------- */
+/* AI Tutor — doubt resolution preview                              */
+/* ---------------------------------------------------------------- */
+function AITutorPreview() {
+  return (
+    <BrowserFrame path="learn.your-institute.com/ai-tutor">
+      <div className="space-y-3">
+        {/* assistant header */}
+        <div className="flex items-center gap-2.5 pb-2 border-b border-surface-200 dark:border-surface-800">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white">
+            <Bot className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-surface-900 dark:text-white flex items-center gap-1.5">
+              AI Tutor <Sparkles className="w-3.5 h-3.5 text-accent-500" />
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-success-600 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-success-500" /> Online · 24/7
+            </div>
+          </div>
+        </div>
+
+        {/* student question */}
+        <div className="flex justify-end">
+          <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-primary-600 text-white px-3 py-2 text-[11px] font-medium">
+            Why is acceleration zero at the top of projectile motion?
+          </div>
+        </div>
+
+        {/* AI answer */}
+        <div className="flex gap-2">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white shrink-0">
+            <Sparkles className="w-3 h-3" />
+          </div>
+          <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-2.5 space-y-2">
+            <div className="h-2 w-full rounded bg-surface-200 dark:bg-surface-800" />
+            <div className="h-2 w-11/12 rounded bg-surface-200 dark:bg-surface-800" />
+            <div className="rounded-lg bg-primary-50 dark:bg-primary-900/20 px-2 py-1.5 text-[10px] font-mono text-primary-700 dark:text-primary-300">
+              aₓ = 0,&nbsp;&nbsp;a_y = −g
+            </div>
+            <div className="h-2 w-3/4 rounded bg-surface-200 dark:bg-surface-800" />
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <span className="px-2 py-0.5 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-600 text-[9px] font-semibold">Step-by-step</span>
+              <span className="px-2 py-0.5 rounded-full bg-success-50 dark:bg-success-900/30 text-success-600 text-[9px] font-semibold">Solved instantly</span>
+            </div>
+          </div>
+        </div>
+
+        {/* input */}
+        <div className="flex items-center gap-2 rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-3 py-2">
+          <span className="text-[11px] text-surface-400 flex-1">Ask a follow-up…</span>
+          <span className="w-6 h-6 rounded-lg bg-primary-600 flex items-center justify-center text-white">
+            <Send className="w-3 h-3" />
+          </span>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Coding problem evaluation preview                                */
+/* ---------------------------------------------------------------- */
+function CodingPreview() {
+  return (
+    <BrowserFrame path="learn.your-institute.com/coding/two-sum">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Code2 className="w-4 h-4 text-primary-500" />
+            <span className="text-sm font-bold text-surface-900 dark:text-white">Two Sum</span>
+            <span className="px-1.5 py-0.5 rounded bg-success-100 dark:bg-success-900/30 text-success-600 text-[9px] font-bold uppercase">Easy</span>
+          </div>
+          <span className="text-[10px] text-surface-500">Python</span>
+        </div>
+
+        {/* editor */}
+        <div className="rounded-xl bg-surface-900 dark:bg-black p-3 font-mono text-[10px] leading-relaxed">
+          <div><span className="text-accent-400">def</span> <span className="text-primary-300">twoSum</span>(nums, target):</div>
+          <div className="pl-3"><span className="text-accent-400">seen</span> = {"{}"}</div>
+          <div className="pl-3"><span className="text-accent-400">for</span> i, n <span className="text-accent-400">in</span> enumerate(nums):</div>
+          <div className="pl-6"><span className="text-accent-400">if</span> target - n <span className="text-accent-400">in</span> seen:</div>
+          <div className="pl-9 text-success-400">return [seen[target - n], i]</div>
+          <div className="pl-6">seen[n] = i</div>
+        </div>
+
+        {/* verdict */}
+        <div className="flex items-center justify-between rounded-xl border border-success-200 dark:border-success-900/40 bg-success-50 dark:bg-success-900/20 px-3 py-2">
+          <span className="flex items-center gap-1.5 text-success-700 dark:text-success-400 text-xs font-bold">
+            <CheckCircle2 className="w-4 h-4" /> Accepted
+          </span>
+          <span className="text-[10px] text-surface-500 font-mono">42 ms · 14.1 MB</span>
+        </div>
+
+        {/* test cases */}
+        <div className="grid grid-cols-3 gap-2">
+          {["Sample", "Edge", "Hidden"].map((t) => (
+            <div key={t} className="rounded-lg border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-2 py-1.5 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-success-500" />
+              <span className="text-[9px] text-surface-600 dark:text-surface-400 font-semibold">{t}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <span className="flex-1 py-1.5 rounded-lg border border-surface-200 dark:border-surface-700 text-center text-[10px] font-semibold text-surface-600 dark:text-surface-300 flex items-center justify-center gap-1">
+            <Play className="w-3 h-3" /> Run
+          </span>
+          <span className="flex-1 py-1.5 rounded-lg bg-primary-600 text-white text-center text-[10px] font-bold">Submit</span>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Assignments & homework preview                                   */
+/* ---------------------------------------------------------------- */
+function AssignmentPreview() {
+  const items = [
+    { name: "Rotational Motion — Problem Set 4", meta: "Due in 2 days", state: "submitted" },
+    { name: "Organic Chemistry Worksheet", meta: "Graded · 18/20", state: "graded" },
+    { name: "Calculus — Integration Homework", meta: "Due tomorrow", state: "pending" },
+  ];
+  const badge: Record<string, string> = {
+    submitted: "bg-primary-100 dark:bg-primary-900/30 text-primary-600",
+    graded: "bg-success-100 dark:bg-success-900/30 text-success-600",
+    pending: "bg-warning-100 dark:bg-warning-900/30 text-warning-600",
+  };
+  const label: Record<string, string> = { submitted: "Submitted", graded: "Graded", pending: "Pending" };
+  return (
+    <BrowserFrame path="learn.your-institute.com/assignments">
+      <div className="space-y-3">
+        {items.map((a) => (
+          <div key={a.name} className="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-3">
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-accent-500 shrink-0" />
+                <span className="text-xs font-bold text-surface-900 dark:text-white">{a.name}</span>
+              </div>
+              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold ${badge[a.state]}`}>{label[a.state]}</span>
+            </div>
+            <div className="text-[10px] text-surface-500 pl-6">{a.meta}</div>
+            {a.state === "graded" && (
+              <div className="mt-2 ml-6 rounded-lg bg-success-50 dark:bg-success-900/20 px-2.5 py-1.5">
+                <div className="text-[9px] font-bold text-success-700 dark:text-success-400 mb-1">Teacher feedback</div>
+                <div className="h-1.5 w-full rounded bg-success-200/60 dark:bg-success-800/40 mb-1" />
+                <div className="h-1.5 w-3/4 rounded bg-success-200/60 dark:bg-success-800/40" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Leaderboard & gamification preview                               */
+/* ---------------------------------------------------------------- */
+function LeaderboardPreview() {
+  const rows = [
+    { rank: 1, xp: "4,820", c: "from-warning-400 to-warning-500", you: false },
+    { rank: 2, xp: "4,510", c: "from-surface-300 to-surface-400", you: false },
+    { rank: 3, xp: "4,190", c: "from-primary-400 to-accent-400", you: false },
+    { rank: 7, xp: "3,240", c: "from-accent-500 to-primary-500", you: true },
+  ];
+  return (
+    <BrowserFrame path="learn.your-institute.com/leaderboard">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-sm font-bold text-surface-900 dark:text-white">
+            <Trophy className="w-4 h-4 text-warning-500" /> Weekly leaderboard
+          </span>
+          <span className="flex gap-1">
+            <span className="px-2 py-0.5 rounded-full bg-primary-600 text-white text-[9px] font-bold">Week</span>
+            <span className="px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-500 text-[9px] font-semibold">All-time</span>
+          </span>
+        </div>
+
+        {/* ranked rows */}
+        <div className="space-y-2">
+          {rows.map((r) => (
+            <div
+              key={r.rank}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${
+                r.you
+                  ? "border-primary-400 bg-primary-50 dark:bg-primary-900/20"
+                  : "border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900"
+              }`}
+            >
+              <span className="w-5 text-center text-xs font-bold text-surface-500">
+                {r.rank === 1 ? <Crown className="w-4 h-4 text-warning-500 mx-auto" /> : r.rank <= 3 ? <Medal className="w-4 h-4 text-surface-400 mx-auto" /> : `#${r.rank}`}
+              </span>
+              <span className={`w-8 h-8 rounded-full bg-gradient-to-br ${r.c}`} />
+              <div className="flex-1">
+                <div className="h-2 w-24 rounded bg-surface-200 dark:bg-surface-800" />
+                {r.you && <div className="text-[9px] text-primary-600 font-bold mt-1">You</div>}
+              </div>
+              <span className="flex items-center gap-1 text-xs font-bold text-surface-700 dark:text-surface-300">
+                <Zap className="w-3.5 h-3.5 text-primary-500" /> {r.xp}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* badges */}
+        <div className="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-3">
+          <div className="text-[10px] font-bold text-surface-500 uppercase mb-2">Badges earned</div>
+          <div className="flex gap-2">
+            {["from-warning-400 to-warning-500", "from-primary-500 to-accent-500", "from-success-400 to-success-500", "from-accent-500 to-primary-500"].map((c, i) => (
+              <span key={i} className={`w-8 h-8 rounded-xl bg-gradient-to-br ${c} flex items-center justify-center text-white`}>
+                <Award className="w-4 h-4" />
+              </span>
+            ))}
+            <span className="w-8 h-8 rounded-xl border-2 border-dashed border-surface-300 dark:border-surface-700 flex items-center justify-center text-surface-400 text-[9px] font-bold">+6</span>
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
 /* 5. Admin — course builder preview                                */
 /* ---------------------------------------------------------------- */
 function CourseBuilderPreview() {
@@ -477,8 +710,9 @@ export default function ProductTour() {
             </span>
           </h2>
           <p className="text-lg text-surface-600 dark:text-surface-400">
-            Every screen below runs on your own domain, in your colors. Here&apos;s what your
-            students and teachers work with every day.
+            An <span className="font-semibold text-surface-800 dark:text-surface-200">AI-powered LMS</span> with everything your
+            students need — AI doubt resolution, live classes, mock tests, coding practice, assignments,
+            gamified leaderboards and analytics. Every screen runs on your own domain, in your colors.
           </p>
         </div>
 
@@ -497,6 +731,18 @@ export default function ProductTour() {
 
           <ShowcaseRow
             reverse
+            eyebrow="AI Tutor · doubt resolution"
+            title="An AI tutor that clears doubts 24/7"
+            desc="Students never stay stuck. Your branded AI tutor answers questions instantly with step-by-step explanations, worked examples and formulas — turning every doubt into a learning moment, day or night."
+            points={[
+              "Instant, step-by-step answers to any doubt, 24/7",
+              "Context-aware help tied to your courses and content",
+              "Frees up faculty time while students keep progressing",
+            ]}
+            preview={<AITutorPreview />}
+          />
+
+          <ShowcaseRow
             eyebrow="Rich mock tests"
             title="Full exam-hall experience, auto-graded instantly"
             desc="Timed, sectioned mock tests with a real question palette, mark-for-review, instructions and resume-on-refresh. Students get instant scores and detailed solutions; you get every submission."
@@ -506,6 +752,44 @@ export default function ProductTour() {
               "Instant auto-grading with detailed, per-question solutions",
             ]}
             preview={<MockTestPreview />}
+          />
+
+          <ShowcaseRow
+            reverse
+            eyebrow="Coding & auto-evaluation"
+            title="Practice code, judged automatically"
+            desc="Run a full coding lab inside your portal. Students write and run code against sample and hidden test cases, and every submission is auto-evaluated with an instant verdict, runtime and memory — no manual checking."
+            points={[
+              "In-browser editor with run and submit",
+              "Auto-graded against sample, edge and hidden test cases",
+              "Instant verdict with runtime and memory feedback",
+            ]}
+            preview={<CodingPreview />}
+          />
+
+          <ShowcaseRow
+            eyebrow="Assignments & homework"
+            title="Set homework, collect it, grade it — in one place"
+            desc="Assign problem sets and worksheets to a batch, track who has submitted, and return grades with written feedback. Students always know what's due and where they stand."
+            points={[
+              "Per-batch assignments with due dates and reminders",
+              "Submission tracking — submitted, pending and late",
+              "Grades with written teacher feedback students can see",
+            ]}
+            preview={<AssignmentPreview />}
+          />
+
+          <ShowcaseRow
+            reverse
+            eyebrow="Leaderboards & gamification"
+            title="Turn learning into a game they want to win"
+            desc="XP, levels, streaks, badges and weekly leaderboards tap into healthy competition — keeping students motivated, consistent and coming back to your portal every single day."
+            points={[
+              "Weekly and all-time leaderboards across your batches",
+              "XP, levels, streaks and unlockable achievement badges",
+              "Motivation that measurably lifts daily active learning",
+            ]}
+            preview={<LeaderboardPreview />}
           />
 
           <ShowcaseRow

@@ -14,20 +14,24 @@ const jetBrainsMono = JetBrains_Mono({
 
 const SITE_URL = "https://business.dailytaiyari.in";
 const OG_TITLE =
-  "DailyTaiyari — LMS & Website Builder for Coaching Institutes, Schools & Colleges";
+  "DailyTaiyari — AI-Powered LMS & Website Builder for Coaching Institutes, Schools & Colleges";
 const OG_DESC =
-  "Launch your own coaching institute website, school portal or online LMS on your own domain. Run live classes, mock tests, quizzes and homework, build courses, and track student performance in real time. No coding, no tech team.";
+  "Launch your own AI-powered coaching institute website, school portal or online LMS on your own domain. 24/7 AI doubt-solving tutor, live classes, mock tests, coding practice, assignments, gamified leaderboards and real-time analytics. No coding, no tech team.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default:
-      "DailyTaiyari | LMS & Website for Coaching Institutes, Schools & Colleges",
+      "DailyTaiyari | AI-Powered LMS & Website for Coaching Institutes, Schools & Colleges",
     template: "%s | DailyTaiyari",
   },
   description: OG_DESC,
   applicationName: "DailyTaiyari for Institutes",
   keywords: [
+    "AI powered LMS",
+    "AI LMS for coaching institutes",
+    "AI doubt solving app",
+    "AI tutor for students",
     "LMS for coaching institutes",
     "coaching institute website",
     "coaching institute software",
@@ -40,6 +44,10 @@ export const metadata: Metadata = {
     "online exam software",
     "online test portal",
     "mock test platform",
+    "coding practice platform",
+    "online coding judge for students",
+    "gamified learning platform",
+    "leaderboard learning app",
     "white label LMS",
     "white label learning platform",
     "student portal",

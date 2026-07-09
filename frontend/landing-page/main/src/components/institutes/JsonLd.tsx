@@ -11,7 +11,7 @@ export default function JsonLd() {
     url: SITE_URL,
     email: "hello@dailytaiyari.in",
     description:
-      "White-label EdTech platform that lets coaching institutes, schools and colleges launch their own branded learning portal on their own domain.",
+      "AI-powered white-label EdTech platform that lets coaching institutes, schools and colleges launch their own branded, AI-driven learning portal on their own domain.",
     sameAs: [] as string[],
   };
 
@@ -30,7 +30,7 @@ export default function JsonLd() {
     applicationCategory: "EducationalApplication",
     operatingSystem: "Web, iOS, Android",
     description:
-      "A white-label learning management system (LMS) and website platform for coaching institutes, schools and colleges. Run live classes, mock tests, quizzes and homework, build courses, manage enrollments and track student performance in real time.",
+      "An AI-powered white-label learning management system (LMS) and website platform for coaching institutes, schools and colleges. Includes a 24/7 AI doubt-solving tutor, live classes, mock tests, coding practice with auto-evaluation, assignments, gamified leaderboards, and real-time student performance analytics.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -39,9 +39,13 @@ export default function JsonLd() {
     },
     featureList: [
       "White-label portal on your own domain",
+      "AI tutor for instant 24/7 doubt resolution",
       "Live classes and events",
       "Timed mock tests with auto-grading",
+      "Coding practice with automatic evaluation",
+      "Assignments and homework with grading",
       "Quizzes and daily practice",
+      "Gamification — XP, streaks, badges and leaderboards",
       "Course builder with notes, videos and assignments",
       "Reusable question bank",
       "Real-time performance and skill analytics",

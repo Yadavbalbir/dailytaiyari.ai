@@ -27,6 +27,7 @@ import {
   Rocket,
   Radio,
   ShieldCheck,
+  Code2,
 } from "lucide-react";
 
 function SectionHeading({
@@ -227,7 +228,8 @@ export function Features() {
     { icon: Users, title: "Roles for your whole team", desc: "Separate access for admins, instructors and students — everyone gets the right tools and the right view.", gradient: "from-success-500 to-primary-500" },
     { icon: Layers, title: "Course catalog & enrollments", desc: "Publish courses with cover thumbnails and named instructors, organize exams, subjects and batches, and let students request enrollment with simple admin approval.", gradient: "from-warning-500 to-accent-500" },
     { icon: ShieldCheck, title: "Secure verified onboarding", desc: "Email-verified sign-up, role-based access and account controls keep your portal secure — admins can approve, suspend or restore students anytime.", gradient: "from-success-500 to-primary-500" },
-    { icon: Bot, title: "AI doubt assistant", desc: "Give students an always-on assistant to clear doubts instantly, so learning never stalls after class hours.", gradient: "from-primary-500 to-success-500" },
+    { icon: Bot, title: "AI Tutor — instant doubt resolution", desc: "Give every student an always-on AI tutor that answers doubts in seconds with step-by-step explanations, worked examples and formulas — so learning never stalls after class hours.", gradient: "from-primary-500 to-success-500" },
+    { icon: Code2, title: "Coding practice & auto-evaluation", desc: "Run a full coding lab in your portal — students write and run code against sample and hidden test cases, with instant auto-graded verdicts, runtime and memory feedback.", gradient: "from-surface-700 to-primary-600" },
     { icon: MessagesSquare, title: "Community & discussion", desc: "Foster peer learning with discussion spaces where students ask, answer and stay engaged together.", gradient: "from-accent-500 to-warning-500" },
     { icon: MonitorSmartphone, title: "Works on any device", desc: "A responsive experience that feels great on phones, tablets and desktops — no app install required.", gradient: "from-success-500 to-accent-500" },
     { icon: Cloud, title: "Secure cloud hosting", desc: "Your portal and content run on reliable cloud infrastructure with secure storage — no servers to manage.", gradient: "from-primary-600 to-accent-600" },
@@ -239,7 +241,7 @@ export function Features() {
           eyebrow="Features"
           title="Everything you need to run your institute"
           highlight="online"
-          subtitle="A complete, ready-to-use platform — so you can focus on teaching, not tooling."
+          subtitle="A complete, AI-powered LMS — doubt resolution, coding, tests, gamification and analytics — so you can focus on teaching, not tooling."
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
