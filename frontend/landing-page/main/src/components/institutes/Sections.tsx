@@ -62,6 +62,62 @@ function SectionHeading({
 
 /* ------------------------------------------------------------------ */
 
+export function Hooks() {
+  const hooks = [
+    {
+      icon: Rocket,
+      title: "Sell your knowledge online",
+      desc: "Package your courses, test series and content into a branded portal — and start earning from students anywhere, 24/7.",
+      gradient: "from-primary-500 to-primary-600",
+    },
+    {
+      icon: MapPin,
+      title: "Run your offline batches with a digital learning portal",
+      desc: "Keep teaching in class while every test, assignment, note and quiz lives online — fully tracked, measured and paperless.",
+      gradient: "from-accent-500 to-accent-600",
+    },
+    {
+      icon: Globe,
+      title: "Get your own website & app",
+      desc: "Go live on your own domain with your logo and colors. A modern, mobile-ready learning experience students love — no coding needed.",
+      gradient: "from-success-500 to-success-600",
+    },
+    {
+      icon: BrainCircuit,
+      title: "Teach smarter with AI",
+      desc: "Give every learner a 24/7 AI doubt-solving tutor, auto-graded tests and coding labs — scale your teaching without scaling your effort.",
+      gradient: "from-warning-500 to-accent-600",
+    },
+  ];
+  return (
+    <section className="py-24 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <SectionHeading
+          eyebrow="Why DailyTaiyari"
+          title="Turn your teaching into a"
+          highlight="digital-first business"
+          subtitle="Whether you run packed offline batches or want to sell courses online, DailyTaiyari gives you the platform, tools and reach to grow — all under your own brand."
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {hooks.map((h, i) => (
+            <Reveal key={h.title} index={i}>
+              <div className="h-full flex flex-col p-8 rounded-3xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 hover:border-primary-300 dark:hover:border-primary-800 hover:-translate-y-1 transition-all duration-300 group">
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${h.gradient} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <h.icon className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="font-bold text-surface-900 dark:text-white text-lg mb-3 leading-snug">{h.title}</h3>
+                <p className="text-surface-600 dark:text-surface-400 leading-relaxed text-sm">{h.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
 export function Audience() {
   const items = [
     {

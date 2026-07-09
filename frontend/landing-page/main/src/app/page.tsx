@@ -5,7 +5,7 @@ import FAQ from "@/components/institutes/FAQ";
 import ProductTour from "@/components/institutes/ProductTour";
 import JsonLd from "@/components/institutes/JsonLd";
 import LeadDialogs from "@/components/institutes/LeadDialogs";
-import { Audience, Pillars, OfflineBatches, Features, HowItWorks, Grow, FinalCTA } from "@/components/institutes/Sections";
+import { Audience, Pillars, Hooks, OfflineBatches, Features, HowItWorks, Grow, FinalCTA } from "@/components/institutes/Sections";
 
 export default function Home() {
   return (
@@ -14,6 +14,7 @@ export default function Home() {
       <InstituteNav />
       <main className="flex-1 flex flex-col">
         <Hero />
+        <Hooks />
         <Audience />
         <Pillars />
         <ProductTour />
