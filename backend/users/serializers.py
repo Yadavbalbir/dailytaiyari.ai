@@ -41,12 +41,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user and user.check_password(password):
             if not user.is_active:
                 raise serializers.ValidationError('User account is disabled.')
-            if not user.is_email_verified:
-                raise serializers.ValidationError({
-                    'detail': 'Email not verified. Please verify your email to continue.',
-                    'code': 'email_not_verified',
-                    'email': user.email,
-                })
+            # NOTE: Unverified and suspended users are allowed to authenticate.
+            # The frontend gates the app behind a "verify your email" screen for
+            # unverified users, and blurs it behind a modal for suspended users.
+            # Suspended users are additionally blocked from data APIs by
+            # core.middleware.BlockSuspendedUsersMiddleware.
             self.user = user
             refresh = self.get_token(user)
             data = {
@@ -233,13 +232,7 @@ class AdminEnrollmentRequestSerializer(serializers.ModelSerializer):
 
 
 class OnboardingSerializer(serializers.Serializer):
-    """Serializer for student onboarding — IIT JEE & NEET only."""
-    primary_course_id = serializers.UUIDField()
-    additional_course_ids = serializers.ListField(
-        child=serializers.UUIDField(),
-        required=False,
-        default=[]
-    )
+    """Serializer for student onboarding — goals only (no course selection)."""
     target_year = serializers.IntegerField(required=False)
     daily_study_goal_minutes = serializers.IntegerField(default=60)
     preferred_study_time = serializers.ChoiceField(

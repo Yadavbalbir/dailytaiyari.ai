@@ -7,6 +7,7 @@ import { useTenantStore } from './context/tenantStore'
 import MainLayout from './components/layout/MainLayout'
 import AuthLayout from './components/layout/AuthLayout'
 import SuspensionOverlay from './components/layout/SuspensionOverlay'
+import VerificationGate from './components/layout/VerificationGate'
 
 // Auth Pages
 import Login from './pages/auth/Login'
@@ -123,6 +124,7 @@ function App() {
   return (
     <>
       <SuspensionOverlay />
+      <VerificationGate />
       <Routes>
         {/* Auth Routes */}
         <Route element={<AuthLayout />}>
