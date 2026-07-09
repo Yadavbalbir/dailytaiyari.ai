@@ -325,3 +325,8 @@ credentials.json
 ehthumbs.db
 Icon?
 Thumbs.db
+
+# Next.js landing-page source lib (NOT Python build output — the generic `lib/`
+# rule above would otherwise swallow it and break Netlify builds)
+!frontend/landing-page/main/src/lib/
+!frontend/landing-page/main/src/lib/**
