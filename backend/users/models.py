@@ -48,6 +48,8 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     is_suspended = models.BooleanField(default=False)
+    is_email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
     username = None  # Remove username field
     email = models.EmailField()
 
@@ -85,6 +87,51 @@ class User(AbstractUser):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class EmailOTP(TimeStampedModel):
+    """
+    One-time password issued to verify a user's email address.
+
+    Codes are stored hashed (never in plaintext), expire after a short
+    window, and are single-use with a capped number of verify attempts.
+    """
+    PURPOSE_CHOICES = [
+        ('email_verification', 'Email Verification'),
+        ('password_reset', 'Password Reset'),
+    ]
+
+    MAX_ATTEMPTS = 5
+    EXPIRY_MINUTES = 10
+    RESEND_COOLDOWN_SECONDS = 60
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_otps')
+    code_hash = models.CharField(max_length=128)
+    purpose = models.CharField(max_length=32, choices=PURPOSE_CHOICES, default='email_verification')
+    attempts = models.PositiveSmallIntegerField(default=0)
+    is_used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'purpose', 'is_used']),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"OTP({self.purpose}) for {self.user.email}"
+
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() >= self.expires_at
+
+    def is_valid(self):
+        return (
+            not self.is_used
+            and not self.is_expired()
+            and self.attempts < self.MAX_ATTEMPTS
+        )
 
 
 class StudentProfile(TimeStampedModel):

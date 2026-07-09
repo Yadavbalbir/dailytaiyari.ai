@@ -11,6 +11,9 @@ import SuspensionOverlay from './components/layout/SuspensionOverlay'
 // Auth Pages
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
+import VerifyEmail from './pages/auth/VerifyEmail'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 import Onboarding from './pages/auth/Onboarding'
 
 // Main Pages
@@ -136,6 +139,30 @@ function App() {
             element={
               <PublicRoute>
                 <Register />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/verify-email"
+            element={
+              <PublicRoute>
+                <VerifyEmail />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword />
               </PublicRoute>
             }
           />

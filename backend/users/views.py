@@ -19,8 +19,12 @@ from .serializers import (
     StudentProfileSerializer,
     CourseEnrollmentSerializer,
     AdminEnrollmentRequestSerializer,
-    OnboardingSerializer
+    OnboardingSerializer,
+    EmailOTPRequestSerializer,
+    EmailOTPVerifySerializer,
+    PasswordResetConfirmSerializer,
 )
+from .emails import create_and_send_otp, verify_otp, can_resend
 from exams.models import Course
 from core.permissions import IsTenantAdmin
 from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
@@ -63,11 +67,180 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save(tenant=request.tenant)
-        
+
+        # Kick off email verification.
+        try:
+            create_and_send_otp(user, purpose='email_verification')
+        except Exception:
+            # Don't fail registration if the mail transport hiccups; the
+            # user can request a fresh code via the resend endpoint.
+            pass
+
         return Response({
-            'message': 'Registration successful',
+            'message': 'Registration successful. Please check your email for a verification code.',
+            'requires_email_verification': True,
             'user': UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
+
+
+class VerifyEmailView(APIView):
+    """Verify a user's email using the OTP sent to their inbox."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({'error': 'A valid Tenant is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = EmailOTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
+
+        try:
+            user = User.objects.get(email=email, tenant=tenant)
+        except User.DoesNotExist:
+            return Response({'error': 'Invalid code.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if user.is_email_verified:
+            return Response({'message': 'Email already verified.'})
+
+        ok, error = verify_otp(user, code, purpose='email_verification')
+        if not ok:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_email_verified = True
+        user.email_verified_at = timezone.now()
+        user.save(update_fields=['is_email_verified', 'email_verified_at'])
+
+        return Response({
+            'message': 'Email verified successfully.',
+            'user': UserSerializer(user).data,
+        })
+
+
+class ResendOTPView(APIView):
+    """Re-send an email verification code (rate-limited)."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({'error': 'A valid Tenant is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = EmailOTPRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        # Generic response regardless of whether the user exists, so this
+        # endpoint can't be used to enumerate registered emails.
+        generic = Response({
+            'message': 'If an unverified account exists for that email, a new code has been sent.'
+        })
+
+        try:
+            user = User.objects.get(email=email, tenant=tenant)
+        except User.DoesNotExist:
+            return generic
+
+        if user.is_email_verified:
+            return generic
+        if not can_resend(user, purpose='email_verification'):
+            return Response(
+                {'error': 'Please wait a moment before requesting another code.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        try:
+            create_and_send_otp(user, purpose='email_verification')
+        except Exception:
+            return Response(
+                {'error': 'Could not send the verification email. Please try again shortly.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return generic
+
+
+class PasswordResetRequestView(APIView):
+    """Send a password-reset code to a registered email (rate-limited)."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({'error': 'A valid Tenant is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = EmailOTPRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        generic = Response({
+            'message': 'If an account exists for that email, a reset code has been sent.'
+        })
+
+        try:
+            user = User.objects.get(email=email, tenant=tenant)
+        except User.DoesNotExist:
+            return generic
+
+        if not can_resend(user, purpose='password_reset'):
+            return Response(
+                {'error': 'Please wait a moment before requesting another code.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        try:
+            create_and_send_otp(user, purpose='password_reset')
+        except Exception:
+            return Response(
+                {'error': 'Could not send the reset email. Please try again shortly.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return generic
+
+
+class PasswordResetConfirmView(APIView):
+    """Verify a reset code and set a new password."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({'error': 'A valid Tenant is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
+        new_password = serializer.validated_data['new_password']
+
+        try:
+            user = User.objects.get(email=email, tenant=tenant)
+        except User.DoesNotExist:
+            return Response({'error': 'Invalid code.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        ok, error = verify_otp(user, code, purpose='password_reset')
+        if not ok:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        # A successful reset also proves ownership of the mailbox.
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            user.email_verified_at = timezone.now()
+            user.save(update_fields=['password', 'is_email_verified', 'email_verified_at'])
+        else:
+            user.save(update_fields=['password'])
+
+        return Response({'message': 'Password reset successful. You can now sign in.'})
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):

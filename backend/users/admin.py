@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, StudentProfile, CourseEnrollment
+from .models import User, StudentProfile, CourseEnrollment, EmailOTP
 
 
 @admin.register(User)
@@ -16,6 +16,7 @@ class UserAdmin(BaseUserAdmin):
         ('Personal Info', {'fields': ('first_name', 'last_name', 'phone', 'avatar')}),
         ('Preferences', {'fields': ('preferred_language', 'notification_enabled', 'dark_mode')}),
         ('Status', {'fields': ('is_onboarded', 'onboarded_at')}),
+        ('Email verification', {'fields': ('is_email_verified', 'email_verified_at')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
     )
 
@@ -42,3 +43,12 @@ class CourseEnrollmentAdmin(admin.ModelAdmin):
     list_filter = ['course', 'is_active']
     raw_id_fields = ['student', 'course']
 
+
+
+@admin.register(EmailOTP)
+class EmailOTPAdmin(admin.ModelAdmin):
+    list_display = ['user', 'purpose', 'is_used', 'attempts', 'expires_at', 'created_at']
+    list_filter = ['purpose', 'is_used']
+    search_fields = ['user__email']
+    raw_id_fields = ['user', 'tenant']
+    readonly_fields = ['code_hash', 'created_at', 'updated_at']
