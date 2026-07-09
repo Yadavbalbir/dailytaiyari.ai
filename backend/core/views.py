@@ -73,3 +73,52 @@ class TenantDetailView(APIView):
         except Tenant.DoesNotExist:
             return Response({"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND)
 
+
+
+# ---------------------------------------------------------------------------
+# Platform-owned (non-tenant) public endpoints — marketing site leads.
+# ---------------------------------------------------------------------------
+import logging
+
+from rest_framework import generics
+from rest_framework.throttling import ScopedRateThrottle
+
+from .models import DemoBooking, ContactMessage
+from .serializers import DemoBookingSerializer, ContactMessageSerializer
+from . import emails
+
+logger = logging.getLogger(__name__)
+
+
+class DemoBookingCreateView(generics.CreateAPIView):
+    """Public 'Book a Demo' endpoint. Not tenant-scoped."""
+    queryset = DemoBooking.objects.all()
+    serializer_class = DemoBookingSerializer
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'platform_lead'
+
+    def perform_create(self, serializer):
+        booking = serializer.save()
+        try:
+            emails.send_demo_booking_notification(booking)
+        except Exception:  # noqa: BLE001 - never fail the write on a mail error
+            logger.exception('Failed to send demo booking notification email')
+
+
+class ContactMessageCreateView(generics.CreateAPIView):
+    """Public 'Talk to us' endpoint. Not tenant-scoped."""
+    queryset = ContactMessage.objects.all()
+    serializer_class = ContactMessageSerializer
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'platform_lead'
+
+    def perform_create(self, serializer):
+        contact = serializer.save()
+        try:
+            emails.send_contact_message_notification(contact)
+        except Exception:  # noqa: BLE001 - never fail the write on a mail error
+            logger.exception('Failed to send contact message notification email')

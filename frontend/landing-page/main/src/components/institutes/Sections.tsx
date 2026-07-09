@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Reveal from "./Reveal";
+import LeadCTAButtons from "./LeadCTAButtons";
 import {
   Building2,
   School,
@@ -19,13 +19,14 @@ import {
   Cloud,
   Bot,
   MessagesSquare,
-  ArrowRight,
   CheckCircle2,
   TrendingUp,
   Clock,
   MapPin,
   BrainCircuit,
   Rocket,
+  Radio,
+  ShieldCheck,
 } from "lucide-react";
 
 function SectionHeading({
@@ -87,7 +88,7 @@ export function Audience() {
           eyebrow="Who it's for"
           title="One platform for every"
           highlight="learning organization"
-          subtitle="Whether you teach a hundred students or a hundred thousand, DailyTaiyari adapts to how you work."
+          subtitle="Whether you need coaching institute software, a school website and portal, or a college LMS, DailyTaiyari adapts to how you teach — from a hundred students to a hundred thousand."
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {items.map((it, i) => (
@@ -215,7 +216,8 @@ export function Features() {
   const features = [
     { icon: FileText, title: "Share notes & reading material", desc: "Publish structured notes, formula sheets and reading material — with diagrams and images embedded right where they're needed — and share instantly with any batch.", gradient: "from-primary-500 to-primary-600" },
     { icon: ClipboardList, title: "Assign & track homework", desc: "Set homework and assignments with due dates, let students submit online, and track who has completed what — no more chasing pending work.", gradient: "from-accent-500 to-accent-600" },
-    { icon: ListChecks, title: "Conduct tests & mock exams", desc: "Create timed, exam-like tests and full-length mock exams with instant auto-grading and detailed solutions.", gradient: "from-success-500 to-success-600" },
+    { icon: ListChecks, title: "Conduct tests & mock exams", desc: "Create timed, exam-like tests and full-length mock exams with a question palette, mark-for-review, resume-on-refresh, re-attempt limits, instant auto-grading and detailed solutions.", gradient: "from-success-500 to-success-600" },
+    { icon: Radio, title: "Live classes & events", desc: "Schedule live classes and events students join in a click, with reminders — bring your whole batch together online, right inside the portal.", gradient: "from-error-500 to-primary-500" },
     { icon: Database, title: "Smart question bank", desc: "Build a reusable bank of MCQ, numerical, assertion-reason, match and image-based questions across every subject and topic.", gradient: "from-warning-500 to-accent-600" },
     { icon: Sparkle, title: "Quizzes for daily practice", desc: "Spin up quick quizzes for daily practice and revision to keep concepts fresh between classes.", gradient: "from-accent-500 to-primary-500" },
     { icon: Target, title: "Personalized learning", desc: "Every student gets a learning experience tuned to their strengths and gaps, so weak areas get the practice they need.", gradient: "from-primary-500 to-success-500" },
@@ -223,7 +225,8 @@ export function Features() {
     { icon: BrainCircuit, title: "Skill & topic mastery", desc: "See exactly which concepts a student has mastered and which need work, so teaching stays targeted.", gradient: "from-primary-500 to-accent-500" },
     { icon: Trophy, title: "Gamification & leaderboards", desc: "Keep students hooked with XP, levels, daily streaks, badges and leaderboards that reward consistency.", gradient: "from-accent-500 to-primary-500" },
     { icon: Users, title: "Roles for your whole team", desc: "Separate access for admins, instructors and students — everyone gets the right tools and the right view.", gradient: "from-success-500 to-primary-500" },
-    { icon: Layers, title: "Batches, exams & enrollments", desc: "Organize multiple exams, subjects and batches, and manage student enrollments with simple approval flows.", gradient: "from-warning-500 to-accent-500" },
+    { icon: Layers, title: "Course catalog & enrollments", desc: "Publish courses with cover thumbnails and named instructors, organize exams, subjects and batches, and let students request enrollment with simple admin approval.", gradient: "from-warning-500 to-accent-500" },
+    { icon: ShieldCheck, title: "Secure verified onboarding", desc: "Email-verified sign-up, role-based access and account controls keep your portal secure — admins can approve, suspend or restore students anytime.", gradient: "from-success-500 to-primary-500" },
     { icon: Bot, title: "AI doubt assistant", desc: "Give students an always-on assistant to clear doubts instantly, so learning never stalls after class hours.", gradient: "from-primary-500 to-success-500" },
     { icon: MessagesSquare, title: "Community & discussion", desc: "Foster peer learning with discussion spaces where students ask, answer and stay engaged together.", gradient: "from-accent-500 to-warning-500" },
     { icon: MonitorSmartphone, title: "Works on any device", desc: "A responsive experience that feels great on phones, tablets and desktops — no app install required.", gradient: "from-success-500 to-accent-500" },
@@ -353,20 +356,7 @@ export function FinalCTA() {
                 See how your own branded learning portal could look. Book a personalized demo and
                 we&apos;ll walk you through it.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link
-                  href="mailto:hello@dailytaiyari.in?subject=Demo%20request%20for%20our%20institute"
-                  className="px-8 py-4 bg-white text-primary-700 rounded-xl font-bold text-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  Book a Demo <ArrowRight className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="mailto:hello@dailytaiyari.in?subject=Talk%20to%20DailyTaiyari"
-                  className="px-8 py-4 bg-white/10 border-2 border-white/40 text-white rounded-xl font-bold text-lg hover:bg-white/20 transition-all text-center"
-                >
-                  Talk to Us
-                </Link>
-              </div>
+              <LeadCTAButtons />
               <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                 {points.map((p) => (
                   <span key={p} className="flex items-center gap-2 text-white/90 text-sm font-medium">

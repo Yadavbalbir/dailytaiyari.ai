@@ -7,6 +7,7 @@ import uuid
 TENANT_EXEMPT_PATHS = [
     '/admin/',
     '/api/v1/tenant/',
+    '/api/v1/platform/',
     '/api/docs/',
     '/api/redoc/',
     '/static/',
