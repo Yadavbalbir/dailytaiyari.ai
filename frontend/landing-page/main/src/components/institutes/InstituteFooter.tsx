@@ -23,8 +23,18 @@ const columns = [
     title: "Resources",
     links: [
       { name: "FAQ", href: "#faq" },
+      { name: "Pricing", href: "#pricing" },
       { name: "Book a Demo", href: "#demo" },
       { name: "Contact us", href: "mailto:hello@dailytaiyari.in" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { name: "Privacy Policy", href: "/privacy" },
+      { name: "Terms of Service", href: "/terms" },
+      { name: "Refund & Cancellation", href: "/refund-policy" },
+      { name: "Cookie Policy", href: "/cookie-policy" },
     ],
   },
 ];
@@ -33,8 +43,8 @@ export default function InstituteFooter() {
   return (
     <footer className="bg-surface-50 dark:bg-surface-950 border-t border-surface-200 dark:border-surface-800 py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
-          <div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 lg:gap-12">
+          <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center">
                 <span className="text-white text-sm font-bold">dt</span>
@@ -63,14 +73,22 @@ export default function InstituteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-surface-200 dark:border-surface-800 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-surface-500">
-            © {new Date().getFullYear()} DailyTaiyari. All rights reserved.
-          </p>
-          <div className="flex items-center gap-4 text-surface-500 text-sm">
-            <a href="#" className="hover:text-primary-600 transition-colors">Twitter</a>
-            <a href="#" className="hover:text-primary-600 transition-colors">LinkedIn</a>
-            <a href="#" className="hover:text-primary-600 transition-colors">YouTube</a>
+        <div className="mt-12 pt-8 border-t border-surface-200 dark:border-surface-800 flex flex-col gap-4">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-surface-500">
+            <Link href="/privacy" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Terms of Service</Link>
+            <Link href="/refund-policy" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Refund &amp; Cancellation</Link>
+            <Link href="/cookie-policy" className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Cookie Policy</Link>
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-surface-500">
+              © {new Date().getFullYear()} DailyTaiyari. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-surface-500 text-sm">
+              <a href="#" className="hover:text-primary-600 transition-colors">Twitter</a>
+              <a href="#" className="hover:text-primary-600 transition-colors">LinkedIn</a>
+              <a href="#" className="hover:text-primary-600 transition-colors">YouTube</a>
+            </div>
           </div>
         </div>
       </div>

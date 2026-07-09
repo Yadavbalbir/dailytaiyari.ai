@@ -8,10 +8,23 @@ const API_BASE =
 export const LEAD_EVENT = "dt:open-lead";
 export type LeadKind = "demo" | "contact";
 
+/** Optional context describing where/why the lead was opened (e.g. a pricing plan). */
+export interface LeadContext {
+  plan?: string;
+  source?: string;
+}
+
+export interface LeadEventDetail {
+  kind: LeadKind;
+  context?: LeadContext;
+}
+
 /** Open the demo / contact dialog from anywhere on the page. */
-export function openLeadDialog(kind: LeadKind) {
+export function openLeadDialog(kind: LeadKind, context?: LeadContext) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent<LeadKind>(LEAD_EVENT, { detail: kind }));
+  window.dispatchEvent(
+    new CustomEvent<LeadEventDetail>(LEAD_EVENT, { detail: { kind, context } })
+  );
 }
 
 export interface DemoBookingPayload {
@@ -21,6 +34,7 @@ export interface DemoBookingPayload {
   organization?: string;
   organization_type?: string;
   message?: string;
+  source?: string;
 }
 
 export interface ContactMessagePayload {
@@ -28,13 +42,14 @@ export interface ContactMessagePayload {
   email: string;
   subject?: string;
   message: string;
+  source?: string;
 }
 
 async function postLead(path: string, payload: object) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, source: "landing" }),
+    body: JSON.stringify({ source: "landing", ...payload }),
   });
   if (!res.ok) {
     let detail = "Something went wrong. Please try again.";
