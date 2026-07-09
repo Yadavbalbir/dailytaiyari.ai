@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, Loader2, GraduationCap, MessageSquare } from "lucide-react";
+import { X, CheckCircle2, Loader2, GraduationCap, MessageSquare, Sparkles } from "lucide-react";
 import {
   LEAD_EVENT,
+  type LeadEventDetail,
+  type LeadContext,
   type LeadKind,
   submitDemoBooking,
   submitContactMessage,
@@ -19,21 +21,24 @@ const labelClass =
 
 export default function LeadDialogs() {
   const [kind, setKind] = useState<LeadKind | null>(null);
+  const [context, setContext] = useState<LeadContext | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   const close = useCallback(() => {
     setKind(null);
+    setContext(null);
     setStatus("idle");
     setErrorMsg("");
   }, []);
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<LeadKind>).detail;
+      const detail = (e as CustomEvent<LeadEventDetail>).detail;
       setStatus("idle");
       setErrorMsg("");
-      setKind(detail);
+      setContext(detail?.context ?? null);
+      setKind(detail?.kind ?? null);
     };
     window.addEventListener(LEAD_EVENT, handler);
     return () => window.removeEventListener(LEAD_EVENT, handler);
@@ -57,6 +62,20 @@ export default function LeadDialogs() {
     const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
     setStatus("submitting");
     setErrorMsg("");
+
+    // Fold any lead context (e.g. a pricing plan) into the payload so the
+    // team gets a clear heads-up that this is a purchase-intent lead.
+    const source = context?.source
+      ? `landing-${context.source.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+      : "landing";
+    const heads = context?.plan
+      ? `🔥 SALES LEAD — interested in the ${context.plan} plan${
+          context.source ? ` (from ${context.source})` : ""
+        }.`
+      : "";
+    const withHeads = (msg?: string) =>
+      heads ? (msg ? `${heads}\n\n${msg}` : heads) : msg;
+
     try {
       if (kind === "demo") {
         await submitDemoBooking({
@@ -65,14 +84,18 @@ export default function LeadDialogs() {
           phone: data.phone,
           organization: data.organization,
           organization_type: data.organization_type,
-          message: data.message,
+          message: withHeads(data.message),
+          source,
         });
       } else {
         await submitContactMessage({
           name: data.name,
           email: data.email,
-          subject: data.subject,
-          message: data.message,
+          subject: context?.plan
+            ? `[Sales] ${context.plan} plan — ${data.subject || "Pricing enquiry"}`
+            : data.subject,
+          message: withHeads(data.message) ?? data.message,
+          source,
         });
       }
       setStatus("success");
@@ -145,6 +168,19 @@ export default function LeadDialogs() {
                       ? "Tell us about your institute and we'll reach out to schedule a walkthrough."
                       : "Send us a message and we'll get back to you soon."}
                   </p>
+
+                  {context?.plan && (
+                    <div className="mb-6 flex items-center gap-2 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 px-4 py-3 text-sm">
+                      <Sparkles className="w-4 h-4 text-primary-600 dark:text-primary-400 shrink-0" />
+                      <span className="text-surface-700 dark:text-surface-200">
+                        You're enquiring about the{" "}
+                        <span className="font-bold text-primary-700 dark:text-primary-300">
+                          {context.plan}
+                        </span>{" "}
+                        plan{context.source ? ` · from ${context.source}` : ""}
+                      </span>
+                    </div>
+                  )}
 
                   <form onSubmit={onSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

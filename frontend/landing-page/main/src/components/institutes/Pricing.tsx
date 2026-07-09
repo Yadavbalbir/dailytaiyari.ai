@@ -180,7 +180,12 @@ export default function Pricing() {
                 </p>
 
                 <button
-                  onClick={() => openLeadDialog(plan.name === "Enterprise" ? "contact" : "demo")}
+                  onClick={() =>
+                    openLeadDialog(plan.name === "Enterprise" ? "contact" : "demo", {
+                      plan: plan.name,
+                      source: "Pricing page",
+                    })
+                  }
                   className={`w-full py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-95 mb-8 ${
                     plan.popular
                       ? "bg-primary-600 hover:bg-primary-700 text-white shadow-glow"
