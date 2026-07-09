@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     MessageCircle, MessageSquare, ThumbsUp, Eye, CheckCircle,
     Plus, Filter, TrendingUp, Clock, HelpCircle,
-    BarChart3, Zap, Trophy, Users, BookOpen, Globe, Calendar
+    BarChart3, Zap, Trophy, Users, BookOpen, Globe, Calendar, EyeOff
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import { useAuthStore } from '../context/authStore'
@@ -35,13 +35,16 @@ const Community = () => {
     })
     const courses = filterOptions?.courses || []
 
-    // Fetch posts
+    // Fetch posts. The "hidden" tab is admin-only and asks the backend for
+    // moderated posts (status=hidden) so admins can review and restore them.
+    const isHiddenView = activeTab === 'hidden'
     const { data: postsData, isLoading: postsLoading } = useQuery({
         queryKey: ['communityPosts', activeTab, sortBy, courseFilter],
         queryFn: () => communityService.getPosts({
-            type: activeTab === 'all' ? undefined : activeTab,
+            type: (activeTab === 'all' || activeTab === 'my_posts' || isHiddenView) ? undefined : activeTab,
             sort: sortBy,
             my_posts: activeTab === 'my_posts' ? 'true' : undefined,
+            status: isHiddenView ? 'hidden' : undefined,
             course: courseFilter === 'all' ? undefined : courseFilter
         })
     })
@@ -96,6 +99,7 @@ const Community = () => {
         { id: 'quiz', label: 'Quizzes', icon: Zap },
         { id: 'event', label: 'Events', icon: Calendar },
         { id: 'my_posts', label: 'My Posts', icon: MessageCircle },
+        ...(isAdmin ? [{ id: 'hidden', label: 'Hidden', icon: EyeOff }] : []),
     ]
 
     const sortOptions = [
@@ -291,6 +295,12 @@ const Community = () => {
 
                     {/* Posts List */}
                     <div className="space-y-4">
+                        {isHiddenView && posts.length > 0 && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-300">
+                                <EyeOff size={16} className="mt-0.5 shrink-0" />
+                                <span>These posts are hidden from the community. Use a post's menu to <strong>Unhide</strong> and restore it, or delete it permanently.</span>
+                            </div>
+                        )}
                         <AnimatePresence mode="popLayout">
                             {posts.length > 0 ? (
                                 posts.map((post, index) => (
@@ -323,17 +333,29 @@ const Community = () => {
                                     animate={{ opacity: 1 }}
                                     className="card p-12 text-center"
                                 >
-                                    <MessageSquare size={48} className="text-surface-400 mb-4 mx-auto" />
-                                    <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
-                                    <p className="text-surface-500 mb-4">
-                                        Be the first to start a discussion!
-                                    </p>
-                                    <button
-                                        onClick={() => handleCreatePost('question')}
-                                        className="btn-primary"
-                                    >
-                                        Ask a Question
-                                    </button>
+                                    {isHiddenView ? (
+                                        <>
+                                            <EyeOff size={48} className="text-surface-400 mb-4 mx-auto" />
+                                            <h3 className="text-lg font-semibold mb-2">No hidden posts</h3>
+                                            <p className="text-surface-500">
+                                                Posts you hide from the community will appear here so you can review or restore them.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MessageSquare size={48} className="text-surface-400 mb-4 mx-auto" />
+                                            <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+                                            <p className="text-surface-500 mb-4">
+                                                Be the first to start a discussion!
+                                            </p>
+                                            <button
+                                                onClick={() => handleCreatePost('question')}
+                                                className="btn-primary"
+                                            >
+                                                Ask a Question
+                                            </button>
+                                        </>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>
