@@ -60,10 +60,10 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="text-lg lg:text-xl text-surface-600 dark:text-surface-400 max-w-2xl"
             >
-              Launch your own branded, AI-powered exam-prep portal — on your own domain. Give students
-              a 24/7 AI doubt-solving tutor, run live classes, publish notes and question banks, conduct
-              quizzes, full mock tests and coding practice, gamify learning with leaderboards, and track
-              every student&apos;s performance in real time.
+              Launch your own branded, AI-powered learning portal — on your own domain. Host
+              exam-prep, coding and skill-development courses; give students a 24/7 AI doubt-solving
+              tutor, live classes, auto-graded mock tests, coding labs, assignments and gamified
+              leaderboards — all wrapped in a modern, beautifully designed experience students love.
             </motion.p>
 
             <motion.div
@@ -94,7 +94,7 @@ export default function Hero() {
             >
               <span className="text-surface-500 dark:text-surface-400 font-medium flex items-center gap-2">
                 <Globe className="w-4 h-4 text-primary-500" />
-                Built for coaching institutes, schools &amp; colleges
+                Built for coaching institutes, schools, colleges &amp; skill academies
               </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400 text-sm font-semibold">
                 <Smartphone className="w-3.5 h-3.5" />

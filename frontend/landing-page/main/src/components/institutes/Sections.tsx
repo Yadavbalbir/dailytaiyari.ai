@@ -28,6 +28,7 @@ import {
   Radio,
   ShieldCheck,
   Code2,
+  Palette,
 } from "lucide-react";
 
 function SectionHeading({
@@ -81,6 +82,12 @@ export function Audience() {
       desc: "Assess at scale across departments and semesters, benchmark cohorts, and build placement-ready skills with measurable outcomes.",
       gradient: "from-success-500 to-success-600",
     },
+    {
+      icon: Code2,
+      title: "Coding & Skill Academies",
+      desc: "Host coding bootcamps and skill-development courses with in-browser coding labs, auto-graded assignments, projects and certificates — a modern experience learners actually enjoy.",
+      gradient: "from-warning-500 to-accent-600",
+    },
   ];
   return (
     <section id="audience" className="py-24 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800">
@@ -89,9 +96,9 @@ export function Audience() {
           eyebrow="Who it's for"
           title="One platform for every"
           highlight="learning organization"
-          subtitle="Whether you need coaching institute software, a school website and portal, or a college LMS, DailyTaiyari adapts to how you teach — from a hundred students to a hundred thousand."
+          subtitle="Coaching institute software, a school website and portal, a college LMS, or a platform to host coding and skill-development courses — DailyTaiyari adapts to how you teach, from a hundred students to a hundred thousand."
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {items.map((it, i) => (
             <Reveal key={it.title} index={i}>
               <div className="h-full flex flex-col p-8 rounded-3xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 hover:border-primary-300 dark:hover:border-primary-800 hover:-translate-y-1 transition-all duration-300 group">
@@ -215,6 +222,7 @@ export function OfflineBatches() {
 
 export function Features() {
   const features = [
+    { icon: Palette, title: "Modern, beautifully designed UX", desc: "A clean, rich, mobile-first interface designed for delight — fast, intuitive and genuinely enjoyable to use, so students stay engaged and your brand looks world-class.", gradient: "from-accent-500 to-primary-500" },
     { icon: FileText, title: "Share notes & reading material", desc: "Publish structured notes, formula sheets and reading material — with diagrams and images embedded right where they're needed — and share instantly with any batch.", gradient: "from-primary-500 to-primary-600" },
     { icon: ClipboardList, title: "Assign & track homework", desc: "Set homework and assignments with due dates, let students submit online, and track who has completed what — no more chasing pending work.", gradient: "from-accent-500 to-accent-600" },
     { icon: ListChecks, title: "Conduct tests & mock exams", desc: "Create timed, exam-like tests and full-length mock exams with a question palette, mark-for-review, resume-on-refresh, re-attempt limits, instant auto-grading and detailed solutions.", gradient: "from-success-500 to-success-600" },
@@ -241,7 +249,7 @@ export function Features() {
           eyebrow="Features"
           title="Everything you need to run your institute"
           highlight="online"
-          subtitle="A complete, AI-powered LMS — doubt resolution, coding, tests, gamification and analytics — so you can focus on teaching, not tooling."
+          subtitle="A complete, AI-powered LMS for exam-prep, coding and skill-development courses — doubt resolution, coding labs, tests, gamification and analytics — wrapped in a modern, delightful UI."
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (

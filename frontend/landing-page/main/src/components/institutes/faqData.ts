@@ -30,6 +30,10 @@ export const faqs: Faq[] = [
     a: "Yes. Schedule live classes and events with join links and reminders, so your batch attends sessions right inside your branded portal — alongside recordings, notes and practice.",
   },
   {
+    q: "Can we host coding and skill-development courses, not just exam prep?",
+    a: "Absolutely. DailyTaiyari is a full LMS — host coding bootcamps, professional and skill-development courses alongside exam-prep. You get in-browser coding labs with auto-evaluation, video lessons, projects, assignments and certificates, all in one branded portal.",
+  },
+  {
     q: "Does it include an AI tutor for doubt solving?",
     a: "Yes. Every student gets an always-on AI tutor that answers doubts instantly with step-by-step explanations, worked examples and formulas — 24/7, right inside your branded portal — so learning never stalls after class hours.",
   },

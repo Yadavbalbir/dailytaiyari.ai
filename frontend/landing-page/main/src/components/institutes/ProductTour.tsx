@@ -710,9 +710,10 @@ export default function ProductTour() {
             </span>
           </h2>
           <p className="text-lg text-surface-600 dark:text-surface-400">
-            An <span className="font-semibold text-surface-800 dark:text-surface-200">AI-powered LMS</span> with everything your
-            students need — AI doubt resolution, live classes, mock tests, coding practice, assignments,
-            gamified leaderboards and analytics. Every screen runs on your own domain, in your colors.
+            An <span className="font-semibold text-surface-800 dark:text-surface-200">AI-powered LMS</span> for exam-prep,
+            coding and skill-development courses — with AI doubt resolution, live classes, mock tests, coding labs,
+            assignments, gamified leaderboards and analytics. Every screen runs on your own domain, in your colors,
+            with a modern UI students love.
           </p>
         </div>
 
