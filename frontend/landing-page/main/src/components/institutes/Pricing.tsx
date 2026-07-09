@@ -31,7 +31,7 @@ const PLANS: Plan[] = [
     features: [
       "Your own subdomain & branding",
       "Notes, quizzes & mock tests",
-      "Basic AI doubt solving",
+      "Basic AI doubt solving*",
       "Student progress dashboards",
       "Email support",
     ],
@@ -49,7 +49,7 @@ const PLANS: Plan[] = [
     features: [
       "Everything in Starter, plus:",
       "Custom domain & white-label app",
-      "Full AI tutor + auto-graded tests",
+      "Full AI tutor + auto-graded tests*",
       "Coding labs & assignments",
       "Gamified leaderboards",
       "Advanced analytics & reports",
@@ -229,6 +229,20 @@ export default function Pricing() {
           <span className="flex items-center gap-2">
             <Check className="w-4 h-4 text-success-500" /> Volume discounts for 1,000+ students
           </span>
+        </div>
+
+        {/* AI pricing footnote */}
+        <div className="mt-8 max-w-3xl mx-auto rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 px-6 py-5">
+          <p className="flex items-start gap-2.5 text-sm text-surface-600 dark:text-surface-400 leading-relaxed">
+            <Sparkles className="w-4 h-4 text-accent-500 mt-0.5 shrink-0" />
+            <span>
+              <span className="font-bold text-surface-900 dark:text-white">*AI features are billed separately.</span>{" "}
+              AI-powered doubt solving, the 24/7 AI tutor and auto-evaluation run on
+              pay-as-you-go usage credits, so you only pay for what your students actually use.
+              Generous free credits are included with every plan — talk to us for detailed AI
+              usage pricing and volume packs.
+            </span>
+          </p>
         </div>
       </div>
     </section>
