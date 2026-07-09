@@ -30,6 +30,10 @@ export const contentBuilderService = {
   getExams: async () => list(await api.get('/courses/admin/courses/', { params: PAGE })),
   createExam: async (data) => (await api.post('/courses/admin/courses/', data)).data,
   updateExam: async (id, data) => (await api.patch(`/courses/admin/courses/${id}/`, data)).data,
+  updateCourseThumbnail: async (id, file) => {
+    const { body, config } = withFiles({ thumbnail: file })
+    return (await api.patch(`/courses/admin/courses/${id}/`, body, config)).data
+  },
   deleteExam: async (id) => api.delete(`/courses/admin/courses/${id}/`),
   getInstructors: async () => (await api.get('/courses/admin/courses/instructors/')).data,
 

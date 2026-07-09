@@ -204,6 +204,7 @@ class AvailableCoursesForEnrollmentView(APIView):
         qs = Course.objects.filter(status='active').order_by('name')
         if hasattr(request, 'tenant') and request.tenant:
             qs = qs.filter(tenant=request.tenant)
+        qs = qs.prefetch_related('instructors')
         courses = list(qs)
         result = [
             {
@@ -214,7 +215,14 @@ class AvailableCoursesForEnrollmentView(APIView):
                 'is_featured': getattr(e, 'is_featured', False),
                 'course_type': getattr(e, 'course_type', '') or '',
                 'description': getattr(e, 'description', '') or '',
-                'thumbnail': (e.icon.url if getattr(e, 'icon', None) else None),
+                'thumbnail': (
+                    e.thumbnail.url if getattr(e, 'thumbnail', None)
+                    else (e.icon.url if getattr(e, 'icon', None) else None)
+                ),
+                'instructors': [
+                    {'id': str(u.id), 'name': u.full_name or u.first_name or u.email}
+                    for u in e.instructors.all()
+                ],
             }
             for e in courses
         ]

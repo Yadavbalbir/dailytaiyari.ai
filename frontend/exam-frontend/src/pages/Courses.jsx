@@ -8,7 +8,31 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X, Users } from 'lucide-react'
+
+const InstructorLine = ({ instructors = [] }) => {
+  if (!instructors.length) return null
+  const shown = instructors.slice(0, 2)
+  const extra = instructors.slice(2)
+  return (
+    <div className="flex items-center gap-1.5 mt-2 text-xs text-surface-500 min-w-0">
+      <Users size={13} className="shrink-0 text-surface-400" />
+      <span className="truncate">
+        {shown.map((i) => i.name).join(', ')}
+      </span>
+      {extra.length > 0 && (
+        <span className="relative group/instr shrink-0">
+          <span className="inline-flex items-center justify-center px-1.5 h-[18px] rounded-full bg-surface-100 dark:bg-surface-800 text-surface-500 font-medium cursor-default">
+            +{extra.length}
+          </span>
+          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-20 hidden group-hover/instr:block w-max max-w-[200px] px-2.5 py-1.5 rounded-lg text-[11px] leading-relaxed bg-surface-900 dark:bg-surface-100 text-white dark:text-surface-900 shadow-lg">
+            {extra.map((i) => i.name).join(', ')}
+          </span>
+        </span>
+      )}
+    </div>
+  )
+}
 
 const Courses = () => {
   const navigate = useNavigate()
@@ -246,6 +270,7 @@ const Courses = () => {
 
                 <div className="p-4 sm:p-5 flex flex-col flex-1">
                   <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
+                  <InstructorLine instructors={course.instructors} />
                   {course.description && (
                     <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
                   )}

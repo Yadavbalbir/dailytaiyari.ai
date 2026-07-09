@@ -36,6 +36,7 @@ class Course(TimeStampedModel):
     
     # Visual
     icon = models.ImageField(upload_to='course_icons/', blank=True, null=True)
+    thumbnail = models.ImageField(upload_to='course_thumbnails/', blank=True, null=True)
     color = models.CharField(max_length=7, default='#3B82F6')  # Hex color
     
     # Metadata
