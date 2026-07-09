@@ -8,16 +8,21 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X, Users } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X } from 'lucide-react'
 
 const InstructorLine = ({ instructors = [] }) => {
   if (!instructors.length) return null
   const shown = instructors.slice(0, 2)
   const extra = instructors.slice(2)
+  const label = instructors.length > 1 ? 'Instructors' : 'Instructor'
   return (
-    <div className="flex items-center gap-1.5 mt-2 text-xs text-surface-500 min-w-0">
-      <Users size={13} className="shrink-0 text-surface-400" />
-      <span className="truncate">
+    <div className="flex items-center gap-1.5 mt-2 text-xs min-w-0">
+      <span className="inline-flex items-center gap-1 shrink-0 text-primary-600 dark:text-primary-400 font-semibold uppercase tracking-wide text-[10px]">
+        <GraduationCap size={13} className="shrink-0" />
+        {label}
+      </span>
+      <span className="text-surface-300 dark:text-surface-600 shrink-0">·</span>
+      <span className="truncate text-surface-600 dark:text-surface-300 font-medium">
         {shown.map((i) => i.name).join(', ')}
       </span>
       {extra.length > 0 && (
