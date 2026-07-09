@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
+import 'react-easy-crop/react-easy-crop.css'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ZoomIn, ZoomOut, Check } from 'lucide-react'
 
@@ -91,6 +92,7 @@ const ImageCropper = ({ image, onCropComplete, onCancel, aspect = 1, cropShape =
                         zoom={zoom}
                         aspect={aspect}
                         cropShape={cropShape}
+                        objectFit="contain"
                         showGrid={cropShape === 'rect'}
                         onCropChange={onCropChange}
                         onCropComplete={onCropCompleteInternal}
