@@ -230,11 +230,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Enrolled courses — quick access */}
-      {enrolledCourses.length > 0 && (
-        <EnrolledCoursesSlider courses={enrolledCourses} navigate={navigate} />
-      )}
-
       {/* Today's Progress Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -469,6 +464,11 @@ const Dashboard = () => {
           />
         </div>
       </div>
+
+      {/* Enrolled courses — quick access */}
+      {enrolledCourses.length > 0 && (
+        <EnrolledCoursesSlider courses={enrolledCourses} navigate={navigate} />
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
