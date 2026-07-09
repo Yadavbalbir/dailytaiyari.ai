@@ -3,7 +3,7 @@ import Cropper from 'react-easy-crop'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ZoomIn, ZoomOut, Check } from 'lucide-react'
 
-const ImageCropper = ({ image, onCropComplete, onCancel }) => {
+const ImageCropper = ({ image, onCropComplete, onCancel, aspect = 1, cropShape = 'round', title = 'Crop Profile Photo' }) => {
     const [crop, setCrop] = useState({ x: 0, y: 0 })
     const [zoom, setZoom] = useState(1)
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
@@ -78,7 +78,7 @@ const ImageCropper = ({ image, onCropComplete, onCancel }) => {
                 className="bg-white dark:bg-surface-900 rounded-3xl overflow-hidden w-full max-w-xl shadow-2xl border border-surface-200 dark:border-surface-800"
             >
                 <div className="p-6 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
-                    <h3 className="text-xl font-bold font-display">Crop Profile Photo</h3>
+                    <h3 className="text-xl font-bold font-display">{title}</h3>
                     <button onClick={onCancel} className="btn-icon">
                         <X size={20} />
                     </button>
@@ -89,9 +89,9 @@ const ImageCropper = ({ image, onCropComplete, onCancel }) => {
                         image={image}
                         crop={crop}
                         zoom={zoom}
-                        aspect={1}
-                        cropShape="round"
-                        showGrid={false}
+                        aspect={aspect}
+                        cropShape={cropShape}
+                        showGrid={cropShape === 'rect'}
                         onCropChange={onCropChange}
                         onCropComplete={onCropCompleteInternal}
                         onZoomChange={onZoomChange}

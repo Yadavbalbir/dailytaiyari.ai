@@ -7,7 +7,7 @@ import {
     ArrowLeft, Plus, ChevronRight, ChevronDown, Loader2, Layers, Book,
     FileText, ListChecks, GraduationCap, Pencil, Eye, Video, FileType,
     Sparkles, HelpCircle, ClipboardList, Clock, Users, X, CheckCircle2, Save,
-    Code2, Trash2,
+    Code2, Trash2, Image as ImageIcon, Upload,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
@@ -15,6 +15,7 @@ import {
     EntityModal, ConfirmDialog, RowActions, QuestionModal, formatApiError, QTYPE_LABEL,
 } from '../components/admin/builderShared'
 import Loading from '../components/common/Loading'
+import ImageCropper from '../components/common/ImageCropper'
 
 /* Content-type icon + tint */
 const CONTENT_ICON = { video: Video, pdf: FileType, notes: FileText, revision: FileText, formula: Sparkles, interactive: Sparkles }
@@ -900,6 +901,102 @@ const InstructorsModal = ({ course, onClose, onSaved }) => {
     )
 }
 
+const ThumbnailModal = ({ course, onClose, onSaved }) => {
+    const [preview, setPreview] = useState(course.thumbnail || null)
+    const [file, setFile] = useState(null)
+    const [tempImage, setTempImage] = useState(null)
+    const [showCropper, setShowCropper] = useState(false)
+
+    const saveMutation = useMutation({
+        mutationFn: () => svc.updateCourseThumbnail(course.id, file),
+        onSuccess: () => {
+            toast.success('Thumbnail updated')
+            onSaved?.()
+            onClose()
+        },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const onPick = (e) => {
+        const f = e.target.files?.[0]
+        if (!f) return
+        if (!f.type.startsWith('image/')) { toast.error('Please choose an image file'); return }
+        const reader = new FileReader()
+        reader.onload = () => { setTempImage(reader.result); setShowCropper(true) }
+        reader.readAsDataURL(f)
+        e.target.value = ''
+    }
+
+    const onCropped = (blob) => {
+        const cropped = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' })
+        setFile(cropped)
+        setPreview(URL.createObjectURL(blob))
+        setShowCropper(false)
+        setTempImage(null)
+    }
+
+    return (
+        <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                className="card w-full max-w-lg overflow-hidden flex flex-col"
+                initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+            >
+                <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold truncate">Course thumbnail</h3>
+                        <p className="text-xs text-surface-500">Shown on course tiles. Recommended 16:9 — you can crop after choosing.</p>
+                    </div>
+                    <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                    <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                        {preview ? (
+                            <img src={preview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-surface-400">
+                                <ImageIcon className="w-8 h-8 mb-2" />
+                                <p className="text-sm">No thumbnail yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <label className="btn-secondary w-full inline-flex items-center justify-center gap-2 cursor-pointer">
+                        <Upload className="w-4 h-4" /> {preview ? 'Choose a different image' : 'Choose image'}
+                        <input type="file" accept="image/*" onChange={onPick} className="hidden" />
+                    </label>
+                </div>
+
+                <div className="flex justify-end gap-2 p-4 border-t border-surface-200 dark:border-surface-800">
+                    <button onClick={onClose} className="btn-secondary text-sm px-4 py-2">Cancel</button>
+                    <button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={!file || saveMutation.isPending}
+                        className="btn-primary text-sm px-4 py-2 inline-flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save thumbnail
+                    </button>
+                </div>
+            </motion.div>
+
+            {showCropper && (
+                <ImageCropper
+                    image={tempImage}
+                    aspect={16 / 9}
+                    cropShape="rect"
+                    title="Crop Course Thumbnail"
+                    onCropComplete={onCropped}
+                    onCancel={() => { setShowCropper(false); setTempImage(null) }}
+                />
+            )}
+        </motion.div>
+    )
+}
+
 const CourseManager = () => {
     const { courseId } = useParams()
     const navigate = useNavigate()
@@ -911,6 +1008,7 @@ const CourseManager = () => {
     const [modal, setModal] = useState(null)   // { type, instance, extra }
     const [del, setDel] = useState(null)        // { type, instance, label }
     const [instructorsOpen, setInstructorsOpen] = useState(false)
+    const [thumbnailOpen, setThumbnailOpen] = useState(false)
 
     const { data: courses = [], isLoading } = useQuery({
         queryKey: ['cb-courses'],
@@ -997,6 +1095,11 @@ const CourseManager = () => {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {course && isAdmin && (
+                        <button onClick={() => setThumbnailOpen(true)} className="btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex">
+                            <ImageIcon className="w-3.5 h-3.5" /> Thumbnail
+                        </button>
+                    )}
+                    {course && isAdmin && (
                         <button onClick={() => setInstructorsOpen(true)} className="btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex">
                             <Users className="w-3.5 h-3.5" /> Instructors
                         </button>
@@ -1035,6 +1138,9 @@ const CourseManager = () => {
             <AnimatePresence>
                 {instructorsOpen && course && (
                     <InstructorsModal course={course} onClose={() => setInstructorsOpen(false)} onSaved={() => queryClient.invalidateQueries({ queryKey: ['cb-courses'] })} />
+                )}
+                {thumbnailOpen && course && (
+                    <ThumbnailModal course={course} onClose={() => setThumbnailOpen(false)} onSaved={() => { queryClient.invalidateQueries({ queryKey: ['cb-courses'] }); queryClient.invalidateQueries({ queryKey: ['availableCourses'] }) }} />
                 )}
                 {modal && (
                     <EntityModal
