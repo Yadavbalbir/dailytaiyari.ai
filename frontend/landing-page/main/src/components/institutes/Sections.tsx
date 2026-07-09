@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Reveal from "./Reveal";
+import LeadCTAButtons from "./LeadCTAButtons";
 import {
   Building2,
   School,
@@ -19,7 +19,6 @@ import {
   Cloud,
   Bot,
   MessagesSquare,
-  ArrowRight,
   CheckCircle2,
   TrendingUp,
   Clock,
@@ -357,20 +356,7 @@ export function FinalCTA() {
                 See how your own branded learning portal could look. Book a personalized demo and
                 we&apos;ll walk you through it.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link
-                  href="mailto:hello@dailytaiyari.in?subject=Demo%20request%20for%20our%20institute"
-                  className="px-8 py-4 bg-white text-primary-700 rounded-xl font-bold text-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                  Book a Demo <ArrowRight className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="mailto:hello@dailytaiyari.in?subject=Talk%20to%20DailyTaiyari"
-                  className="px-8 py-4 bg-white/10 border-2 border-white/40 text-white rounded-xl font-bold text-lg hover:bg-white/20 transition-all text-center"
-                >
-                  Talk to Us
-                </Link>
-              </div>
+              <LeadCTAButtons />
               <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                 {points.map((p) => (
                   <span key={p} className="flex items-center gap-2 text-white/90 text-sm font-medium">

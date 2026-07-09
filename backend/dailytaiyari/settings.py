@@ -271,6 +271,7 @@ REST_FRAMEWORK = {
         'quiz_submit': '60/hour',  # Rate limit quiz submissions
         'code_run': '120/hour',  # Rate limit "run sample" code executions
         'code_submit': '120/hour',  # Rate limit graded code submissions
+        'platform_lead': '20/hour',  # Public demo/contact form submissions
     }
 }
 
@@ -291,6 +292,12 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 CORS_ALLOW_CREDENTIALS = True
+# Allow the marketing site + demo portal (any *.dailytaiyari.in / *.dailytaiyari.ai
+# subdomain, plus the apex) to call the public platform endpoints cross-origin.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://([a-z0-9-]+\.)?dailytaiyari\.in$',
+    r'^https://([a-z0-9-]+\.)?dailytaiyari\.ai$',
+]
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -319,6 +326,8 @@ OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 #   'smtp'    -> any SMTP host (Hostinger mailbox, SendGrid SMTP, etc.)
 #   'console' -> print emails to stdout (local dev default)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='DoNotReply@dailytaiyari.in')
+# Where inbound marketing-site leads (demo bookings, contact messages) are sent.
+PLATFORM_NOTIFICATION_EMAIL = config('PLATFORM_NOTIFICATION_EMAIL', default='balbir.ms24@gmail.com')
 EMAIL_PROVIDER = config('EMAIL_PROVIDER', default='console' if DEBUG else 'azure').lower()
 
 if EMAIL_PROVIDER == 'azure':

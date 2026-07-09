@@ -29,6 +29,7 @@ urlpatterns = [
     
     # API v1 endpoints
     path('api/v1/tenant/<uuid:pk>/', __import__('core.views').views.TenantDetailView.as_view(), name='tenant-detail'),
+    path('api/v1/platform/', include('core.urls')),
     path('api/v1/auth/', include('users.urls')),
     path('api/v1/courses/', include('exams.urls')),
     path('api/v1/content/', include('content.urls')),

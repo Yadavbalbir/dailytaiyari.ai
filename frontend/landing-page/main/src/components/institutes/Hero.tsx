@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Globe, Sparkles, LayoutDashboard, Trophy, BookOpen, LineChart } from "lucide-react";
+import { ArrowRight, Globe, Sparkles, LayoutDashboard, Trophy, BookOpen, LineChart, Smartphone } from "lucide-react";
+import Typewriter from "./Typewriter";
+import { openLeadDialog } from "@/lib/leads";
 
 export default function Hero() {
   return (
@@ -39,6 +41,19 @@ export default function Hero() {
               </span>
             </motion.h1>
 
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-2xl sm:text-3xl font-display font-semibold text-surface-800 dark:text-surface-100 min-h-[2.5rem]"
+            >
+              Get a website for your{" "}
+              <Typewriter
+                words={["Coaching", "School", "College", "Academy", "Test Series", "Institute"]}
+                className="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-accent-500"
+              />
+            </motion.div>
+
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -56,12 +71,12 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.25 }}
               className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
             >
-              <Link
-                href="#demo"
+              <button
+                onClick={() => openLeadDialog("demo")}
                 className="px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-lg shadow-glow transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
               >
                 Book a Demo <ArrowRight className="w-5 h-5" />
-              </Link>
+              </button>
               <Link
                 href="#features"
                 className="px-8 py-4 bg-white dark:bg-surface-800 border-2 border-surface-200 dark:border-surface-700 hover:border-primary-500 text-surface-900 dark:text-white rounded-xl font-bold text-lg transition-all hover:scale-105 text-center"
@@ -74,10 +89,16 @@ export default function Hero() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.35 }}
-              className="text-surface-500 dark:text-surface-400 font-medium flex items-center gap-2"
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-3"
             >
-              <Globe className="w-4 h-4 text-primary-500" />
-              Built for coaching institutes, schools &amp; colleges
+              <span className="text-surface-500 dark:text-surface-400 font-medium flex items-center gap-2">
+                <Globe className="w-4 h-4 text-primary-500" />
+                Built for coaching institutes, schools &amp; colleges
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400 text-sm font-semibold">
+                <Smartphone className="w-3.5 h-3.5" />
+                Mobile app coming soon
+              </span>
             </motion.p>
           </div>
 

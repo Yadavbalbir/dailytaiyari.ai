@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, GraduationCap } from "lucide-react";
+import { openLeadDialog } from "@/lib/leads";
 
 const links = [
   { name: "Who it's for", href: "#audience" },
@@ -43,12 +44,12 @@ export default function InstituteNav() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="#demo"
+            <button
+              onClick={() => openLeadDialog("demo")}
               className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold shadow-glow transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
             >
               <GraduationCap className="w-4 h-4" /> Book a Demo
-            </Link>
+            </button>
           </div>
 
           <button
@@ -81,9 +82,15 @@ export default function InstituteNav() {
                 </Link>
               ))}
               <div className="pt-3 flex flex-col gap-3">
-                <Link href="#demo" onClick={() => setOpen(false)} className="w-full px-4 py-2 bg-primary-600 text-white rounded-xl text-center font-semibold">
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    openLeadDialog("demo");
+                  }}
+                  className="w-full px-4 py-2 bg-primary-600 text-white rounded-xl text-center font-semibold"
+                >
                   Book a Demo
-                </Link>
+                </button>
               </div>
             </div>
           </motion.div>
