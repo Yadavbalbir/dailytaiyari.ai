@@ -5,6 +5,7 @@ import FAQ from "@/components/institutes/FAQ";
 import ProductTour from "@/components/institutes/ProductTour";
 import JsonLd from "@/components/institutes/JsonLd";
 import LeadDialogs from "@/components/institutes/LeadDialogs";
+import Pricing from "@/components/institutes/Pricing";
 import { Audience, Pillars, Hooks, OfflineBatches, Features, HowItWorks, Grow, FinalCTA } from "@/components/institutes/Sections";
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
         <Features />
         <HowItWorks />
         <Grow />
+        <Pricing />
         <FAQ />
         <FinalCTA />
       </main>
