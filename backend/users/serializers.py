@@ -69,16 +69,37 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = ['email', 'first_name', 'last_name', 'phone', 'password', 'password_confirm']
 
+    def validate_email(self, value):
+        """Reject duplicate emails within the tenant with a clean 400 instead of
+        letting the DB unique constraint raise a 500."""
+        request = self.context.get('request')
+        tenant = getattr(request, 'tenant', None)
+        qs = User.objects.filter(email__iexact=value)
+        if tenant is not None:
+            qs = qs.filter(tenant=tenant)
+        if qs.exists():
+            raise serializers.ValidationError(
+                'An account with this email already exists. Please sign in instead.'
+            )
+        return value
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match'})
         return attrs
 
     def create(self, validated_data):
+        from django.db import IntegrityError
         password = validated_data.pop('password')
         validated_data.pop('password_confirm')
         tenant = validated_data.pop('tenant')
-        user = User.objects.create_user(password=password, tenant=tenant, **validated_data)
+        try:
+            user = User.objects.create_user(password=password, tenant=tenant, **validated_data)
+        except IntegrityError:
+            # Safety net for a race between validate_email and insert.
+            raise serializers.ValidationError(
+                {'email': ['An account with this email already exists. Please sign in instead.']}
+            )
         return user
 
 
