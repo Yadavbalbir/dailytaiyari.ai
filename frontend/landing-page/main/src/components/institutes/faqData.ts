@@ -30,6 +30,18 @@ export const faqs: Faq[] = [
     a: "Yes. Schedule live classes and events with join links and reminders, so your batch attends sessions right inside your branded portal — alongside recordings, notes and practice.",
   },
   {
+    q: "Does it include an AI tutor for doubt solving?",
+    a: "Yes. Every student gets an always-on AI tutor that answers doubts instantly with step-by-step explanations, worked examples and formulas — 24/7, right inside your branded portal — so learning never stalls after class hours.",
+  },
+  {
+    q: "Can students practice coding and get auto-evaluated?",
+    a: "Yes. The built-in coding lab lets students write and run code against sample and hidden test cases, with automatic grading, verdicts, and runtime and memory feedback — no manual checking needed.",
+  },
+  {
+    q: "How does gamification keep students engaged?",
+    a: "Students earn XP, levels, daily streaks and achievement badges, and compete on weekly and all-time leaderboards. This healthy competition keeps them consistent and coming back to your portal every day.",
+  },
+  {
     q: "Is it mobile friendly?",
     a: "Yes. The portal is fully responsive and works smoothly on phones, tablets and desktops — no app download required.",
   },

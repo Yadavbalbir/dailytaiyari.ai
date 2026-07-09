@@ -26,7 +26,7 @@ export default function Hero() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 font-semibold text-sm"
             >
               <Sparkles className="w-4 h-4" />
-              <span>White-label learning platform for institutes</span>
+              <span>AI-powered white-label LMS for institutes</span>
             </motion.div>
 
             <motion.h1
@@ -60,9 +60,10 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="text-lg lg:text-xl text-surface-600 dark:text-surface-400 max-w-2xl"
             >
-              Launch your own branded exam-prep portal — on your own domain. Run live classes,
-              publish notes and question banks, conduct quizzes and full mock tests, build a
-              student community, and track every student&apos;s performance and skills in real time.
+              Launch your own branded, AI-powered exam-prep portal — on your own domain. Give students
+              a 24/7 AI doubt-solving tutor, run live classes, publish notes and question banks, conduct
+              quizzes, full mock tests and coding practice, gamify learning with leaderboards, and track
+              every student&apos;s performance in real time.
             </motion.p>
 
             <motion.div
