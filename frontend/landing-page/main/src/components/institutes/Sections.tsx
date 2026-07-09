@@ -89,7 +89,7 @@ export function Audience() {
           eyebrow="Who it's for"
           title="One platform for every"
           highlight="learning organization"
-          subtitle="Whether you teach a hundred students or a hundred thousand, DailyTaiyari adapts to how you work."
+          subtitle="Whether you need coaching institute software, a school website and portal, or a college LMS, DailyTaiyari adapts to how you teach — from a hundred students to a hundred thousand."
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {items.map((it, i) => (

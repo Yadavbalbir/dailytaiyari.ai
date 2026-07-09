@@ -16,6 +16,14 @@ import {
   ChevronRight,
   CalendarClock,
   ShieldCheck,
+  GripVertical,
+  Plus,
+  Image as ImageIcon,
+  Eye,
+  FileQuestion,
+  UserCheck,
+  Users,
+  Sliders,
 } from "lucide-react";
 
 /* ---------------------------------------------------------------- */
@@ -263,6 +271,149 @@ function AnalyticsPreview() {
 }
 
 /* ---------------------------------------------------------------- */
+/* 5. Admin — course builder preview                                */
+/* ---------------------------------------------------------------- */
+function CourseBuilderPreview() {
+  const modules = [
+    { name: "Chapter 1 · Kinematics", items: ["Notes", "Video", "Quiz"], open: true },
+    { name: "Chapter 2 · Laws of Motion", items: ["Notes", "Assignment"], open: false },
+    { name: "Chapter 3 · Work & Energy", items: ["Notes", "Mock test"], open: false },
+  ];
+  return (
+    <BrowserFrame path="business.your-institute.com/admin/courses/builder">
+      <div className="flex gap-4">
+        {/* course meta + thumbnail */}
+        <div className="hidden sm:block w-32 shrink-0">
+          <div className="rounded-xl overflow-hidden border border-surface-200 dark:border-surface-800">
+            <div className="h-16 bg-gradient-to-br from-primary-500 to-accent-500 relative">
+              <span className="absolute bottom-1 right-1 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 text-white text-[9px] font-semibold">
+                <ImageIcon className="w-2.5 h-2.5" /> Cover
+              </span>
+            </div>
+            <div className="p-2">
+              <div className="h-2 w-4/5 rounded bg-surface-300 dark:bg-surface-700 mb-1.5" />
+              <div className="h-1.5 w-full rounded bg-surface-200 dark:bg-surface-800" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400 text-[10px] font-bold justify-center">
+            <Eye className="w-3 h-3" /> Published
+          </div>
+        </div>
+
+        {/* curriculum builder */}
+        <div className="flex-1 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-surface-500 uppercase tracking-wider">Curriculum</span>
+            <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary-600 text-white text-[10px] font-bold"><Plus className="w-3 h-3" /> Add chapter</span>
+          </div>
+          {modules.map((m) => (
+            <div key={m.name} className="rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-2.5">
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-3.5 h-3.5 text-surface-400" />
+                <span className="text-xs font-semibold text-surface-900 dark:text-white">{m.name}</span>
+              </div>
+              {m.open && (
+                <div className="mt-2 pl-5 flex flex-wrap gap-1.5">
+                  {m.items.map((it) => (
+                    <span key={it} className="px-2 py-0.5 rounded-md bg-surface-100 dark:bg-surface-800 text-[10px] font-medium text-surface-600 dark:text-surface-300">{it}</span>
+                  ))}
+                  <span className="px-2 py-0.5 rounded-md border border-dashed border-surface-300 dark:border-surface-700 text-[10px] font-medium text-primary-600 flex items-center gap-0.5"><Plus className="w-2.5 h-2.5" /> Add</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* 6. Admin — test & question bank builder preview                  */
+/* ---------------------------------------------------------------- */
+function TestBuilderPreview() {
+  const qtypes = ["MCQ", "Numerical", "Assertion", "Match", "Image-based"];
+  return (
+    <BrowserFrame path="business.your-institute.com/admin/mock-tests/builder">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-surface-500 uppercase tracking-wider">Add question</span>
+          <span className="flex items-center gap-1 text-[10px] text-surface-500"><FileQuestion className="w-3.5 h-3.5" /> Question bank · 1,240</span>
+        </div>
+        {/* question type chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {qtypes.map((q, i) => (
+            <span key={q} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${i === 0 ? "bg-primary-600 text-white" : "bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300"}`}>{q}</span>
+          ))}
+        </div>
+        {/* question editor */}
+        <div className="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-3 space-y-2">
+          <div className="h-2.5 w-full rounded bg-surface-200 dark:bg-surface-800" />
+          <div className="h-2.5 w-3/5 rounded bg-surface-200 dark:bg-surface-800" />
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${i === 2 ? "border-success-400 bg-success-50 dark:bg-success-900/20" : "border-surface-200 dark:border-surface-800"}`}>
+                <span className={`w-3.5 h-3.5 rounded-full border-2 ${i === 2 ? "border-success-500 bg-success-500" : "border-surface-300 dark:border-surface-600"}`} />
+                <span className="h-2 flex-1 rounded bg-surface-200 dark:bg-surface-800" />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 pt-1 text-[10px] text-surface-500">
+            <span className="px-2 py-0.5 rounded bg-success-100 dark:bg-success-900/30 text-success-700 font-semibold">+4 marks</span>
+            <span className="px-2 py-0.5 rounded bg-error-100 dark:bg-error-900/30 text-error-700 font-semibold">−1 negative</span>
+            <span className="ml-auto px-2 py-0.5 rounded bg-primary-600 text-white font-bold">Save</span>
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* 7. Admin — management console preview                            */
+/* ---------------------------------------------------------------- */
+function ManagementPreview() {
+  const requests = [
+    { name: "Enrollment · JEE 2027 batch", tone: "warning", action: "Approve" },
+    { name: "Enrollment · NEET foundation", tone: "warning", action: "Approve" },
+  ];
+  return (
+    <BrowserFrame path="business.your-institute.com/admin">
+      <div className="space-y-3">
+        {/* KPI row */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { icon: Users, label: "Students", v: "312", c: "text-primary-600 bg-primary-100 dark:bg-primary-900/30" },
+            { icon: UserCheck, label: "Pending", v: "6", c: "text-warning-600 bg-warning-100 dark:bg-warning-900/30" },
+            { icon: Sliders, label: "Courses", v: "18", c: "text-accent-600 bg-accent-100 dark:bg-accent-900/30" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-2.5">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center mb-1.5 ${s.c}`}><s.icon className="w-3.5 h-3.5" /></div>
+              <div className="text-sm font-bold text-surface-900 dark:text-white">{s.v}</div>
+              <div className="text-[10px] text-surface-500">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        {/* approval queue */}
+        <div className="rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 p-3">
+          <div className="text-[10px] font-bold text-surface-500 uppercase mb-2">Enrollment requests</div>
+          <div className="space-y-2">
+            {requests.map((r) => (
+              <div key={r.name} className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-surface-100 dark:bg-surface-800 flex items-center justify-center text-surface-400 text-[10px] font-bold">S</span>
+                <span className="text-[11px] text-surface-700 dark:text-surface-300 flex-1 truncate">{r.name}</span>
+                <span className="px-2 py-0.5 rounded-md bg-success-500 text-white text-[10px] font-bold">{r.action}</span>
+                <span className="px-2 py-0.5 rounded-md bg-surface-100 dark:bg-surface-800 text-surface-500 text-[10px] font-bold">Deny</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ---------------------------------------------------------------- */
 /* Showcase row                                                     */
 /* ---------------------------------------------------------------- */
 function ShowcaseRow({
@@ -380,6 +531,62 @@ export default function ProductTour() {
               "Individual and batch-level insights in real time",
             ]}
             preview={<AnalyticsPreview />}
+          />
+        </div>
+
+        {/* Admin / teacher sub-section */}
+        <div className="text-center max-w-3xl mx-auto mt-24 mb-16">
+          <span className="inline-block px-3 py-1 rounded-full bg-accent-50 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400 text-xs font-bold uppercase tracking-wider mb-4">
+            For your team
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-display font-bold text-surface-900 dark:text-white mb-4">
+            A powerful{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-500 to-primary-500">
+              admin &amp; teacher back-office
+            </span>
+          </h2>
+          <p className="text-lg text-surface-600 dark:text-surface-400">
+            Build courses, author tests and manage your whole institute — no coding, no
+            spreadsheets, no separate tools.
+          </p>
+        </div>
+
+        <div className="space-y-20">
+          <ShowcaseRow
+            eyebrow="Course builder"
+            title="Build a full course in minutes — no code"
+            desc="Create courses with a drag-and-drop curriculum, add notes, videos, quizzes, assignments and mock tests to each chapter, upload a cover thumbnail, and publish when you're ready."
+            points={[
+              "Drag-and-drop chapters and lessons",
+              "Mix notes, videos, quizzes, homework and tests",
+              "Cover thumbnails, drafts and one-click publish",
+            ]}
+            preview={<CourseBuilderPreview />}
+          />
+
+          <ShowcaseRow
+            reverse
+            eyebrow="Test & question bank"
+            title="Author exams from a reusable question bank"
+            desc="Add MCQ, numerical, assertion-reason, match and image-based questions, set marks and negative marking, organize them into sections, and reuse them across tests and quizzes."
+            points={[
+              "Five question types with rich content and images",
+              "Custom marks, negative marking and sections",
+              "Reusable bank across tests, quizzes and batches",
+            ]}
+            preview={<TestBuilderPreview />}
+          />
+
+          <ShowcaseRow
+            eyebrow="Management console"
+            title="Run the whole institute from one place"
+            desc="Approve enrollment requests, manage students and batches, review mock-test submissions, moderate the community, and suspend or restore accounts — all with role-based access for your team."
+            points={[
+              "One-click enrollment approvals and student management",
+              "Review submissions and moderate community posts",
+              "Role-based access for admins, instructors and staff",
+            ]}
+            preview={<ManagementPreview />}
           />
         </div>
 
