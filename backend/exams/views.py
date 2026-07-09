@@ -262,7 +262,10 @@ class StudyCoursesView(APIView):
                 'is_featured': getattr(e.course, 'is_featured', False),
                 'course_type': getattr(e.course, 'course_type', '') or '',
                 'description': getattr(e.course, 'description', '') or '',
-                'thumbnail': (e.course.icon.url if getattr(e.course, 'icon', None) else None),
+                'thumbnail': (
+                    e.course.thumbnail.url if getattr(e.course, 'thumbnail', None)
+                    else (e.course.icon.url if getattr(e.course, 'icon', None) else None)
+                ),
                 'enrollment_status': e.status,
             }
             if e.status == 'approved':
