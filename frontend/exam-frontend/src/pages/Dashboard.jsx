@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +6,7 @@ import { useAuthStore } from '../context/authStore'
 import { analyticsService } from '../services/analyticsService'
 import { contentService } from '../services/contentService'
 import { quizService } from '../services/quizService'
+import { courseService } from '../services/courseService'
 
 // Components
 import ProgressRing from '../components/common/ProgressRing'
@@ -14,6 +15,7 @@ import StatCard from '../components/common/StatCard'
 import QuickActionButton from '../components/common/QuickActionButton'
 import TopicMasteryChip from '../components/common/TopicMasteryChip'
 import Loading from '../components/common/Loading'
+import CourseThumbnail from '../components/course/CourseThumbnail'
 import {
   Trophy,
   Target,
@@ -31,9 +33,97 @@ import {
   PartyPopper,
   Sparkle,
   ChevronRight,
+  ChevronLeft,
+  ArrowRight,
+  Compass,
   Hand,
   CheckCircle2
 } from 'lucide-react'
+
+const EnrolledCoursesSlider = ({ courses, navigate }) => {
+  const scrollRef = useRef(null)
+
+  const scrollBy = (dir) => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 280), behavior: 'smooth' })
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-display font-bold flex items-center gap-2">
+          <BookOpen size={20} className="text-primary-500" /> Your courses
+        </h2>
+        <div className="flex items-center gap-2">
+          {courses.length > 1 && (
+            <div className="hidden sm:flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollBy(-1)}
+                aria-label="Scroll left"
+                className="btn-icon border border-surface-200 dark:border-surface-700"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBy(1)}
+                aria-label="Scroll right"
+                className="btn-icon border border-surface-200 dark:border-surface-700"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate('/study')}
+            className="text-sm font-medium text-primary-600 dark:text-primary-400 inline-flex items-center gap-1 hover:gap-1.5 transition-all"
+          >
+            View all <ArrowRight size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory scrollbar-hide"
+      >
+        {courses.map((course) => (
+          <button
+            key={course.id}
+            type="button"
+            onClick={() => navigate(`/study/course/${course.id}`)}
+            className="group snap-start shrink-0 w-[260px] text-left card p-0 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all"
+          >
+            <CourseThumbnail course={course} />
+            <div className="p-4">
+              <h3 className="font-bold truncate">{course.name}</h3>
+              <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400">
+                Continue learning
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </div>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => navigate('/courses')}
+          className="snap-start shrink-0 w-[200px] card border-2 border-dashed border-surface-200 dark:border-surface-700 flex flex-col items-center justify-center gap-2 text-surface-500 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+        >
+          <Compass size={26} />
+          <span className="text-sm font-medium">Browse courses</span>
+        </button>
+      </div>
+    </motion.div>
+  )
+}
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -46,6 +136,12 @@ const Dashboard = () => {
     queryKey: ['dashboardStats'],
     queryFn: () => analyticsService.getDashboardStats(),
   })
+
+  const { data: enrolledData } = useQuery({
+    queryKey: ['studyCourses'],
+    queryFn: () => courseService.getStudyCourses(),
+  })
+  const enrolledCourses = enrolledData?.courses || []
 
   const { data: studyPlan, isLoading: planLoading } = useQuery({
     queryKey: ['todayStudyPlan', selectedExamId],
@@ -133,6 +229,11 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Enrolled courses — quick access */}
+      {enrolledCourses.length > 0 && (
+        <EnrolledCoursesSlider courses={enrolledCourses} navigate={navigate} />
+      )}
 
       {/* Today's Progress Card */}
       <motion.div
