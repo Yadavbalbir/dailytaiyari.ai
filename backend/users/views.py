@@ -262,7 +262,12 @@ class UserView(generics.RetrieveUpdateAPIView):
 
 
 class OnboardingView(APIView):
-    """Complete user onboarding with course selection."""
+    """Complete user onboarding — saves study goals only.
+
+    Course selection/enrollment is intentionally NOT part of onboarding.
+    After onboarding, students request enrollment from the Courses tab
+    (creating a pending CourseEnrollment that an admin approves).
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -273,40 +278,11 @@ class OnboardingView(APIView):
         user = request.user
         profile = user.profile
 
-        # Update profile
+        # Update profile goals
         profile.target_year = data.get('target_year')
         profile.daily_study_goal_minutes = data['daily_study_goal_minutes']
         profile.preferred_study_time = data['preferred_study_time']
-
-        # Set primary course
-        try:
-            primary_course = Course.objects.get(id=data['primary_course_id'])
-            profile.primary_course = primary_course
-        except Course.DoesNotExist:
-            return Response(
-                {'error': 'Primary course not found'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         profile.save()
-
-        # Create course enrollments — primary course auto-approved at onboarding
-        CourseEnrollment.objects.get_or_create(
-            student=profile,
-            course=primary_course,
-            defaults={'is_active': True, 'status': 'approved', 'reviewed_at': timezone.now()}
-        )
-
-        for course_id in data.get('additional_course_ids', []):
-            try:
-                course = Course.objects.get(id=course_id)
-                CourseEnrollment.objects.get_or_create(
-                    student=profile,
-                    course=course,
-                    defaults={'is_active': True, 'status': 'pending'}
-                )
-            except Course.DoesNotExist:
-                pass
 
         # Mark user as onboarded
         user.is_onboarded = True

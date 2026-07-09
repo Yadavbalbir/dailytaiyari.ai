@@ -39,6 +39,15 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    // Suspended account: keep the session, flip the flag so the blocking
+    // overlay renders app-wide. Do NOT logout or redirect.
+    if (error.response?.status === 403 && error.response?.data?.code === 'account_suspended') {
+      import('../context/authStore')
+        .then(({ useAuthStore }) => useAuthStore.getState().markSuspended())
+        .catch(() => {})
+      return Promise.reject(error)
+    }
+
     // If 401 and not already retrying, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true

@@ -76,13 +76,31 @@ export const useAuthStore = create(
         set({ isLoading: true, error: null })
         try {
           await api.post('/auth/verify-email/', { email, code })
-          set({ isLoading: false })
+          // Reflect verification locally so any in-app verify gate clears.
+          const current = get().user
+          set({
+            isLoading: false,
+            user: current ? { ...current, is_email_verified: true } : current,
+          })
+          // Refresh profile if we're an authenticated, onboarded session.
+          if (get().isAuthenticated && get().isOnboarded) {
+            get().fetchProfile()
+          }
           return { success: true }
         } catch (error) {
           const message = error.response?.data?.error ||
             error.response?.data?.detail || 'Verification failed'
           set({ error: message, isLoading: false })
           return { success: false, error: message }
+        }
+      },
+
+      // Mark the current session as suspended (driven by a 403 account_suspended
+      // response). Keeps the session so the blocking overlay can show.
+      markSuspended: () => {
+        const current = get().user
+        if (current && !current.is_suspended) {
+          set({ user: { ...current, is_suspended: true } })
         }
       },
 
