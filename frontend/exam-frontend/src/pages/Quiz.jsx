@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
 import Loading from '../components/common/Loading'
+import SearchableSelect from '../components/common/SearchableSelect'
 import {
   Filter,
   Search,
@@ -25,9 +26,11 @@ const Quiz = () => {
   const navigate = useNavigate()
   const [showFilters, setShowFilters] = useState(false)
 
-  // Filter state
+  // Filter state. Course defaults to '' (All courses) so quizzes from every
+  // enrolled course are visible by default — otherwise a quiz created in a
+  // course other than the last-used one stays hidden until manually selected.
   const [filters, setFilters] = useState({
-    course: localStorage.getItem('study:lastCourseId') || '',
+    course: '',
     quiz_type: '',
     subject: '',
     topic: '',
@@ -69,16 +72,8 @@ const Quiz = () => {
     queryFn: () => quizService.getRecentAttempts(),
   })
 
-  // Default the exam to the shared selection (or first available) and persist it.
-  useEffect(() => {
-    const exams = filterOptions?.courses
-    if (!exams?.length) return
-    const isValid = (id) => id && exams.some((e) => e.id === id)
-    if (isValid(filters.course)) return
-    const stored = localStorage.getItem('study:lastCourseId')
-    setFilters((prev) => ({ ...prev, course: (isValid(stored) && stored) || exams[0].id }))
-  }, [filterOptions?.courses, filters.course])
-
+  // Persist a specific course selection for cross-page context, but never force
+  // one — an empty selection ("All courses") is a valid, respected state.
   useEffect(() => {
     if (filters.course) localStorage.setItem('study:lastCourseId', filters.course)
   }, [filters.course])
@@ -244,19 +239,27 @@ const Quiz = () => {
               {filterOptions?.courses?.length > 1 && (
                 <div>
                   <label className="block text-sm font-medium mb-2">Course</label>
-                  <div className="flex flex-wrap gap-2">
-                    {filterOptions.courses.map((course) => (
-                      <button
-                        key={course.id}
-                        onClick={() => updateFilter('course', course.id)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.course === course.id
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
-                          }`}
-                      >
-                        {course.name}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => updateFilter('course', '')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filters.course === ''
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700'
+                        }`}
+                    >
+                      All courses
+                    </button>
+                    <SearchableSelect
+                      options={filterOptions.courses.map((c) => ({ value: c.id, label: c.name }))}
+                      value={filters.course}
+                      onChange={(val) => updateFilter('course', val || '')}
+                      placeholder="Filter by course"
+                      searchPlaceholder="Search courses..."
+                      buttonClassName={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${filters.course
+                          ? 'bg-primary-500 text-white border-primary-500'
+                          : 'bg-surface-100 dark:bg-surface-800 border-surface-200 dark:border-surface-700 hover:bg-surface-200 dark:hover:bg-surface-700'
+                        }`}
+                    />
                   </div>
                 </div>
               )}
