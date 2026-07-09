@@ -15,7 +15,7 @@ const jetBrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "DailyTaiyari | EdTech Platform for Institutes, Schools & Colleges",
   description:
-    "A white-label EdTech platform for coaching institutes, schools and colleges. Go digital on your own domain — conduct tests, assign homework, run quizzes, share notes and track student performance and skills in real time.",
+    "A white-label EdTech platform for coaching institutes, schools and colleges. Go digital on your own domain — run live classes, conduct mock tests, assign homework, run quizzes, share notes, build a community and track student performance and skills in real time.",
 };
 
 export default function RootLayout({

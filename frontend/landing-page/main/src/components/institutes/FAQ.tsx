@@ -30,6 +30,10 @@ const faqs = [
     a: "Through real-time dashboards. Everyone sees performance, topic-wise strengths, skill mastery and engagement as students attempt quizzes and mock tests.",
   },
   {
+    q: "Can we run live classes inside the portal?",
+    a: "Yes. Schedule live classes and events with join links and reminders, so your batch attends sessions right inside your branded portal — alongside recordings, notes and practice.",
+  },
+  {
     q: "Is it mobile friendly?",
     a: "Yes. The portal is fully responsive and works smoothly on phones, tablets and desktops — no app download required.",
   },

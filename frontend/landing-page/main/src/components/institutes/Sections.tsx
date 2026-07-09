@@ -26,6 +26,8 @@ import {
   MapPin,
   BrainCircuit,
   Rocket,
+  Radio,
+  ShieldCheck,
 } from "lucide-react";
 
 function SectionHeading({
@@ -215,7 +217,8 @@ export function Features() {
   const features = [
     { icon: FileText, title: "Share notes & reading material", desc: "Publish structured notes, formula sheets and reading material — with diagrams and images embedded right where they're needed — and share instantly with any batch.", gradient: "from-primary-500 to-primary-600" },
     { icon: ClipboardList, title: "Assign & track homework", desc: "Set homework and assignments with due dates, let students submit online, and track who has completed what — no more chasing pending work.", gradient: "from-accent-500 to-accent-600" },
-    { icon: ListChecks, title: "Conduct tests & mock exams", desc: "Create timed, exam-like tests and full-length mock exams with instant auto-grading and detailed solutions.", gradient: "from-success-500 to-success-600" },
+    { icon: ListChecks, title: "Conduct tests & mock exams", desc: "Create timed, exam-like tests and full-length mock exams with a question palette, mark-for-review, resume-on-refresh, re-attempt limits, instant auto-grading and detailed solutions.", gradient: "from-success-500 to-success-600" },
+    { icon: Radio, title: "Live classes & events", desc: "Schedule live classes and events students join in a click, with reminders — bring your whole batch together online, right inside the portal.", gradient: "from-error-500 to-primary-500" },
     { icon: Database, title: "Smart question bank", desc: "Build a reusable bank of MCQ, numerical, assertion-reason, match and image-based questions across every subject and topic.", gradient: "from-warning-500 to-accent-600" },
     { icon: Sparkle, title: "Quizzes for daily practice", desc: "Spin up quick quizzes for daily practice and revision to keep concepts fresh between classes.", gradient: "from-accent-500 to-primary-500" },
     { icon: Target, title: "Personalized learning", desc: "Every student gets a learning experience tuned to their strengths and gaps, so weak areas get the practice they need.", gradient: "from-primary-500 to-success-500" },
@@ -223,7 +226,8 @@ export function Features() {
     { icon: BrainCircuit, title: "Skill & topic mastery", desc: "See exactly which concepts a student has mastered and which need work, so teaching stays targeted.", gradient: "from-primary-500 to-accent-500" },
     { icon: Trophy, title: "Gamification & leaderboards", desc: "Keep students hooked with XP, levels, daily streaks, badges and leaderboards that reward consistency.", gradient: "from-accent-500 to-primary-500" },
     { icon: Users, title: "Roles for your whole team", desc: "Separate access for admins, instructors and students — everyone gets the right tools and the right view.", gradient: "from-success-500 to-primary-500" },
-    { icon: Layers, title: "Batches, exams & enrollments", desc: "Organize multiple exams, subjects and batches, and manage student enrollments with simple approval flows.", gradient: "from-warning-500 to-accent-500" },
+    { icon: Layers, title: "Course catalog & enrollments", desc: "Publish courses with cover thumbnails and named instructors, organize exams, subjects and batches, and let students request enrollment with simple admin approval.", gradient: "from-warning-500 to-accent-500" },
+    { icon: ShieldCheck, title: "Secure verified onboarding", desc: "Email-verified sign-up, role-based access and account controls keep your portal secure — admins can approve, suspend or restore students anytime.", gradient: "from-success-500 to-primary-500" },
     { icon: Bot, title: "AI doubt assistant", desc: "Give students an always-on assistant to clear doubts instantly, so learning never stalls after class hours.", gradient: "from-primary-500 to-success-500" },
     { icon: MessagesSquare, title: "Community & discussion", desc: "Foster peer learning with discussion spaces where students ask, answer and stay engaged together.", gradient: "from-accent-500 to-warning-500" },
     { icon: MonitorSmartphone, title: "Works on any device", desc: "A responsive experience that feels great on phones, tablets and desktops — no app install required.", gradient: "from-success-500 to-accent-500" },

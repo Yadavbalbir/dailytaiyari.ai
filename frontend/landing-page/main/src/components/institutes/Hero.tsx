@@ -45,9 +45,9 @@ export default function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="text-lg lg:text-xl text-surface-600 dark:text-surface-400 max-w-2xl"
             >
-              Launch your own branded exam-prep portal — on your own domain. Publish notes,
-              question banks, quizzes and mock tests, and track every student&apos;s performance
-              and skills in real time.
+              Launch your own branded exam-prep portal — on your own domain. Run live classes,
+              publish notes and question banks, conduct quizzes and full mock tests, build a
+              student community, and track every student&apos;s performance and skills in real time.
             </motion.p>
 
             <motion.div

@@ -7,6 +7,7 @@ import { Menu, X, GraduationCap } from "lucide-react";
 
 const links = [
   { name: "Who it's for", href: "#audience" },
+  { name: "See it", href: "#tour" },
   { name: "Features", href: "#features" },
   { name: "How it works", href: "#how" },
   { name: "Grow", href: "#grow" },
