@@ -9,6 +9,17 @@ import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import { GraduationCap, CheckCircle2, Clock, ArrowRight, Settings2, Search, X } from 'lucide-react'
 
+// Course descriptions are stored as rich HTML. On the card we only want a
+// short plain-text preview, so strip tags and decode entities before
+// clamping — otherwise raw markup like "<h3>…</h3>" leaks into the UI.
+const stripHtml = (html) => {
+  if (!html) return ''
+  if (typeof window === 'undefined') return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const el = document.createElement('div')
+  el.innerHTML = html
+  return (el.textContent || el.innerText || '').replace(/\s+/g, ' ').trim()
+}
+
 const InstructorLine = ({ instructors = [] }) => {
   if (!instructors.length) return null
   const shown = instructors.slice(0, 2)
@@ -124,7 +135,7 @@ const Courses = () => {
       if (filter === 'enrolled' && status !== 'approved') return false
       if (filter === 'pending' && status !== 'pending') return false
       if (!q) return true
-      const haystack = [c.name, c.description, c.code, c.course_type]
+      const haystack = [c.name, stripHtml(c.description), c.code, c.course_type]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -291,7 +302,7 @@ const Courses = () => {
                   <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
                   <InstructorLine instructors={course.instructors} />
                   {course.description && (
-                    <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
+                    <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{stripHtml(course.description)}</p>
                   )}
 
                   <div className="mt-3">
