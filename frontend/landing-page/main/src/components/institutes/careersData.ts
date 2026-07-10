@@ -5,6 +5,7 @@ export interface JobOpening {
   type: string;
   location: string;
   experience: string;
+  level: "Internship" | "Junior" | "Mid" | "Senior";
   summary: string;
   responsibilities: string[];
   requirements: string[];
@@ -18,6 +19,7 @@ export const jobOpenings: JobOpening[] = [
     type: "Full-time",
     location: "Remote (India)",
     experience: "2–5 years",
+    level: "Mid",
     summary:
       "Build fast, accessible, delightful interfaces for the DailyTaiyari platform used by institutes and students across India.",
     responsibilities: [
@@ -40,6 +42,7 @@ export const jobOpenings: JobOpening[] = [
     type: "Internship",
     location: "Remote (India)",
     experience: "0–1 years",
+    level: "Internship",
     summary:
       "Learn on a real product. Work alongside senior engineers shipping features that reach thousands of students.",
     responsibilities: [
@@ -60,6 +63,7 @@ export const jobOpenings: JobOpening[] = [
     type: "Full-time",
     location: "Remote (India)",
     experience: "2–5 years",
+    level: "Mid",
     summary:
       "Design and scale the multi-tenant Django backend that powers assessments, analytics and content for the whole platform.",
     responsibilities: [
@@ -82,6 +86,7 @@ export const jobOpenings: JobOpening[] = [
     type: "Full-time",
     location: "Remote (India)",
     experience: "5+ years",
+    level: "Senior",
     summary:
       "Lead backend architecture decisions and mentor engineers as we scale DailyTaiyari to many more institutes.",
     responsibilities: [
