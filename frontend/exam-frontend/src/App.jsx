@@ -5,6 +5,7 @@ import { useTenantStore } from './context/tenantStore'
 // Layouts
 import MainLayout from './components/layout/MainLayout'
 import AuthLayout from './components/layout/AuthLayout'
+import AdminLayout from './components/layout/AdminLayout'
 import SuspensionOverlay from './components/layout/SuspensionOverlay'
 import VerificationGate from './components/layout/VerificationGate'
 
@@ -226,12 +227,24 @@ function App() {
           <Route path="/community/:id" element={<FeatureRoute feature="community"><CommunityPost /></FeatureRoute>} />
 
           {/* Admin Dashboard */}
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/mock-tests" element={<AdminRoute><MockTestManager /></AdminRoute>} />
           <Route path="/admin/mock-tests/grading" element={<AdminRoute><MockTestGrading /></AdminRoute>} />
           <Route path="/admin/mock-tests/:testId/submissions" element={<AdminRoute><MockTestSubmissions /></AdminRoute>} />
           <Route path="/admin/mock-tests/:testId/submissions/:attemptId" element={<AdminRoute><MockTestSubmissionReview /></AdminRoute>} />
           <Route path="/admin/mock-tests/:testId" element={<AdminRoute><MockTestBuilder /></AdminRoute>} />
+        </Route>
+
+        {/* Full-page Admin View */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
         </Route>
 
 
