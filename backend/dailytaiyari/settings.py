@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'community.apps.CommunityConfig',
     'assignments.apps.AssignmentsConfig',
     'coding.apps.CodingConfig',
+    'jobs.apps.JobsConfig',
 ]
 
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]

@@ -14,6 +14,7 @@ export const FEATURE_KEYS = [
     'analytics',
     'leaderboard',
     'ai',
+    'jobs',
 ];
 
 export const useTenantStore = create((set, get) => ({

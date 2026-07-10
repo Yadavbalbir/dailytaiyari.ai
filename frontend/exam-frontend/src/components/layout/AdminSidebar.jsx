@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   ClipboardList,
   Shield,
+  Briefcase,
 } from 'lucide-react'
 
 // Admin navigation sections. `tab` items drive the in-page section shown by
@@ -23,6 +24,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'performance', label: 'Reports', icon: BarChart3 },
   { tab: 'content', label: 'Content Builder', icon: Library },
   { path: '/admin/mock-tests', label: 'Mock Tests', icon: ClipboardList },
+  { path: '/admin/jobs', label: 'Jobs', icon: Briefcase },
   { tab: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ]
 
