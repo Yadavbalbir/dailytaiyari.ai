@@ -8,6 +8,7 @@ import {
     ListChecks, CheckCircle2, Circle,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
+import { NotesTextarea } from './builderShared'
 
 /* ===========================================================================
  * Field / form configuration per entity
@@ -48,7 +49,7 @@ const SCHEMAS = {
             { name: 'price', label: 'Price', type: 'number', step: '0.01', default: 0, hint: 'Used when pricing is paid.' },
             { name: 'original_price', label: 'Original price (strike-through)', type: 'number', step: '0.01' },
             { name: 'currency', label: 'Currency', type: 'select', options: opt(['INR', 'USD', 'EUR', 'GBP']), default: 'INR' },
-            { name: 'description', label: 'Description', type: 'textarea', full: true },
+            { name: 'description', label: 'Description', type: 'textarea', full: true, image: true, rows: 10, hint: 'Supports rich HTML / Markdown and images — paste, drop, or add an image directly.' },
             { name: 'highlights', label: 'What you will get (one point per line)', type: 'stringlist', full: true, placeholder: 'All Previous Year Questions (PYQ)\nFully solved answers\nExam-oriented approach' },
             { name: 'refund_policy', label: 'Refund policy', type: 'textarea', full: true },
         ],
@@ -207,11 +208,15 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                                             {f.label}{f.required && <span className="text-rose-500"> *</span>}
                                         </label>
                                         {f.type === 'textarea' ? (
-                                            <textarea
-                                                className="input font-mono text-sm" rows={f.rows || 3}
-                                                value={values[f.name] ?? ''}
-                                                onChange={(e) => set(f.name, e.target.value)}
-                                            />
+                                            f.image ? (
+                                                <NotesTextarea value={values[f.name] ?? ''} onChange={(val) => set(f.name, val)} rows={f.rows} />
+                                            ) : (
+                                                <textarea
+                                                    className="input font-mono text-sm" rows={f.rows || 3}
+                                                    value={values[f.name] ?? ''}
+                                                    onChange={(e) => set(f.name, e.target.value)}
+                                                />
+                                            )
                                         ) : f.type === 'stringlist' ? (
                                             <textarea
                                                 className="input text-sm" rows={f.rows || 4}
