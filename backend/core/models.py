@@ -10,12 +10,33 @@ class Tenant(models.Model):
     Model representing a Tenant (e.g. an Institute, Coaching Center, or School).
     All data in the platform will be scopes to a Tenant.
     """
+
+    # Canonical list of toggleable product features. Keys are stable identifiers
+    # consumed by the frontend to show/hide navigation and routes; values are the
+    # human-readable labels shown in the tenant-admin settings UI. To add a new
+    # toggleable feature, add it here — existing tenants default it to enabled.
+    FEATURE_CHOICES = {
+        'courses': 'Courses',
+        'study': 'Study Material',
+        'quiz': 'Practice Quiz',
+        'mock_tests': 'Mock Tests',
+        'pyq': 'Previous Year Papers (PYQ)',
+        'community': 'Community',
+        'analytics': 'Analytics',
+        'leaderboard': 'Leaderboard',
+        'ai': 'AI Learning & Doubt Solver',
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     subdomain = models.CharField(max_length=100, unique=True, null=True, blank=True)
     logo = models.ImageField(upload_to='tenant_logos/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    
+
+    # Per-tenant feature toggles: {feature_key: bool}. Missing keys default to
+    # enabled so newly introduced features are on until an admin turns them off.
+    features = models.JSONField(default=dict, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -26,6 +47,11 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_features(self):
+        """Return the full feature map, defaulting any missing key to enabled."""
+        stored = self.features or {}
+        return {key: bool(stored.get(key, True)) for key in self.FEATURE_CHOICES}
 
 
 class TimeStampedModel(models.Model):
