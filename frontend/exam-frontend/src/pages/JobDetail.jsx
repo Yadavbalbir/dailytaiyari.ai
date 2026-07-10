@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
 import { stageMeta, formatSalary, formatExperience, categoryMeta } from '../components/jobs/jobShared'
-import MathRenderer from '../components/chat/MathRenderer'
+import JobContent from '../components/jobs/JobContent'
 import Loading from '../components/common/Loading'
 
 const Meta = ({ icon: Icon, children }) => children ? (
@@ -137,15 +137,27 @@ const JobDetail = () => {
                 </span>
                 <span className={`badge ${stageMeta(app.stage).tint}`}>{stageMeta(app.stage).label}</span>
               </div>
-              {!job.is_external && hasActiveApp && (
-                <button
-                  onClick={() => withdrawMutation.mutate()}
-                  disabled={withdrawMutation.isPending}
-                  className="btn-secondary text-sm inline-flex items-center gap-1.5"
-                >
-                  <XCircle className="w-4 h-4" /> Withdraw
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {job.is_external && job.external_url && (
+                  <a
+                    href={job.external_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary text-sm inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Go to job page
+                  </a>
+                )}
+                {!job.is_external && hasActiveApp && (
+                  <button
+                    onClick={() => withdrawMutation.mutate()}
+                    disabled={withdrawMutation.isPending}
+                    className="btn-secondary text-sm inline-flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" /> Withdraw
+                  </button>
+                )}
+              </div>
             </div>
           ) : closed ? (
             <p className="text-sm text-surface-500">This position is no longer accepting applications.</p>
@@ -170,9 +182,7 @@ const JobDetail = () => {
       {job.description && (
         <div className="card p-6">
           <h2 className="font-semibold text-lg mb-3">About the role</h2>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <MathRenderer content={job.description} />
-          </div>
+          <JobContent content={job.description} />
         </div>
       )}
 
@@ -180,9 +190,7 @@ const JobDetail = () => {
       {job.requirements && (
         <div className="card p-6">
           <h2 className="font-semibold text-lg mb-3">Requirements</h2>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <MathRenderer content={job.requirements} />
-          </div>
+          <JobContent content={job.requirements} />
         </div>
       )}
 
