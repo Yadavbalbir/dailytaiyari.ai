@@ -51,3 +51,25 @@ def send_contact_message_notification(contact):
         recipient_list=[_notify_address()],
         fail_silently=False,
     )
+
+
+def send_job_application_notification(application):
+    """Email the platform team about a new job application."""
+    message = (
+        "New job application from the DailyTaiyari careers page:\n\n"
+        f"Name:        {application.name}\n"
+        f"Email:       {application.email}\n"
+        f"Phone:       {application.phone or '—'}\n"
+        f"Position:    {application.position}\n"
+        f"Experience:  {application.experience or '—'}\n"
+        f"Portfolio:   {application.portfolio_url or '—'}\n"
+        f"Source:      {application.source or '—'}\n\n"
+        f"Cover letter:\n{application.cover_letter or '—'}\n"
+    )
+    send_mail(
+        subject=f'New Job Application — {application.name} ({application.position})',
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[_notify_address()],
+        fail_silently=False,
+    )

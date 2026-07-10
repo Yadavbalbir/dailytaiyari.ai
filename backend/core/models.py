@@ -134,3 +134,21 @@ class ContactMessage(PlatformLead):
 
     def __str__(self):
         return f'{self.name} <{self.email}>'
+
+
+class JobApplication(PlatformLead):
+    """A careers-page job application submitted from the marketing site."""
+
+    phone = models.CharField(max_length=30, blank=True)
+    position = models.CharField(max_length=255)
+    experience = models.CharField(max_length=100, blank=True)
+    portfolio_url = models.URLField(max_length=500, blank=True)
+    cover_letter = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Job Application'
+        verbose_name_plural = 'Job Applications'
+
+    def __str__(self):
+        return f'{self.name} <{self.email}> — {self.position}'

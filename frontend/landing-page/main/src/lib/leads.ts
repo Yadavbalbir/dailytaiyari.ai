@@ -45,6 +45,17 @@ export interface ContactMessagePayload {
   source?: string;
 }
 
+export interface JobApplicationPayload {
+  name: string;
+  email: string;
+  phone?: string;
+  position: string;
+  experience?: string;
+  portfolio_url?: string;
+  cover_letter?: string;
+  source?: string;
+}
+
 async function postLead(path: string, payload: object) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -72,4 +83,8 @@ export function submitDemoBooking(payload: DemoBookingPayload) {
 
 export function submitContactMessage(payload: ContactMessagePayload) {
   return postLead("/platform/contact-messages/", payload);
+}
+
+export function submitJobApplication(payload: JobApplicationPayload) {
+  return postLead("/platform/job-applications/", payload);
 }
