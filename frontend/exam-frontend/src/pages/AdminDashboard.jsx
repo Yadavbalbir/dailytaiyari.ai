@@ -989,12 +989,32 @@ const EnrollmentRequests = () => {
     const queryClient = useQueryClient()
     const [filter, setFilter] = useState('pending')
     const [busyId, setBusyId] = useState(null)
+    const [studentQuery, setStudentQuery] = useState('')
+    const [courseQuery, setCourseQuery] = useState('')
+    const [emailQuery, setEmailQuery] = useState('')
 
     const { data: requests = [], isLoading } = useQuery({
         queryKey: ['enrollmentRequests', filter],
         queryFn: () => tenantAdminService.getEnrollmentRequests(filter === 'all' ? {} : { status: filter }),
     })
     const list = Array.isArray(requests) ? requests : (requests?.results || [])
+
+    const filteredList = useMemo(() => {
+        const s = studentQuery.trim().toLowerCase()
+        const c = courseQuery.trim().toLowerCase()
+        const e = emailQuery.trim().toLowerCase()
+        return list.filter((r) => {
+            const matchesStudent = !s || (r.student_name || '').toLowerCase().includes(s)
+            const matchesCourse = !c ||
+                (r.course_name || '').toLowerCase().includes(c) ||
+                (r.course_code || '').toLowerCase().includes(c)
+            const matchesEmail = !e || (r.student_email || '').toLowerCase().includes(e)
+            return matchesStudent && matchesCourse && matchesEmail
+        })
+    }, [list, studentQuery, courseQuery, emailQuery])
+
+    const hasActiveFilters = studentQuery || courseQuery || emailQuery
+    const clearFilters = () => { setStudentQuery(''); setCourseQuery(''); setEmailQuery('') }
 
     const refresh = () => queryClient.invalidateQueries({ queryKey: ['enrollmentRequests'] })
 
@@ -1031,12 +1051,55 @@ const EnrollmentRequests = () => {
                 </div>
             </div>
 
+            {/* Filters: student, course, email */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                    <input
+                        type="text"
+                        value={studentQuery}
+                        onChange={(e) => setStudentQuery(e.target.value)}
+                        placeholder="Filter by student"
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+                <div className="relative">
+                    <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                    <input
+                        type="text"
+                        value={courseQuery}
+                        onChange={(e) => setCourseQuery(e.target.value)}
+                        placeholder="Filter by course"
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                    <input
+                        type="text"
+                        value={emailQuery}
+                        onChange={(e) => setEmailQuery(e.target.value)}
+                        placeholder="Filter by email"
+                        className="w-full pl-9 pr-9 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500"
+                    />
+                    {hasActiveFilters && (
+                        <button
+                            onClick={clearFilters}
+                            aria-label="Clear filters"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg text-surface-400 hover:text-surface-600 hover:bg-surface-200 dark:hover:bg-surface-700"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {isLoading ? (
                 <p className="text-surface-500">Loading…</p>
-            ) : list.length === 0 ? (
+            ) : filteredList.length === 0 ? (
                 <div className="card p-10 text-center text-surface-500">
                     <Clock className="w-10 h-10 mx-auto mb-3 text-surface-300" />
-                    No {filter !== 'all' ? filter : ''} requests.
+                    {hasActiveFilters ? 'No requests match your filters.' : `No ${filter !== 'all' ? filter : ''} requests.`}
                 </div>
             ) : (
                 <div className="card overflow-hidden">
@@ -1051,7 +1114,7 @@ const EnrollmentRequests = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
-                                {list.map((r) => (
+                                {filteredList.map((r) => (
                                     <tr key={r.id}>
                                         <td className="px-4 py-3">
                                             <p className="font-medium">{r.student_name || '—'}</p>
