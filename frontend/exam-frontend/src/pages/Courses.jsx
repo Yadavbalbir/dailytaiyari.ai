@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import { contentBuilderService } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
-import toast from 'react-hot-toast'
-import { GraduationCap, CheckCircle2, Clock, PlusCircle, ArrowRight, Settings2, Search, X } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, ArrowRight, Settings2, Search, X } from 'lucide-react'
 
 const InstructorLine = ({ instructors = [] }) => {
   if (!instructors.length) return null
@@ -39,9 +38,39 @@ const InstructorLine = ({ instructors = [] }) => {
   )
 }
 
+const CURRENCY_SYMBOLS = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
+const CoursePrice = ({ course }) => {
+  const isFree = course.is_free || course.pricing_type === 'free' || !Number(course.price)
+  if (isFree) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-success-50 dark:bg-success-900/30 text-success-700 dark:text-success-400">
+        Free
+      </span>
+    )
+  }
+  const sym = CURRENCY_SYMBOLS[course.currency] || `${course.currency} `
+  const hasDiscount = Number(course.discount_percent) > 0 && course.original_price
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="text-lg font-display font-bold text-primary-600 dark:text-primary-400">
+        {sym}{Number(course.price).toLocaleString('en-IN')}
+      </span>
+      {hasDiscount && (
+        <>
+          <span className="text-xs text-surface-400 line-through">
+            {sym}{Number(course.original_price).toLocaleString('en-IN')}
+          </span>
+          <span className="text-[11px] font-semibold text-success-600 dark:text-success-400">
+            {course.discount_percent}% off
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
 const Courses = () => {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user, profile } = useAuthStore()
   const role = user?.role || profile?.user?.role
   const isAdmin = role === 'admin'
@@ -108,21 +137,6 @@ const Courses = () => {
     { key: 'enrolled', label: 'Enrolled', count: counts.enrolled },
     { key: 'pending', label: 'Pending', count: counts.pending },
   ]
-
-  const requestEnroll = async (courseId) => {
-    try {
-      await courseService.requestEnrollment(courseId)
-      toast.success('Request sent for admin approval')
-      queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] })
-    } catch (err) {
-      toast.error(
-        err?.response?.data?.course?.[0] ||
-        err?.response?.data?.detail ||
-        'Request failed'
-      )
-    }
-  }
 
   if (availLoading) return <Loading fullScreen />
 
@@ -280,6 +294,10 @@ const Courses = () => {
                     <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
                   )}
 
+                  <div className="mt-3">
+                    <CoursePrice course={course} />
+                  </div>
+
                   <div className="mt-auto pt-4">
                     {status === 'approved' ? (
                       <button
@@ -291,18 +309,22 @@ const Courses = () => {
                         <ArrowRight size={16} className="transition-transform group-hover/btn:translate-x-0.5" />
                       </button>
                     ) : status === 'pending' ? (
-                      <span className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/courses/${course.id}`)}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                      >
                         <Clock size={16} />
-                        Awaiting admin approval
-                      </span>
+                        Awaiting approval · View
+                      </button>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => requestEnroll(course.id)}
-                        className="btn-secondary w-full border border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700 hover:text-primary-600 dark:hover:text-primary-400"
+                        onClick={() => navigate(`/courses/${course.id}`)}
+                        className="btn-primary w-full group/btn"
                       >
-                        <PlusCircle size={18} />
-                        Request enrollment
+                        View details
+                        <ArrowRight size={16} className="transition-transform group-hover/btn:translate-x-0.5" />
                       </button>
                     )}
                   </div>

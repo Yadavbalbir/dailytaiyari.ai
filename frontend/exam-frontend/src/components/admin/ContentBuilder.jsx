@@ -36,6 +36,7 @@ const SCHEMAS = {
         fields: [
             { name: 'name', label: 'Name', type: 'text', required: true },
             { name: 'code', label: 'Code', type: 'text', required: true, hint: 'Unique slug, e.g. neet' },
+            { name: 'subtitle', label: 'Subtitle / tagline', type: 'text', full: true },
             { name: 'course_type', label: 'Type', type: 'select', options: opt(EXAM_TYPES), default: 'competitive' },
             { name: 'status', label: 'Status', type: 'select', options: opt(EXAM_STATUS), default: 'active' },
             { name: 'color', label: 'Color', type: 'color', default: '#3B82F6' },
@@ -43,7 +44,13 @@ const SCHEMAS = {
             { name: 'total_marks', label: 'Total Marks', type: 'number' },
             { name: 'is_featured', label: 'Featured', type: 'checkbox' },
             { name: 'negative_marking', label: 'Negative Marking', type: 'checkbox' },
+            { name: 'pricing_type', label: 'Pricing', type: 'select', options: opt(['free', 'paid']), default: 'free' },
+            { name: 'price', label: 'Price', type: 'number', step: '0.01', default: 0, hint: 'Used when pricing is paid.' },
+            { name: 'original_price', label: 'Original price (strike-through)', type: 'number', step: '0.01' },
+            { name: 'currency', label: 'Currency', type: 'select', options: opt(['INR', 'USD', 'EUR', 'GBP']), default: 'INR' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
+            { name: 'highlights', label: 'What you will get (one point per line)', type: 'stringlist', full: true, placeholder: 'All Previous Year Questions (PYQ)\nFully solved answers\nExam-oriented approach' },
+            { name: 'refund_policy', label: 'Refund policy', type: 'textarea', full: true },
         ],
     },
     subject: {
@@ -128,6 +135,10 @@ const buildInitial = (fields, instance) => {
     const out = {}
     fields.forEach((f) => {
         let v = instance ? instance[f.name] : undefined
+        if (f.type === 'stringlist') {
+            out[f.name] = Array.isArray(v) ? v : (v == null ? (f.default ?? []) : [])
+            return
+        }
         if (v === undefined || v === null) v = f.default ?? (f.type === 'checkbox' ? false : '')
         out[f.name] = v
     })
@@ -149,6 +160,10 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
             if (f.type === 'number') {
                 v = v === '' || v === null ? null : Number(v)
                 if (v === null && !f.required) return
+            }
+            if (f.type === 'stringlist') {
+                const arr = Array.isArray(v) ? v : String(v || '').split('\n')
+                v = arr.map((s) => String(s).trim()).filter(Boolean)
             }
             payload[f.name] = v
         })
@@ -175,7 +190,7 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                 <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {schema.fields.map((f) => (
-                            <div key={f.name} className={f.full || f.type === 'textarea' ? 'sm:col-span-2' : ''}>
+                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' ? 'sm:col-span-2' : ''}>
                                 {f.type === 'checkbox' ? (
                                     <label className="flex items-center gap-2 cursor-pointer py-2">
                                         <input
@@ -196,6 +211,13 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                                                 className="input font-mono text-sm" rows={f.rows || 3}
                                                 value={values[f.name] ?? ''}
                                                 onChange={(e) => set(f.name, e.target.value)}
+                                            />
+                                        ) : f.type === 'stringlist' ? (
+                                            <textarea
+                                                className="input text-sm" rows={f.rows || 4}
+                                                placeholder={f.placeholder || 'One item per line'}
+                                                value={(Array.isArray(values[f.name]) ? values[f.name] : []).join('\n')}
+                                                onChange={(e) => set(f.name, e.target.value.split('\n'))}
                                             />
                                         ) : f.type === 'select' ? (
                                             <select className="input" value={values[f.name] ?? ''} onChange={(e) => set(f.name, e.target.value)}>

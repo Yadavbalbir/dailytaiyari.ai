@@ -14,6 +14,7 @@ User = get_user_model()
 class AdminCourseSerializer(serializers.ModelSerializer):
     """Writable serializer for Course in the content builder."""
     subjects_count = serializers.IntegerField(source='subjects.count', read_only=True)
+    discount_percent = serializers.ReadOnlyField()
     instructors = serializers.PrimaryKeyRelatedField(
         many=True, required=False, queryset=User.objects.filter(role='instructor'),
     )
@@ -26,6 +27,8 @@ class AdminCourseSerializer(serializers.ModelSerializer):
             'color', 'status', 'is_featured', 'thumbnail',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
+            'pricing_type', 'price', 'original_price', 'currency',
+            'discount_percent', 'subtitle', 'highlights', 'refund_policy',
             'subjects_count', 'instructors', 'instructors_detail',
             'created_at', 'updated_at',
         ]

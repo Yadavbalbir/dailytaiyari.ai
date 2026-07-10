@@ -57,6 +57,25 @@ class Course(TimeStampedModel):
     total_students = models.PositiveIntegerField(default=0)
     total_questions = models.PositiveIntegerField(default=0)
 
+    # ── Pricing ────────────────────────────────────────────────────────────
+    # Payment gateway is not wired yet; for now both free and paid courses
+    # simply create an enrollment request that an admin approves.
+    PRICING_TYPES = [
+        ('free', 'Free'),
+        ('paid', 'Paid'),
+    ]
+    pricing_type = models.CharField(max_length=10, choices=PRICING_TYPES, default='free')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Optional higher "list" price, shown struck-through to convey a discount.
+    original_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, default='INR')
+
+    # ── Marketing / details page content ───────────────────────────────────
+    subtitle = models.CharField(max_length=255, blank=True, default='')
+    # "What you will get" bullet points — a list of short strings.
+    highlights = models.JSONField(default=list, blank=True)
+    refund_policy = models.TextField(blank=True, default='')
+
     # Instructors assigned by a tenant admin. Assigned instructors can edit the
     # course content (chapters, topics, quizzes, etc.) but cannot manage the
     # instructor list themselves — that stays admin-only.
@@ -74,6 +93,21 @@ class Course(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_free(self):
+        return self.pricing_type == 'free' or not self.price
+
+    @property
+    def discount_percent(self):
+        """Percentage off vs. original_price, if a valid discount exists."""
+        try:
+            if self.original_price and self.price and self.original_price > self.price:
+                return round((float(self.original_price) - float(self.price)) / float(self.original_price) * 100, 2)
+        except (TypeError, ValueError):
+            pass
+        return 0
+
 
 
 class Subject(OrderedModel):

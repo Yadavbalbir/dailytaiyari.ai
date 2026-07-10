@@ -10,7 +10,10 @@ class CourseSerializer(serializers.ModelSerializer):
     subjects_count = serializers.SerializerMethodField()
     mock_tests_count = serializers.SerializerMethodField()
     quizzes_count = serializers.SerializerMethodField()
-    
+    discount_percent = serializers.ReadOnlyField()
+    is_free = serializers.ReadOnlyField()
+    instructors = serializers.SerializerMethodField()
+
     class Meta:
         model = Course
         fields = [
@@ -18,9 +21,12 @@ class CourseSerializer(serializers.ModelSerializer):
             'icon', 'color', 'status', 'is_featured', 'thumbnail',
             'duration_minutes', 'total_marks', 'negative_marking',
             'negative_marking_ratio', 'total_students', 'total_questions',
-            'subjects_count', 'mock_tests_count', 'quizzes_count', 'created_at'
+            'subjects_count', 'mock_tests_count', 'quizzes_count',
+            'pricing_type', 'price', 'original_price', 'currency',
+            'is_free', 'discount_percent', 'subtitle', 'highlights',
+            'refund_policy', 'instructors', 'created_at'
         ]
-    
+
     def get_subjects_count(self, obj):
         return obj.subjects.count()
 
@@ -29,6 +35,12 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_quizzes_count(self, obj):
         return obj.quizzes.count()
+
+    def get_instructors(self, obj):
+        return [
+            {'id': str(u.id), 'name': u.full_name or u.first_name or u.email}
+            for u in obj.instructors.all()
+        ]
 
 
 class CourseListSerializer(serializers.ModelSerializer):
