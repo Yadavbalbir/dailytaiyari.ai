@@ -8,17 +8,7 @@ import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import { GraduationCap, CheckCircle2, Clock, ArrowRight, Settings2, Search, X } from 'lucide-react'
-
-// Course descriptions are stored as rich HTML. On the card we only want a
-// short plain-text preview, so strip tags and decode entities before
-// clamping — otherwise raw markup like "<h3>…</h3>" leaks into the UI.
-const stripHtml = (html) => {
-  if (!html) return ''
-  if (typeof window === 'undefined') return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-  const el = document.createElement('div')
-  el.innerHTML = html
-  return (el.textContent || el.innerText || '').replace(/\s+/g, ' ').trim()
-}
+import { stripHtml } from '../utils/html'
 
 const InstructorLine = ({ instructors = [] }) => {
   if (!instructors.length) return null
