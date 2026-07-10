@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { analyticsService } from '../services/analyticsService'
@@ -42,7 +42,6 @@ import {
     Mail,
     Phone,
     Filter,
-    ClipboardList,
     Upload,
     Image as ImageIcon,
     ToggleRight,
@@ -1313,9 +1312,11 @@ const TABS = [
 ]
 
 const AdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState('overview')
+    const [searchParams] = useSearchParams()
+    const activeTab = searchParams.get('tab') || 'overview'
     const queryClient = useQueryClient()
-    const navigate = useNavigate()
+
+    const activeMeta = TABS.find((t) => t.id === activeTab) || TABS[0]
 
     const { data: stats, isLoading, error, isFetching } = useQuery({
         queryKey: ['tenantAdminStats'],
@@ -1349,47 +1350,21 @@ const AdminDashboard = () => {
     }
 
     return (
-        <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 via-primary-600 to-primary-700 p-6 sm:p-8 text-white shadow-lg shadow-primary-500/20">
-                <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
-                <div className="absolute -right-4 bottom-0 w-32 h-32 bg-white/5 rounded-full blur-xl" />
-                <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Section Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">
+                        <activeMeta.icon className="w-5 h-5" />
+                    </div>
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold mb-3">
-                            <Shield className="w-3.5 h-3.5" /> Institutional Admin
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
-                        <p className="text-white/80 mt-1 text-sm sm:text-base">Manage student records and track institutional performance</p>
-                    </div>
-                    <button onClick={refreshAll} className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
-                        <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-                    </button>
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <button onClick={() => navigate('/admin/mock-tests')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
-                            <ClipboardList className="w-4 h-4" /> Mock Tests
-                        </button>
-                        <button onClick={refreshAll} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-sm font-semibold backdrop-blur-sm">
-                            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-                        </button>
+                        <h1 className="text-xl sm:text-2xl font-bold text-surface-900 dark:text-white">{activeMeta.label}</h1>
+                        <p className="text-surface-500 text-sm">Manage student records and track institutional performance</p>
                     </div>
                 </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="overflow-x-auto -mx-1 px-1">
-                <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-max min-w-full sm:w-fit sm:min-w-0">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'}`}
-                        >
-                            <tab.icon className="w-4 h-4" />
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+                <button onClick={refreshAll} className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors text-sm font-semibold text-surface-700 dark:text-surface-200">
+                    <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+                </button>
             </div>
 
             <AnimatePresence mode="wait">
