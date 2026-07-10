@@ -83,8 +83,12 @@ import logging
 from rest_framework import generics
 from rest_framework.throttling import ScopedRateThrottle
 
-from .models import DemoBooking, ContactMessage
-from .serializers import DemoBookingSerializer, ContactMessageSerializer
+from .models import DemoBooking, ContactMessage, JobApplication
+from .serializers import (
+    DemoBookingSerializer,
+    ContactMessageSerializer,
+    JobApplicationSerializer,
+)
 from . import emails
 
 logger = logging.getLogger(__name__)
@@ -122,3 +126,20 @@ class ContactMessageCreateView(generics.CreateAPIView):
             emails.send_contact_message_notification(contact)
         except Exception:  # noqa: BLE001 - never fail the write on a mail error
             logger.exception('Failed to send contact message notification email')
+
+
+class JobApplicationCreateView(generics.CreateAPIView):
+    """Public careers 'Apply' endpoint. Not tenant-scoped."""
+    queryset = JobApplication.objects.all()
+    serializer_class = JobApplicationSerializer
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'platform_lead'
+
+    def perform_create(self, serializer):
+        application = serializer.save()
+        try:
+            emails.send_job_application_notification(application)
+        except Exception:  # noqa: BLE001 - never fail the write on a mail error
+            logger.exception('Failed to send job application notification email')

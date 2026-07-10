@@ -25,6 +25,7 @@ const columns = [
       { name: "FAQ", href: "#faq" },
       { name: "Pricing", href: "#pricing" },
       { name: "Book a Demo", href: "#demo" },
+      { name: "Careers", href: "/careers" },
       { name: "Contact us", href: "mailto:hello@dailytaiyari.in" },
     ],
   },
