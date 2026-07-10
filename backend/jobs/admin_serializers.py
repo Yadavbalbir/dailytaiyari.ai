@@ -9,12 +9,14 @@ class AdminJobSerializer(serializers.ModelSerializer):
     stage_counts = serializers.SerializerMethodField()
     is_open = serializers.BooleanField(read_only=True)
     is_external = serializers.BooleanField(read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
     created_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'job_type', 'is_external', 'department', 'location',
+            'id', 'title', 'job_type', 'is_external', 'category',
+            'category_display', 'department', 'location',
             'work_mode', 'employment_type', 'experience_min', 'experience_max',
             'salary_min', 'salary_max', 'salary_currency', 'salary_period',
             'description', 'requirements', 'external_url', 'openings',

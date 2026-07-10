@@ -7,7 +7,7 @@ import {
   Loader2, CheckCircle2, FileText, Send, XCircle,
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
-import { stageMeta, formatSalary, formatExperience } from '../components/jobs/jobShared'
+import { stageMeta, formatSalary, formatExperience, categoryMeta } from '../components/jobs/jobShared'
 import MathRenderer from '../components/chat/MathRenderer'
 import Loading from '../components/common/Loading'
 
@@ -99,11 +99,14 @@ const JobDetail = () => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <h1 className="text-2xl font-display font-bold">{job.title}</h1>
-              {job.is_external ? (
-                <span className="badge bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"><ExternalLink className="w-3 h-3" /> External</span>
-              ) : (
-                <span className="badge badge-primary">Internal</span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`badge ${categoryMeta(job.category).tint}`}>{categoryMeta(job.category).label}</span>
+                {job.is_external ? (
+                  <span className="badge bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"><ExternalLink className="w-3 h-3" /> External</span>
+                ) : (
+                  <span className="badge badge-primary">Internal</span>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
               <Meta icon={Building2}>{job.department}</Meta>

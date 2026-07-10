@@ -8,7 +8,7 @@ import {
   ChevronRight, X, Building2, MapPin,
 } from 'lucide-react'
 import { jobAdminService } from '../services/jobService'
-import { EMPLOYMENT_TYPES, WORK_MODES } from '../components/jobs/jobShared'
+import { EMPLOYMENT_TYPES, WORK_MODES, CATEGORIES, categoryMeta } from '../components/jobs/jobShared'
 import RichMarkdownEditor from '../components/common/RichMarkdownEditor'
 import Loading from '../components/common/Loading'
 
@@ -20,7 +20,7 @@ const STATUS_TINT = {
 }
 
 const EMPTY = {
-  title: '', job_type: 'internal', department: '', location: '',
+  title: '', job_type: 'internal', category: 'job', department: '', location: '',
   work_mode: 'onsite', employment_type: 'full_time',
   experience_min: '', experience_max: '', salary_min: '', salary_max: '',
   salary_currency: 'INR', salary_period: 'year', description: '', requirements: '',
@@ -83,7 +83,12 @@ const JobFormModal = ({ initial, onClose, onSaved }) => {
             <input value={form.title} onChange={setInput('title')} className="input py-2.5" placeholder="e.g. Senior Content Engineer" />
           </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Category" required>
+              <select value={form.category} onChange={setInput('category')} className="input py-2.5">
+                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </Field>
             <Field label="Hiring type" required>
               <select value={form.job_type} onChange={setInput('job_type')} className="input py-2.5">
                 <option value="internal">Internal Hiring (managed here)</option>
@@ -213,6 +218,7 @@ const JobManager = () => {
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-lg truncate">{job.title}</h3>
+                    <span className={`badge ${categoryMeta(job.category).tint}`}>{categoryMeta(job.category).label}</span>
                     <span className={`badge ${STATUS_TINT[job.status] || STATUS_TINT.draft} capitalize`}>{job.status}</span>
                     {job.is_external ? (
                       <span className="badge bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"><ExternalLink className="w-3 h-3" /> External</span>

@@ -24,6 +24,11 @@ class Job(TimeStampedModel):
         ('internal', 'Internal Hiring'),
         ('external', 'External Posting'),
     ]
+    CATEGORY_CHOICES = [
+        ('job', 'Job'),
+        ('internship', 'Internship'),
+        ('hackathon', 'Hackathon'),
+    ]
     EMPLOYMENT_TYPES = [
         ('full_time', 'Full-time'),
         ('part_time', 'Part-time'),
@@ -52,6 +57,7 @@ class Job(TimeStampedModel):
 
     title = models.CharField(max_length=255)
     job_type = models.CharField(max_length=20, choices=JOB_TYPES, default='internal')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='job')
 
     department = models.CharField(max_length=150, blank=True)
     location = models.CharField(max_length=200, blank=True)
@@ -92,6 +98,7 @@ class Job(TimeStampedModel):
         indexes = [
             models.Index(fields=['tenant', 'status', '-created_at']),
             models.Index(fields=['tenant', 'job_type']),
+            models.Index(fields=['tenant', 'category']),
         ]
 
     def __str__(self):

@@ -23,6 +23,7 @@ class MyJobApplicationSerializer(serializers.ModelSerializer):
 class JobListSerializer(serializers.ModelSerializer):
     is_open = serializers.BooleanField(read_only=True)
     is_external = serializers.BooleanField(read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
     employment_type_display = serializers.CharField(source='get_employment_type_display', read_only=True)
     work_mode_display = serializers.CharField(source='get_work_mode_display', read_only=True)
     my_application = serializers.SerializerMethodField()
@@ -31,7 +32,8 @@ class JobListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'job_type', 'is_external', 'department', 'location',
+            'id', 'title', 'job_type', 'is_external', 'category',
+            'category_display', 'department', 'location',
             'work_mode', 'work_mode_display', 'employment_type',
             'employment_type_display', 'experience_min', 'experience_max',
             'salary_min', 'salary_max', 'salary_currency', 'salary_period',
