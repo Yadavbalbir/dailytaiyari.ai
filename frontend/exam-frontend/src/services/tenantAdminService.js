@@ -40,5 +40,25 @@ export const tenantAdminService = {
     rejectEnrollment: async (id, reason = '') => {
         const response = await api.post(`/auth/enrollment-requests/${id}/reject/`, { reason })
         return response.data
-    }
+    },
+
+    // Tenant Settings — branding (logo) + feature toggles
+    getSettings: async () => {
+        const response = await api.get('/tenant-admin/settings/')
+        return response.data
+    },
+
+    updateFeatures: async (features) => {
+        const response = await api.patch('/tenant-admin/settings/', { features })
+        return response.data
+    },
+
+    updateLogo: async (file) => {
+        const formData = new FormData()
+        formData.append('logo', file)
+        const response = await api.patch('/tenant-admin/settings/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        return response.data
+    },
 }

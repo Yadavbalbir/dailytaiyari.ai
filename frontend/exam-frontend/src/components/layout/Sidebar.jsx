@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
 import { useAppStore } from '../../context/appStore'
+import { useTenantStore } from '../../context/tenantStore'
 import {
   LayoutDashboard,
   BookOpen,
@@ -17,36 +18,51 @@ import {
   Users
 } from 'lucide-react'
 
-// Navigation items with professional icons
+// Navigation items with professional icons.
+// `feature` (optional) gates the item behind a tenant feature toggle.
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/courses', label: 'Courses', icon: GraduationCap },
-  { path: '/study', label: 'Study', icon: BookOpen },
-  { path: '/quiz', label: 'Practice Quiz', icon: PenTool },
-  { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList },
-  { path: '/pyp', label: 'PYQ Papers', icon: FileText },
-  { path: '/community', label: 'Community', icon: Users },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { path: '/doubt-solver', label: 'AI Doubt Solver', icon: MessageSquareText },
-  { path: '/ai-learning', label: 'AI Learning', icon: Sparkles, badge: 'XP' },
+  { path: '/courses', label: 'Courses', icon: GraduationCap, feature: 'courses' },
+  { path: '/study', label: 'Study', icon: BookOpen, feature: 'study' },
+  { path: '/quiz', label: 'Practice Quiz', icon: PenTool, feature: 'quiz' },
+  { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList, feature: 'mock_tests' },
+  { path: '/pyp', label: 'PYQ Papers', icon: FileText, feature: 'pyq' },
+  { path: '/community', label: 'Community', icon: Users, feature: 'community' },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, feature: 'analytics' },
+  { path: '/leaderboard', label: 'Leaderboard', icon: Trophy, feature: 'leaderboard' },
+  { path: '/doubt-solver', label: 'AI Doubt Solver', icon: MessageSquareText, feature: 'ai' },
+  { path: '/ai-learning', label: 'AI Learning', icon: Sparkles, badge: 'XP', feature: 'ai' },
 ]
 
 const Sidebar = () => {
   const location = useLocation()
   const { profile } = useAuthStore()
   const { closeMobileMenu } = useAppStore()
+  const tenant = useTenantStore((s) => s.tenant)
+  const isFeatureEnabled = useTenantStore((s) => s.isFeatureEnabled)
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.feature || isFeatureEnabled(item.feature)
+  )
 
   return (
     <div className="h-full bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-surface-200 dark:border-surface-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold">dt</span>
-          </div>
+          {tenant?.logo ? (
+            <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800">
+              <img src={tenant.logo} alt={tenant.name || 'Logo'} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
+              <span className="text-white font-bold">
+                {(tenant?.name || 'dt').slice(0, 2).toLowerCase()}
+              </span>
+            </div>
+          )}
           <div>
-            <h1 className="font-display font-bold text-lg gradient-text">DailyTaiyari</h1>
+            <h1 className="font-display font-bold text-lg gradient-text">{tenant?.name || 'DailyTaiyari'}</h1>
             <p className="text-xs text-surface-500">Ace Your Exams</p>
           </div>
         </div>
@@ -94,7 +110,7 @@ const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = location.pathname === item.path ||
             (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
           const IconComponent = item.icon

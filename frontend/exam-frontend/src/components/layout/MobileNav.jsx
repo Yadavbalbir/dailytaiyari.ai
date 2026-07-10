@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../context/appStore'
+import { useTenantStore } from '../../context/tenantStore'
 import Sidebar from './Sidebar'
 import {
   Home,
@@ -13,16 +14,21 @@ import {
 
 const navItems = [
   { path: '/dashboard', label: 'Home', icon: Home },
-  { path: '/courses', label: 'Courses', icon: GraduationCap },
-  { path: '/study', label: 'Study', icon: BookOpen },
-  { path: '/quiz', label: 'Quiz', icon: PenTool },
-  { path: '/analytics', label: 'Stats', icon: BarChart3 },
-  { path: '/doubt-solver', label: 'AI', icon: Bot },
+  { path: '/courses', label: 'Courses', icon: GraduationCap, feature: 'courses' },
+  { path: '/study', label: 'Study', icon: BookOpen, feature: 'study' },
+  { path: '/quiz', label: 'Quiz', icon: PenTool, feature: 'quiz' },
+  { path: '/analytics', label: 'Stats', icon: BarChart3, feature: 'analytics' },
+  { path: '/doubt-solver', label: 'AI', icon: Bot, feature: 'ai' },
 ]
 
 const MobileNav = () => {
   const location = useLocation()
   const { mobileMenuOpen, closeMobileMenu } = useAppStore()
+  const isFeatureEnabled = useTenantStore((s) => s.isFeatureEnabled)
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.feature || isFeatureEnabled(item.feature)
+  )
 
   return (
     <>
@@ -44,7 +50,7 @@ const MobileNav = () => {
       {/* Bottom Navigation Bar (Mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800 lg:hidden">
         <div className="flex items-center justify-around h-16 px-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
             const IconComponent = item.icon

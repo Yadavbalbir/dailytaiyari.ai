@@ -68,7 +68,8 @@ class TenantDetailView(APIView):
                 "id": str(tenant.id),
                 "name": tenant.name,
                 "subdomain": tenant.subdomain,
-                "logo": request.build_absolute_uri(tenant.logo.url) if tenant.logo else None
+                "logo": request.build_absolute_uri(tenant.logo.url) if tenant.logo else None,
+                "features": tenant.get_features(),
             })
         except Tenant.DoesNotExist:
             return Response({"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND)

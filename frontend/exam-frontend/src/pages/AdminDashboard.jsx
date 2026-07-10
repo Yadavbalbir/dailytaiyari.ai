@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { analyticsService } from '../services/analyticsService'
 import { tenantAdminService } from '../services/tenantAdminService'
 import { courseService } from '../services/courseService'
+import { useTenantStore } from '../context/tenantStore'
 import ContentBuilder from '../components/admin/ContentBuilder'
 import {
     Users,
@@ -42,6 +43,10 @@ import {
     Phone,
     Filter,
     ClipboardList,
+    Upload,
+    Image as ImageIcon,
+    ToggleRight,
+    SlidersHorizontal as SlidersIcon,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -1165,6 +1170,137 @@ const Overview = ({ stats }) => (
 )
 
 /* ---------------------------------------------------------------------------
+ * TenantSettings — branding (logo) + feature toggles
+ * ------------------------------------------------------------------------- */
+const TenantSettings = () => {
+    const queryClient = useQueryClient()
+    const fetchTenantConfig = useTenantStore((s) => s.fetchTenantConfig)
+    const fileInputRef = useRef(null)
+
+    const { data: settings, isLoading } = useQuery({
+        queryKey: ['tenantSettings'],
+        queryFn: () => tenantAdminService.getSettings(),
+    })
+
+    const [features, setFeatures] = useState({})
+
+    useEffect(() => {
+        if (settings?.features) setFeatures(settings.features)
+    }, [settings])
+
+    const availableFeatures = settings?.available_features || []
+
+    const featuresMutation = useMutation({
+        mutationFn: (next) => tenantAdminService.updateFeatures(next),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Features updated')
+        },
+        onError: () => toast.error('Failed to update features'),
+    })
+
+    const logoMutation = useMutation({
+        mutationFn: (file) => tenantAdminService.updateLogo(file),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Logo updated')
+        },
+        onError: () => toast.error('Failed to upload logo'),
+    })
+
+    const toggleFeature = (key) => {
+        const next = { ...features, [key]: !features[key] }
+        setFeatures(next)
+        featuresMutation.mutate({ [key]: next[key] })
+    }
+
+    const handleLogoChange = (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please choose an image file')
+            return
+        }
+        logoMutation.mutate(file)
+        e.target.value = ''
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[240px]">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Branding */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Branding</h3>
+                </div>
+                <p className="text-sm text-surface-500">Upload your institution's logo. It appears in the sidebar for all your students.</p>
+                <div className="flex items-center gap-5">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                        {settings?.logo ? (
+                            <img src={settings.logo} alt="Logo" className="w-full h-full object-contain" />
+                        ) : (
+                            <span className="text-2xl font-bold text-surface-400">
+                                {(settings?.name || 'DT').slice(0, 2).toUpperCase()}
+                            </span>
+                        )}
+                    </div>
+                    <div>
+                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={logoMutation.isPending}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                        >
+                            {logoMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            {settings?.logo ? 'Change Logo' : 'Upload Logo'}
+                        </button>
+                        <p className="text-xs text-surface-400 mt-2">PNG, JPG or SVG. Square images look best.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Feature toggles */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <SlidersIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Features</h3>
+                </div>
+                <p className="text-sm text-surface-500">Show or hide modules for your students. Disabled features are removed from navigation and blocked entirely.</p>
+                <div className="divide-y divide-surface-100 dark:divide-surface-800">
+                    {availableFeatures.map((f) => {
+                        const enabled = Boolean(features[f.key])
+                        return (
+                            <div key={f.key} className="flex items-center justify-between py-3">
+                                <span className="font-medium text-surface-800 dark:text-surface-200">{f.label}</span>
+                                <button
+                                    role="switch"
+                                    aria-checked={enabled}
+                                    onClick={() => toggleFeature(f.key)}
+                                    disabled={featuresMutation.isPending}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+/* ---------------------------------------------------------------------------
  * AdminDashboard (root)
  * ------------------------------------------------------------------------- */
 const TABS = [
@@ -1173,6 +1309,7 @@ const TABS = [
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
     { id: 'content', label: 'Content Builder', icon: Library },
+    { id: 'settings', label: 'Settings', icon: SlidersIcon },
 ]
 
 const AdminDashboard = () => {
@@ -1262,6 +1399,7 @@ const AdminDashboard = () => {
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <ContentBuilder />}
+                    {activeTab === 'settings' && <TenantSettings />}
                 </motion.div>
             </AnimatePresence>
         </div>
