@@ -133,10 +133,87 @@ class ChapterDetailSerializer(ChapterSerializer):
         return TopicSerializer([ct.topic for ct in qs], many=True).data
 
 
+def chapter_content_type_counts(topic_ids):
+    """Published content grouped by student-facing type for a set of topics.
+
+    Mirrors the taxonomy used by the study flow (reading / videos / quizzes /
+    assignments / coding) so the pre-enrollment curriculum preview matches what
+    an enrolled student actually sees. Returns an ordered list of
+    {key, label, count}, only including non-zero buckets.
+    """
+    from content.models import Content
+    from quiz.models import Quiz
+    from assignments.models import Assignment
+    from coding.models import CodingProblem
+
+    if not topic_ids:
+        return []
+
+    published_content = Content.objects.filter(topic_id__in=topic_ids, status='published')
+    reading = published_content.filter(
+        content_type__in=['notes', 'pdf', 'revision', 'formula']
+    ).count()
+    videos = published_content.filter(content_type='video').count()
+    quizzes = Quiz.objects.filter(topic_id__in=topic_ids, status='published').count()
+    assignments = Assignment.objects.filter(topic_id__in=topic_ids, status='published').count()
+    coding = CodingProblem.objects.filter(topic_id__in=topic_ids, status='published').count()
+
+    buckets = [
+        ('reading', 'Reading material', reading),
+        ('videos', 'Videos', videos),
+        ('quizzes', 'Quizzes', quizzes),
+        ('assignments', 'Assignments', assignments),
+        ('coding', 'Coding problems', coding),
+    ]
+    return [
+        {'key': key, 'label': label, 'count': count}
+        for key, label, count in buckets if count
+    ]
+
+
+class CurriculumChapterSerializer(serializers.ModelSerializer):
+    """Chapter with a per-type breakdown of the content it contains."""
+    topics_count = serializers.SerializerMethodField()
+    content_types = serializers.SerializerMethodField()
+    content_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Chapter
+        fields = [
+            'id', 'name', 'code', 'description', 'order',
+            'estimated_hours', 'topics_count', 'content_types', 'content_total',
+        ]
+
+    def _topic_ids(self, obj):
+        return list(obj.chapter_topics.values_list('topic_id', flat=True))
+
+    def get_topics_count(self, obj):
+        return obj.chapter_topics.count()
+
+    def get_content_types(self, obj):
+        return chapter_content_type_counts(self._topic_ids(obj))
+
+    def get_content_total(self, obj):
+        return sum(b['count'] for b in chapter_content_type_counts(self._topic_ids(obj)))
+
+
+class CurriculumSubjectSerializer(SubjectSerializer):
+    """Subject with nested chapters + their content breakdown for the
+    course-details curriculum preview."""
+    chapters = serializers.SerializerMethodField()
+
+    class Meta(SubjectSerializer.Meta):
+        fields = SubjectSerializer.Meta.fields + ['chapters']
+
+    def get_chapters(self, obj):
+        qs = obj.chapters.all().order_by('order', 'name').prefetch_related('chapter_topics')
+        return CurriculumChapterSerializer(qs, many=True).data
+
+
 class CourseDetailSerializer(CourseSerializer):
-    """Detailed course serializer with subjects."""
-    subjects = SubjectSerializer(many=True, read_only=True)
-    
+    """Detailed course serializer with curriculum (subjects -> chapters)."""
+    subjects = CurriculumSubjectSerializer(many=True, read_only=True)
+
     class Meta(CourseSerializer.Meta):
         fields = CourseSerializer.Meta.fields + ['subjects']
 

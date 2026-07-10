@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import remarkGfm from 'remark-gfm'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { courseService } from '../services/courseService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
@@ -10,6 +15,7 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, ArrowRight, GraduationCap, CheckCircle2, Clock, PlusCircle,
   BookOpen, Layers, ShieldCheck, Sparkles, Users, Tag, Settings2,
+  ChevronDown, FileText, Video, ListChecks, ClipboardList, Code2,
 } from 'lucide-react'
 
 const CURRENCY_SYMBOLS = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
@@ -18,6 +24,49 @@ const money = (currency, amount) => {
   const n = Number(amount)
   return `${sym}${Number.isFinite(n) ? n.toLocaleString('en-IN') : amount}`
 }
+
+// Icon + accent per content-type bucket returned by the curriculum API.
+const CONTENT_TYPE_META = {
+  reading: { icon: FileText, cls: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30' },
+  videos: { icon: Video, cls: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30' },
+  quizzes: { icon: ListChecks, cls: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30' },
+  assignments: { icon: ClipboardList, cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30' },
+  coding: { icon: Code2, cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' },
+}
+
+const RichText = ({ value }) => {
+  const text = (value || '').trim()
+  if (!text) return <p className="text-surface-500">No description provided yet.</p>
+  return (
+    <div className="prose dark:prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed prose-img:rounded-xl prose-ul:my-3 prose-table:my-4 [&_.katex-display]:overflow-x-auto">
+      {text.startsWith('<') ? (
+        <div dangerouslySetInnerHTML={{ __html: text }} />
+      ) : (
+        <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>
+          {text}
+        </ReactMarkdown>
+      )}
+    </div>
+  )
+}
+
+const ContentTypeBadges = ({ types }) => (
+  <div className="flex flex-wrap gap-1.5">
+    {types.map((t) => {
+      const meta = CONTENT_TYPE_META[t.key] || CONTENT_TYPE_META.reading
+      const Icon = meta.icon
+      return (
+        <span
+          key={t.key}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${meta.cls}`}
+          title={`${t.count} ${t.label}`}
+        >
+          <Icon size={12} /> {t.count} {t.label}
+        </span>
+      )
+    })}
+  </div>
+)
 
 const TabButton = ({ active, onClick, children }) => (
   <button
@@ -49,6 +98,14 @@ const CourseDetail = () => {
 
   const [tab, setTab] = useState('overview')
   const [requesting, setRequesting] = useState(false)
+  const [openSubjects, setOpenSubjects] = useState(() => new Set())
+
+  const toggleSubject = (id) =>
+    setOpenSubjects((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   const { data: course, isLoading, isError } = useQuery({
     queryKey: ['courseDetail', courseId],
@@ -187,9 +244,7 @@ const CourseDetail = () => {
             <div className="space-y-8">
               <section>
                 <h2 className="text-lg font-display font-bold mb-2">Description</h2>
-                <p className="text-surface-600 dark:text-surface-300 leading-relaxed whitespace-pre-line">
-                  {course.description || 'No description provided yet.'}
-                </p>
+                <RichText value={course.description} />
               </section>
 
               {highlights.length > 0 && (
@@ -229,20 +284,78 @@ const CourseDetail = () => {
                   <p>Curriculum will be shared soon.</p>
                 </div>
               ) : (
-                subjects.map((s, i) => (
-                  <div key={s.id} className="card p-4 flex items-center gap-3">
-                    <span className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center font-semibold shrink-0">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold truncate">{s.name}</h3>
-                      <p className="text-xs text-surface-400">
-                        {(s.topics_count || s.total_topics || 0)} topics
-                        {s.quizzes_count ? ` · ${s.quizzes_count} quizzes` : ''}
-                      </p>
+                subjects.map((s, i) => {
+                  const chapters = Array.isArray(s.chapters) ? s.chapters : []
+                  const isOpen = openSubjects.has(s.id)
+                  return (
+                    <div key={s.id} className="card overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => toggleSubject(s.id)}
+                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors"
+                        aria-expanded={isOpen}
+                      >
+                        <span className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center font-semibold shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold truncate">{s.name}</h3>
+                          <p className="text-xs text-surface-400">
+                            {chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}
+                            {' · '}{(s.topics_count || s.total_topics || 0)} topics
+                          </p>
+                        </div>
+                        <ChevronDown
+                          size={18}
+                          className={`shrink-0 text-surface-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="border-t border-surface-200 dark:border-surface-800 divide-y divide-surface-100 dark:divide-surface-800/70">
+                              {chapters.length === 0 ? (
+                                <p className="px-4 py-3 text-sm text-surface-400">Chapters coming soon.</p>
+                              ) : (
+                                chapters.map((ch, ci) => (
+                                  <div key={ch.id} className="px-4 py-3">
+                                    <div className="flex items-start gap-3">
+                                      <span className="text-xs font-mono text-surface-400 mt-0.5 shrink-0 w-8">
+                                        {i + 1}.{ci + 1}
+                                      </span>
+                                      <div className="min-w-0 flex-1 space-y-1.5">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <h4 className="text-sm font-medium text-surface-800 dark:text-surface-100">{ch.name}</h4>
+                                          {Number(ch.estimated_hours) > 0 && (
+                                            <span className="text-[11px] text-surface-400 inline-flex items-center gap-1 shrink-0">
+                                              <Clock size={11} /> {ch.estimated_hours}h
+                                            </span>
+                                          )}
+                                        </div>
+                                        {Array.isArray(ch.content_types) && ch.content_types.length > 0 ? (
+                                          <ContentTypeBadges types={ch.content_types} />
+                                        ) : (
+                                          <p className="text-[11px] text-surface-400">Content coming soon</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}

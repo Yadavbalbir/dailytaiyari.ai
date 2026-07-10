@@ -215,7 +215,7 @@ export const SCHEMAS = {
             { name: 'price', label: 'Price', type: 'number', step: '0.01', default: 0, showIf: (v) => v.pricing_type === 'paid', hint: 'Amount the student pays. Payment gateway is handled separately for now.' },
             { name: 'original_price', label: 'Original price (strike-through)', type: 'number', step: '0.01', showIf: (v) => v.pricing_type === 'paid', hint: 'Optional higher price to show a discount.' },
             { name: 'currency', label: 'Currency', type: 'select', options: opt(['INR', 'USD', 'EUR', 'GBP']), default: 'INR', showIf: (v) => v.pricing_type === 'paid' },
-            { name: 'description', label: 'Description', type: 'textarea', full: true },
+            { name: 'description', label: 'Description', type: 'textarea', full: true, image: true, rows: 10, hint: 'Supports rich HTML / Markdown and images — paste, drop, or add an image directly.' },
             { name: 'highlights', label: 'What you will get (one point per line)', type: 'stringlist', full: true, placeholder: 'All Previous Year Questions (PYQ)\nFully solved answers\nExam-oriented approach' },
             { name: 'refund_policy', label: 'Refund policy', type: 'textarea', full: true, hint: 'Shown on the course details page.' },
         ],
