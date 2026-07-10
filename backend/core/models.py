@@ -25,6 +25,7 @@ class Tenant(models.Model):
         'analytics': 'Analytics',
         'leaderboard': 'Leaderboard',
         'ai': 'AI Learning & Doubt Solver',
+        'jobs': 'Job Portal',
     }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

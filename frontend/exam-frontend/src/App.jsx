@@ -43,6 +43,11 @@ import AILearning from './pages/AILearning'
 import AIQuizReview from './pages/AIQuizReview'
 import Community from './pages/Community'
 import CommunityPost from './pages/CommunityPost'
+import Jobs from './pages/Jobs'
+import JobDetail from './pages/JobDetail'
+import JobManager from './pages/JobManager'
+import JobApplicants from './pages/JobApplicants'
+import JobApplicationReview from './pages/JobApplicationReview'
 import PreviousYearPapers from './pages/PreviousYearPapers'
 import AdminDashboard from './pages/AdminDashboard'
 import CourseManager from './pages/CourseManager'
@@ -225,6 +230,15 @@ function App() {
           <Route path="/ai-quiz-review/:attemptId" element={<FeatureRoute feature="ai"><AIQuizReview /></FeatureRoute>} />
           <Route path="/community" element={<FeatureRoute feature="community"><Community /></FeatureRoute>} />
           <Route path="/community/:id" element={<FeatureRoute feature="community"><CommunityPost /></FeatureRoute>} />
+
+          {/* Job Portal (students) */}
+          <Route path="/jobs" element={<FeatureRoute feature="jobs"><Jobs /></FeatureRoute>} />
+          <Route path="/jobs/:jobId" element={<FeatureRoute feature="jobs"><JobDetail /></FeatureRoute>} />
+
+          {/* Job Portal (admin) */}
+          <Route path="/admin/jobs" element={<AdminRoute><JobManager /></AdminRoute>} />
+          <Route path="/admin/jobs/:jobId" element={<AdminRoute><JobApplicants /></AdminRoute>} />
+          <Route path="/admin/jobs/:jobId/applications/:applicationId" element={<AdminRoute><JobApplicationReview /></AdminRoute>} />
 
           {/* Admin Dashboard */}
           <Route path="/admin/mock-tests" element={<AdminRoute><MockTestManager /></AdminRoute>} />

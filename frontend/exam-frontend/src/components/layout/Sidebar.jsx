@@ -15,7 +15,8 @@ import {
   MessageSquareText,
   Sparkles,
   Settings,
-  Users
+  Users,
+  Briefcase
 } from 'lucide-react'
 
 // Navigation items with professional icons.
@@ -28,6 +29,7 @@ const navItems = [
   { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList, feature: 'mock_tests' },
   { path: '/pyp', label: 'PYQ Papers', icon: FileText, feature: 'pyq' },
   { path: '/community', label: 'Community', icon: Users, feature: 'community' },
+  { path: '/jobs', label: 'Careers', icon: Briefcase, feature: 'jobs' },
   { path: '/analytics', label: 'Analytics', icon: BarChart3, feature: 'analytics' },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy, feature: 'leaderboard' },
   { path: '/doubt-solver', label: 'AI Doubt Solver', icon: MessageSquareText, feature: 'ai' },
