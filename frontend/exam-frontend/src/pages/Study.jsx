@@ -5,6 +5,7 @@ import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
 import { GraduationCap, Clock, Compass, ArrowRight } from 'lucide-react'
+import { stripHtml } from '../utils/html'
 
 const Study = () => {
   const navigate = useNavigate()
@@ -89,7 +90,7 @@ const Study = () => {
               <div className="p-4 sm:p-5 flex flex-col flex-1">
                 <h3 className="text-base sm:text-lg font-semibold leading-snug line-clamp-1">{course.name}</h3>
                 {course.description && (
-                  <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{course.description}</p>
+                  <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{stripHtml(course.description)}</p>
                 )}
 
                 <div className="mt-auto pt-4">
