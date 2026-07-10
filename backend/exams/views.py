@@ -223,6 +223,13 @@ class AvailableCoursesForEnrollmentView(APIView):
                     {'id': str(u.id), 'name': u.full_name or u.first_name or u.email}
                     for u in e.instructors.all()
                 ],
+                'pricing_type': e.pricing_type,
+                'price': str(e.price),
+                'original_price': str(e.original_price) if e.original_price is not None else None,
+                'currency': e.currency,
+                'is_free': e.is_free,
+                'discount_percent': e.discount_percent,
+                'subtitle': e.subtitle or '',
             }
             for e in courses
         ]

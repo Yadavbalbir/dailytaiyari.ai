@@ -203,6 +203,7 @@ export const SCHEMAS = {
         fields: [
             { name: 'name', label: 'Name', type: 'text', required: true },
             { name: 'code', label: 'Code', type: 'text', required: true, hint: 'Unique slug, e.g. neet' },
+            { name: 'subtitle', label: 'Subtitle / tagline', type: 'text', full: true, hint: 'Short line shown under the course title on the details page.' },
             { name: 'course_type', label: 'Type', type: 'select', options: opt(EXAM_TYPES), default: 'competitive' },
             { name: 'status', label: 'Status', type: 'select', options: opt(EXAM_STATUS), default: 'active' },
             { name: 'color', label: 'Color', type: 'color', default: '#3B82F6' },
@@ -210,7 +211,13 @@ export const SCHEMAS = {
             { name: 'total_marks', label: 'Total Marks', type: 'number' },
             { name: 'is_featured', label: 'Featured', type: 'checkbox' },
             { name: 'negative_marking', label: 'Negative Marking', type: 'checkbox' },
+            { name: 'pricing_type', label: 'Pricing', type: 'select', options: opt(['free', 'paid']), default: 'free' },
+            { name: 'price', label: 'Price', type: 'number', step: '0.01', default: 0, showIf: (v) => v.pricing_type === 'paid', hint: 'Amount the student pays. Payment gateway is handled separately for now.' },
+            { name: 'original_price', label: 'Original price (strike-through)', type: 'number', step: '0.01', showIf: (v) => v.pricing_type === 'paid', hint: 'Optional higher price to show a discount.' },
+            { name: 'currency', label: 'Currency', type: 'select', options: opt(['INR', 'USD', 'EUR', 'GBP']), default: 'INR', showIf: (v) => v.pricing_type === 'paid' },
             { name: 'description', label: 'Description', type: 'textarea', full: true },
+            { name: 'highlights', label: 'What you will get (one point per line)', type: 'stringlist', full: true, placeholder: 'All Previous Year Questions (PYQ)\nFully solved answers\nExam-oriented approach' },
+            { name: 'refund_policy', label: 'Refund policy', type: 'textarea', full: true, hint: 'Shown on the course details page.' },
         ],
     },
     subject: {
@@ -318,7 +325,10 @@ export const buildInitial = (fields, instance) => {
     const out = {}
     fields.forEach((f) => {
         let v = instance ? instance[f.name] : undefined
-        if (v === undefined || v === null) v = f.default ?? (f.type === 'checkbox' ? false : '')
+        if (v === undefined || v === null) {
+            v = f.default ?? (f.type === 'checkbox' ? false : f.type === 'stringlist' ? [] : '')
+        }
+        if (f.type === 'stringlist' && !Array.isArray(v)) v = v ? [String(v)] : []
         // datetime-local inputs need a trimmed "YYYY-MM-DDTHH:mm" value.
         if (f.type === 'datetime-local' && typeof v === 'string' && v.length > 16) v = v.slice(0, 16)
         out[f.name] = v
@@ -355,6 +365,10 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                 v = v === '' || v === null ? null : Number(v)
                 if (v === null && !f.required) return
             }
+            if (f.type === 'stringlist') {
+                const arr = Array.isArray(v) ? v : String(v || '').split('\n')
+                v = arr.map((s) => String(s).trim()).filter(Boolean)
+            }
             payload[f.name] = v
         })
         onSubmit(payload)
@@ -380,7 +394,7 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                 <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {visibleFields.map((f) => (
-                            <div key={f.name} className={f.full || f.type === 'textarea' ? 'sm:col-span-2' : ''}>
+                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' ? 'sm:col-span-2' : ''}>
                                 {f.type === 'checkbox' ? (
                                     <label className="flex items-center gap-2 cursor-pointer py-2">
                                         <input
@@ -406,6 +420,13 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                                                     onChange={(e) => set(f.name, e.target.value)}
                                                 />
                                             )
+                                        ) : f.type === 'stringlist' ? (
+                                            <textarea
+                                                className="input text-sm" rows={f.rows || 4}
+                                                placeholder={f.placeholder || 'One item per line'}
+                                                value={(Array.isArray(values[f.name]) ? values[f.name] : []).join('\n')}
+                                                onChange={(e) => set(f.name, e.target.value.split('\n'))}
+                                            />
                                         ) : f.type === 'file' ? (
                                             <div className="space-y-2">
                                                 {values[f.name] instanceof File ? (

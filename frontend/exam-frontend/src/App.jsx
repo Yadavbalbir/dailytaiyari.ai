@@ -22,6 +22,7 @@ import Dashboard from './pages/Dashboard'
 import Study from './pages/Study'
 import StudyCourse from './pages/StudyCourse'
 import Courses from './pages/Courses'
+import CourseDetail from './pages/CourseDetail'
 import StudyChapters from './pages/StudyChapters'
 import StudyChapterTopics from './pages/StudyChapterTopics'
 import StudyTopicContent from './pages/StudyTopicContent'
@@ -181,6 +182,7 @@ function App() {
         >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
+          <Route path="/courses/:courseId" element={<CourseDetail />} />
           <Route path="/courses/:courseId/manage" element={<EditorRoute><CourseManager /></EditorRoute>} />
           <Route path="/courses/:courseId/manage/assignments/:assignmentId" element={<EditorRoute><AssignmentGrading /></EditorRoute>} />
           <Route path="/courses/:courseId/manage/assignments/:assignmentId/submissions/:submissionId" element={<EditorRoute><SubmissionReview /></EditorRoute>} />
