@@ -6,6 +6,7 @@ import {
     CheckCircle2, Circle, ImagePlus, Loader, FileText,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
+import CertificatePreview from '../certificate/CertificatePreview'
 
 /* Fast, cheap modal transitions (no backdrop-blur — it repaints the whole
  * builder tree behind the overlay and makes opening feel sluggish). */
@@ -225,6 +226,7 @@ export const SCHEMAS = {
                 { value: 'elegant', label: 'Elegant — cream & gold' },
                 { value: 'minimal', label: 'Minimal — clean & monochrome' },
             ], default: 'classic', showIf: (v) => v.certificate_enabled, hint: 'Design students receive when they reach 100% completion.' },
+            { name: '_certificate_preview', type: 'certificate_preview', full: true, showIf: (v) => v.certificate_enabled },
         ],
     },
     subject: {
@@ -363,6 +365,7 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
         const payload = {}
         visibleFields.forEach((f) => {
             let v = values[f.name]
+            if (f.type === 'certificate_preview') return
             if (f.type === 'file') {
                 // Only send when a new file was chosen; otherwise preserve existing.
                 if (v instanceof File) payload[f.name] = v
@@ -388,7 +391,7 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
             onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
             <motion.div
-                className="card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+                className="card w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col"
                 {...PANEL_MOTION}
             >
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
@@ -401,8 +404,21 @@ export const EntityModal = ({ type, instance, defaults, onClose, onSubmit, savin
                 <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {visibleFields.map((f) => (
-                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' ? 'sm:col-span-2' : ''}>
-                                {f.type === 'checkbox' ? (
+                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' || f.type === 'certificate_preview' ? 'sm:col-span-2' : ''}>
+                                {f.type === 'certificate_preview' ? (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-surface-500 mb-1.5">
+                                            Certificate preview
+                                        </label>
+                                        <CertificatePreview
+                                            template={values.certificate_template || 'classic'}
+                                            data={{ courseName: values.name, accent: values.color }}
+                                        />
+                                        <p className="text-[11px] text-surface-400 mt-1.5">
+                                            Sample preview — the student&apos;s name, your institute logo/name, date and a unique number are filled in automatically.
+                                        </p>
+                                    </div>
+                                ) : f.type === 'checkbox' ? (
                                     <label className="flex items-center gap-2 cursor-pointer py-2">
                                         <input
                                             type="checkbox"

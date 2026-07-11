@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
 import { NotesTextarea } from './builderShared'
+import CertificatePreview from '../certificate/CertificatePreview'
 
 /* ===========================================================================
  * Field / form configuration per entity
@@ -59,6 +60,7 @@ const SCHEMAS = {
                 { value: 'elegant', label: 'Elegant — cream & gold' },
                 { value: 'minimal', label: 'Minimal — clean & monochrome' },
             ], default: 'classic', hint: 'Design students receive when they reach 100% completion (enable the checkbox above).' },
+            { name: '_certificate_preview', type: 'certificate_preview', full: true },
         ],
     },
     subject: {
@@ -165,6 +167,7 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
         const payload = {}
         schema.fields.forEach((f) => {
             let v = values[f.name]
+            if (f.type === 'certificate_preview') return
             if (f.type === 'number') {
                 v = v === '' || v === null ? null : Number(v)
                 if (v === null && !f.required) return
@@ -185,7 +188,7 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
             onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
             <motion.div
-                className="card w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+                className="card w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col"
                 initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
             >
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
@@ -198,8 +201,23 @@ const EntityModal = ({ type, instance, onClose, onSubmit, saving }) => {
                 <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {schema.fields.map((f) => (
-                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' ? 'sm:col-span-2' : ''}>
-                                {f.type === 'checkbox' ? (
+                            <div key={f.name} className={f.full || f.type === 'textarea' || f.type === 'stringlist' || f.type === 'certificate_preview' ? 'sm:col-span-2' : ''}>
+                                {f.type === 'certificate_preview' ? (
+                                    values.certificate_enabled ? (
+                                        <div>
+                                            <label className="block text-xs font-semibold text-surface-500 mb-1.5">
+                                                Certificate preview
+                                            </label>
+                                            <CertificatePreview
+                                                template={values.certificate_template || 'classic'}
+                                                data={{ courseName: values.name, accent: values.color }}
+                                            />
+                                            <p className="text-[11px] text-surface-400 mt-1.5">
+                                                Sample preview — the student&apos;s name, your institute logo/name, date and a unique number are filled in automatically.
+                                            </p>
+                                        </div>
+                                    ) : null
+                                ) : f.type === 'checkbox' ? (
                                     <label className="flex items-center gap-2 cursor-pointer py-2">
                                         <input
                                             type="checkbox"
