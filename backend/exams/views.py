@@ -780,6 +780,9 @@ class StudyLeaderboardView(APIView):
         if scope == 'quiz' and scope_id:
             return self._quiz_leaderboard(tenant, student, scope_id)
 
+        if scope == 'course' and scope_id:
+            return self._course_leaderboard(tenant, student, scope_id)
+
         if scope == 'subject' and scope_id:
             topic_ids = Topic.objects.filter(subject_id=scope_id).values_list('id', flat=True)
         elif scope == 'chapter' and scope_id:
@@ -928,5 +931,116 @@ class StudyLeaderboardView(APIView):
                 'time_taken_seconds': a.time_taken_seconds or 0,
                 'is_current_user': p.id == student.id,
             })
+
+        return Response(entries)
+
+    def _course_leaderboard(self, tenant, student, course_id):
+        """Rank enrolled students by their overall completion percentage in a course."""
+        from content.models import Content, ContentProgress
+        from quiz.models import Quiz, QuizAttempt
+        from assignments.models import Assignment, AssignmentSubmission
+        from coding.models import CodingProblem, CodingSubmission
+        from users.models import CourseEnrollment, StudentProfile
+
+        try:
+            course = Course.objects.get(pk=course_id)
+        except Course.DoesNotExist:
+            return Response([])
+
+        content_types = ['notes', 'pdf', 'revision', 'formula', 'video']
+        topic_ids = list(Topic.objects.filter(subject__course=course).values_list('id', flat=True))
+
+        # Fixed denominator: every published item across the course.
+        content_total = Content.objects.filter(
+            subject__course=course, status='published', content_type__in=content_types,
+        ).count()
+        quiz_total = Quiz.objects.filter(course=course, status='published').count()
+        assignment_total = Assignment.objects.filter(
+            topic_id__in=topic_ids, status='published',
+        ).count()
+        coding_total = CodingProblem.objects.filter(
+            topic_id__in=topic_ids, status='published',
+        ).count()
+        grand_total = content_total + quiz_total + assignment_total + coding_total
+        if grand_total == 0:
+            return Response([])
+
+        # Per-student completed counts (distinct items) via grouped aggregates.
+        completed = {}
+
+        def _accumulate(qs):
+            for row in qs:
+                sid = row['student']
+                completed[sid] = completed.get(sid, 0) + (row['c'] or 0)
+
+        _accumulate(
+            ContentProgress.objects.filter(
+                content__subject__course=course,
+                content__status='published',
+                content__content_type__in=content_types,
+                is_completed=True,
+                student__user__tenant=tenant,
+            ).values('student').annotate(c=Count('content', distinct=True))
+        )
+        _accumulate(
+            QuizAttempt.objects.filter(
+                quiz__course=course, quiz__status='published', status='completed',
+                student__user__tenant=tenant,
+            ).values('student').annotate(c=Count('quiz', distinct=True))
+        )
+        _accumulate(
+            AssignmentSubmission.objects.filter(
+                assignment__topic_id__in=topic_ids, assignment__status='published',
+                student__user__tenant=tenant,
+            ).values('student').annotate(c=Count('assignment', distinct=True))
+        )
+        _accumulate(
+            CodingSubmission.objects.filter(
+                problem__topic_id__in=topic_ids, problem__status='published',
+                total_count__gt=0, passed_count=F('total_count'),
+                student__user__tenant=tenant,
+            ).values('student').annotate(c=Count('problem', distinct=True))
+        )
+
+        # Only rank students actively enrolled in this course.
+        enrolled_ids = set(
+            str(sid) for sid in CourseEnrollment.objects.filter(
+                course=course, status='approved',
+            ).values_list('student_id', flat=True)
+        )
+
+        ranked = sorted(
+            (
+                (str(sid), done) for sid, done in completed.items()
+                if str(sid) in enrolled_ids and done > 0
+            ),
+            key=lambda x: x[1],
+            reverse=True,
+        )[:20]
+
+        profiles = {
+            str(p.id): p
+            for p in StudentProfile.objects.select_related('user').filter(
+                id__in=[sid for sid, _ in ranked], user__tenant=tenant,
+            )
+        }
+
+        entries = []
+        rank = 1
+        for sid, done in ranked:
+            p = profiles.get(sid)
+            if not p:
+                continue
+            entries.append({
+                'rank': rank,
+                'student_name': p.user.full_name,
+                'role': p.user.role,
+                'avatar': p.user.avatar.url if p.user.avatar else None,
+                'completion': round((done / grand_total) * 100),
+                'completed_content': done,
+                'total_content': grand_total,
+                'is_current_user': p.id == student.id,
+            })
+            rank += 1
 
         return Response(entries)
