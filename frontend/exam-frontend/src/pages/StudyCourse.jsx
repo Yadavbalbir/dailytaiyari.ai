@@ -1,14 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
-  ChevronRight, GraduationCap, ArrowLeft, Settings2,
-  PlayCircle, PenTool, ClipboardList, Code2
+  ChevronRight, ChevronDown, GraduationCap, ArrowLeft, Settings2,
+  PlayCircle, PenTool, ClipboardList, Code2, Trophy, CheckCircle2,
 } from 'lucide-react'
 
 const iconMap = {
@@ -19,13 +19,233 @@ const iconMap = {
   'bug': Bug,
 }
 
+const progressColor = (p) =>
+  p >= 80 ? 'bg-success-500' : p >= 40 ? 'bg-primary-500' : p > 0 ? 'bg-warning-500' : 'bg-surface-200 dark:bg-surface-600'
+
+/** Thin progress bar reused at every level of the accordion. */
+const Bar = ({ value, color }) => (
+  <div className="w-full h-1.5 bg-surface-100 dark:bg-surface-700 rounded-full overflow-hidden">
+    <div
+      className={`h-full rounded-full transition-all ${color || progressColor(value)}`}
+      style={{ width: `${value}%`, backgroundColor: undefined }}
+    />
+  </div>
+)
+
+/** Leaf row: a single topic with an Enter button. */
+const TopicRow = ({ item, index, onEnter }) => {
+  const { topic, reading = [], videos = [], quizzes = [], assignments = [], coding = [] } = item
+  const readingDone = reading.filter((r) => r.is_completed).length
+  const videosDone = videos.filter((v) => v.is_completed).length
+  const quizzesDone = quizzes.filter((q) => q.attempts_count > 0).length
+  const assignmentsDone = assignments.filter((a) => a.is_completed).length
+  const codingDone = coding.filter((c) => c.is_completed).length
+  const total = reading.length + videos.length + quizzes.length + assignments.length + coding.length
+  const done = readingDone + videosDone + quizzesDone + assignmentsDone + codingDone
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0
+
+  const stats = [
+    { icon: BookOpen, done: readingDone, total: reading.length, label: 'read' },
+    { icon: PlayCircle, done: videosDone, total: videos.length, label: 'watched' },
+    { icon: PenTool, done: quizzesDone, total: quizzes.length, label: 'quizzes' },
+    { icon: Code2, done: codingDone, total: coding.length, label: 'coding' },
+    { icon: ClipboardList, done: assignmentsDone, total: assignments.length, label: 'tasks' },
+  ].filter((s) => s.total > 0)
+
+  return (
+    <div className="flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors">
+      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
+        progress === 100
+          ? 'bg-success-100 text-success-600 dark:bg-success-900/30'
+          : 'bg-surface-100 text-surface-500 dark:bg-surface-700'
+      }`}>
+        {progress === 100 ? <CheckCircle2 size={15} /> : index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{topic.name}</p>
+        {stats.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-surface-400">
+            {stats.map((s, i) => {
+              const Icon = s.icon
+              return (
+                <span key={i} className="flex items-center gap-1">
+                  <Icon size={11} /> {s.done}/{s.total} {s.label}
+                </span>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">{progress}%</span>
+      <button
+        type="button"
+        onClick={onEnter}
+        className="btn-primary text-xs px-3 py-1.5 flex-shrink-0"
+      >
+        Enter
+      </button>
+    </div>
+  )
+}
+
+/** Middle level: a chapter that expands to reveal its topics (lazy loaded). */
+const ChapterRow = ({ chapter, index, courseColor, navigate }) => {
+  const [open, setOpen] = useState(false)
+  const { data, isLoading } = useQuery({
+    queryKey: ['studyChapterDetail', chapter.id],
+    queryFn: () => courseService.getStudyChapterDetail(chapter.id),
+    enabled: open,
+  })
+  const topics = data?.topics || []
+
+  return (
+    <div className="border border-surface-100 dark:border-surface-700 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors"
+      >
+        <ChevronRight
+          size={16}
+          className={`text-surface-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+          chapter.progress === 100
+            ? 'bg-success-100 text-success-600 dark:bg-success-900/30'
+            : 'bg-surface-100 text-surface-500 dark:bg-surface-700'
+        }`}>
+          {chapter.progress === 100 ? <CheckCircle2 size={16} /> : index + 1}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">{chapter.name}</p>
+          <p className="text-xs text-surface-400 mt-0.5">
+            {chapter.topics_count ?? '—'} topics
+          </p>
+        </div>
+        <div className="w-28 hidden sm:block flex-shrink-0">
+          <Bar value={chapter.progress} />
+        </div>
+        <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">
+          {chapter.progress}%
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-t border-surface-100 dark:border-surface-700"
+          >
+            <div className="p-1.5 space-y-0.5">
+              {isLoading ? (
+                <div className="py-4"><Loading /></div>
+              ) : topics.length === 0 ? (
+                <p className="text-sm text-surface-400 px-4 py-3">No topics in this chapter yet.</p>
+              ) : (
+                topics.map((item, i) => (
+                  <TopicRow
+                    key={item.topic.id}
+                    item={item}
+                    index={i}
+                    onEnter={() => navigate(`/study/chapter/${chapter.id}/topic/${item.topic.id}`)}
+                  />
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** Top level: a subject that expands to reveal its chapters (lazy loaded). */
+const SubjectRow = ({ subject, defaultOpen, courseColor, navigate }) => {
+  const [open, setOpen] = useState(defaultOpen)
+  const { data, isLoading } = useQuery({
+    queryKey: ['studyChapters', subject.id],
+    queryFn: () => courseService.getStudyChapters(subject.id),
+    enabled: open,
+  })
+  const chapters = data?.chapters || []
+  const IconComp = iconMap[subject.icon] || BookOpen
+
+  return (
+    <div className="card overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-4 p-4 text-left hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors"
+      >
+        <ChevronDown
+          size={20}
+          className={`text-surface-400 flex-shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
+        />
+        <div
+          className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${subject.color}18` }}
+        >
+          <IconComp size={24} style={{ color: subject.color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold truncate">{subject.name}</h3>
+          <p className="text-sm text-surface-500 mt-0.5">
+            {subject.total_chapters} chapters · {subject.total_topics} topics
+          </p>
+        </div>
+        <div className="w-40 hidden md:block flex-shrink-0">
+          <Bar value={subject.progress} />
+          <p className="text-[11px] text-surface-400 mt-1 text-right">
+            {subject.completed_content}/{subject.total_content} completed
+          </p>
+        </div>
+        <span className="text-lg font-bold w-12 text-right flex-shrink-0" style={{ color: subject.color }}>
+          {subject.progress}%
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-t border-surface-100 dark:border-surface-700"
+          >
+            <div className="p-3 space-y-2 bg-surface-50/50 dark:bg-surface-900/30">
+              {isLoading ? (
+                <div className="py-6"><Loading /></div>
+              ) : chapters.length === 0 ? (
+                <p className="text-sm text-surface-400 px-2 py-3">No chapters available yet.</p>
+              ) : (
+                chapters.map((chapter, i) => (
+                  <ChapterRow
+                    key={chapter.id}
+                    chapter={chapter}
+                    index={i}
+                    courseColor={courseColor}
+                    navigate={navigate}
+                  />
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 const StudyCourse = () => {
   const navigate = useNavigate()
   const { courseId } = useParams()
   const { user, profile } = useAuthStore()
   const isAdmin = (user?.role || profile?.user?.role) === 'admin'
 
-  // Enrolled courses — used to resolve the course header and to guard access.
   const { data: studyData = { courses: [], pending: [] }, isLoading: coursesLoading } = useQuery({
     queryKey: ['studyCourses'],
     queryFn: () => courseService.getStudyCourses(),
@@ -39,14 +259,61 @@ const StudyCourse = () => {
     enabled: !!courseId,
   })
 
+  const { data: leaderboard = [] } = useQuery({
+    queryKey: ['studyLeaderboard', 'course', courseId],
+    queryFn: () => courseService.getStudyLeaderboard('course', courseId),
+    enabled: !!courseId,
+  })
+
   useEffect(() => {
     if (courseId) localStorage.setItem('study:lastCourseId', courseId)
   }, [courseId])
 
+  // Course-wide completion summary aggregated from the subjects payload.
+  const summary = useMemo(() => {
+    const list = subjects || []
+    const totals = list.reduce(
+      (acc, s) => {
+        acc.total += s.total_content || 0
+        acc.done += s.completed_content || 0
+        acc.reading.total += s.reading?.total || 0
+        acc.reading.done += s.reading?.completed || 0
+        acc.videos.total += s.videos?.total || 0
+        acc.videos.done += s.videos?.completed || 0
+        acc.quizzes.total += s.quizzes?.total || 0
+        acc.quizzes.done += s.quizzes?.attempted || 0
+        acc.coding.total += s.coding?.total || 0
+        acc.coding.done += s.coding?.completed || 0
+        acc.assignments.total += s.assignments?.total || 0
+        acc.assignments.done += s.assignments?.completed || 0
+        return acc
+      },
+      {
+        total: 0, done: 0,
+        reading: { total: 0, done: 0 }, videos: { total: 0, done: 0 },
+        quizzes: { total: 0, done: 0 }, coding: { total: 0, done: 0 },
+        assignments: { total: 0, done: 0 },
+      },
+    )
+    const progress = totals.total > 0 ? Math.round((totals.done / totals.total) * 100) : 0
+    const chapters = list.reduce((s, x) => s + (x.total_chapters || 0), 0)
+    const topics = list.reduce((s, x) => s + (x.total_topics || 0), 0)
+    return { ...totals, progress, subjects: list.length, chapters, topics }
+  }, [subjects])
+
   if (coursesLoading) return <Loading fullScreen />
+
+  const breakdown = [
+    { icon: BookOpen, color: 'text-blue-500', label: 'Reading', ...summary.reading },
+    { icon: PlayCircle, color: 'text-red-500', label: 'Videos', ...summary.videos },
+    { icon: PenTool, color: 'text-green-500', label: 'Quizzes', ...summary.quizzes },
+    { icon: Code2, color: 'text-primary-500', label: 'Coding', ...summary.coding },
+    { icon: ClipboardList, color: 'text-purple-500', label: 'Assignments', ...summary.assignments },
+  ].filter((b) => b.total > 0)
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -60,7 +327,7 @@ const StudyCourse = () => {
           <h1 className="text-2xl font-display font-bold" style={{ color: course?.color || undefined }}>
             {course?.name || 'Course'}
           </h1>
-          <p className="text-surface-500 mt-1">Choose a subject to start learning</p>
+          <p className="text-surface-500 mt-1">Expand a subject to jump straight into any topic</p>
         </div>
         {isAdmin && (
           <button
@@ -81,90 +348,105 @@ const StudyCourse = () => {
           <p>No subjects configured for this course yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {subjects.map((subject, index) => {
-            const IconComp = iconMap[subject.icon] || BookOpen
-            return (
-              <motion.div
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+          {/* Accordion */}
+          <div className="space-y-3 order-1">
+            {subjects.map((subject, index) => (
+              <SubjectRow
                 key={subject.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.07 }}
-                onClick={() => navigate(`/study/${subject.id}`)}
-                className="card p-5 cursor-pointer hover:border-primary-300 hover:shadow-lg transition-all group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: `${subject.color}18` }}
-                  >
-                    <IconComp size={28} style={{ color: subject.color }} />
+                subject={subject}
+                defaultOpen={index === 0}
+                courseColor={course?.color}
+                navigate={navigate}
+              />
+            ))}
+          </div>
+
+          {/* Sidebar: completion summary + leaderboard */}
+          <aside className="order-2 space-y-4 lg:sticky lg:top-6">
+            {/* Completion summary */}
+            <div className="card p-5">
+              <h3 className="font-semibold mb-4">Course completion</h3>
+              <div className="flex items-end justify-between mb-2">
+                <span className="text-3xl font-bold" style={{ color: course?.color || undefined }}>
+                  {summary.progress}%
+                </span>
+                <span className="text-xs text-surface-500">
+                  {summary.done}/{summary.total} items
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-surface-100 dark:bg-surface-700 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${summary.progress}%` }}
+                  transition={{ duration: 0.8 }}
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: course?.color || '#3B82F6' }}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+                {[
+                  { label: 'Subjects', value: summary.subjects },
+                  { label: 'Chapters', value: summary.chapters },
+                  { label: 'Topics', value: summary.topics },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl bg-surface-50 dark:bg-surface-800 py-2">
+                    <p className="text-lg font-bold">{s.value}</p>
+                    <p className="text-[11px] text-surface-500">{s.label}</p>
                   </div>
-                  <ChevronRight
-                    size={20}
-                    className="text-surface-300 group-hover:text-primary-500 transition-colors mt-1"
-                  />
+                ))}
+              </div>
+
+              {breakdown.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-surface-100 dark:border-surface-700 space-y-2">
+                  {breakdown.map((b) => {
+                    const Icon = b.icon
+                    return (
+                      <div key={b.label} className="flex items-center gap-2 text-sm">
+                        <Icon size={14} className={b.color} />
+                        <span className="flex-1 text-surface-500">{b.label}</span>
+                        <span className="font-medium">{b.done}/{b.total}</span>
+                      </div>
+                    )
+                  })}
                 </div>
+              )}
+            </div>
 
-                <h3 className="text-lg font-semibold">{subject.name}</h3>
-                <p className="text-sm text-surface-500 mt-1">
-                  {subject.total_chapters} chapters · {subject.total_topics} topics
-                </p>
-
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-surface-500">Progress</span>
-                    <span className="font-semibold" style={{ color: subject.color }}>
-                      {subject.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-surface-100 dark:bg-surface-700 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${subject.progress}%` }}
-                      transition={{ duration: 0.8, delay: index * 0.1 }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: subject.color }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-3 text-xs text-surface-400">
-                  <span>{subject.completed_content}/{subject.total_content} completed</span>
-                  {subject.total_content > subject.completed_content && (
-                    <span className="text-surface-400">
-                      {subject.total_content - subject.completed_content} left
-                    </span>
-                  )}
-                </div>
-
-                {/* Content breakdown — only show categories that have content */}
-                {(() => {
-                  const stats = [
-                    { icon: BookOpen, color: 'text-blue-500', done: subject.reading?.completed ?? 0, total: subject.reading?.total ?? 0, label: 'read' },
-                    { icon: PlayCircle, color: 'text-red-500', done: subject.videos?.completed ?? 0, total: subject.videos?.total ?? 0, label: 'watched' },
-                    { icon: PenTool, color: 'text-green-500', done: subject.quizzes?.attempted ?? 0, total: subject.quizzes?.total ?? 0, label: 'quizzes' },
-                    { icon: Code2, color: 'text-primary-500', done: subject.coding?.completed ?? 0, total: subject.coding?.total ?? 0, label: 'coding' },
-                    { icon: ClipboardList, color: 'text-purple-500', done: subject.assignments?.completed ?? 0, total: subject.assignments?.total ?? 0, label: 'tasks' },
-                  ].filter((s) => s.total > 0)
-                  if (!stats.length) return null
-                  return (
-                    <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-surface-100 dark:border-surface-700 text-xs text-surface-500">
-                      {stats.map((s, i) => {
-                        const Icon = s.icon
-                        return (
-                          <span key={i} className="flex items-center gap-1.5">
-                            <Icon size={13} className={s.color} />
-                            {s.done}/{s.total} {s.label}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )
-                })()}
-              </motion.div>
-            )
-          })}
+            {/* Leaderboard by completion */}
+            {leaderboard && leaderboard.length > 0 && (
+              <div className="card p-5">
+                <h3 className="font-semibold flex items-center gap-2 mb-4">
+                  <Trophy size={18} className="text-warning-500" /> Course Leaderboard
+                </h3>
+                <ol className="space-y-1.5">
+                  {leaderboard.slice(0, 8).map((entry) => (
+                    <li
+                      key={entry.rank}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl ${
+                        entry.is_current_user
+                          ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800'
+                          : 'hover:bg-surface-50 dark:hover:bg-surface-800'
+                      }`}
+                    >
+                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                        entry.rank === 1 ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30' :
+                        entry.rank <= 3 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
+                        'bg-surface-100 text-surface-400 dark:bg-surface-800'
+                      }`}>
+                        {entry.rank}
+                      </span>
+                      <span className="font-medium text-sm truncate flex-1">{entry.student_name}</span>
+                      <span className="text-xs font-semibold text-surface-500 flex-shrink-0">
+                        {entry.completion}%
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </aside>
         </div>
       )}
     </div>
