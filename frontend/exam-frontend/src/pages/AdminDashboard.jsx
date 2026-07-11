@@ -7,7 +7,7 @@ import { analyticsService } from '../services/analyticsService'
 import { tenantAdminService } from '../services/tenantAdminService'
 import { courseService } from '../services/courseService'
 import { useTenantStore } from '../context/tenantStore'
-import ContentBuilder from '../components/admin/ContentBuilder'
+import CourseBuilder from '../components/admin/CourseBuilder'
 import {
     Users,
     GraduationCap,
@@ -1436,7 +1436,7 @@ const AdminDashboard = () => {
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'performance' && <PerformanceReports />}
-                    {activeTab === 'content' && <ContentBuilder />}
+                    {activeTab === 'content' && <CourseBuilder />}
                     {activeTab === 'settings' && <TenantSettings />}
                 </motion.div>
             </AnimatePresence>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -1000,9 +1000,14 @@ const ThumbnailModal = ({ course, onClose, onSaved }) => {
 const CourseManager = () => {
     const { courseId } = useParams()
     const navigate = useNavigate()
+    const location = useLocation()
     const queryClient = useQueryClient()
     const { user, profile } = useAuthStore()
     const isAdmin = (user?.role || profile?.user?.role) === 'admin'
+
+    // When opened from the admin console, keep the user inside the admin flow.
+    const inAdmin = location.pathname.startsWith('/admin-dashboard')
+    const backTo = inAdmin ? '/admin-dashboard?tab=content' : '/courses'
 
     const [sel, setSel] = useState({ subjectId: null, chapterId: null, topicId: null, topic: null })
     const [modal, setModal] = useState(null)   // { type, instance, extra }
@@ -1083,7 +1088,7 @@ const CourseManager = () => {
         <div className="space-y-5">
             {/* Header */}
             <div className="flex items-center gap-3">
-                <button onClick={() => navigate('/courses')} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" aria-label="Back to courses">
+                <button onClick={() => navigate(backTo)} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors" aria-label="Back to courses">
                     <ArrowLeft size={20} />
                 </button>
                 <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundColor: course?.color || '#f97316' }}>

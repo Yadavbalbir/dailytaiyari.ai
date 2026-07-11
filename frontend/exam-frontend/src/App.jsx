@@ -259,6 +259,7 @@ function App() {
           }
         >
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin-dashboard/content/:courseId" element={<CourseManager />} />
         </Route>
 
 
