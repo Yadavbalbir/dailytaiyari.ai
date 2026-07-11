@@ -19,6 +19,18 @@ const iconMap = {
   'bug': Bug,
 }
 
+/** Lighten (amt>0) or darken (amt<0) a #rrggbb hex color. Falls back to the input. */
+const shade = (hex, amt) => {
+  const h = (hex || '').replace('#', '')
+  if (h.length < 6) return hex || '#3B82F6'
+  const num = parseInt(h.slice(0, 6), 16)
+  const clamp = (v) => Math.max(0, Math.min(255, v))
+  const r = clamp((num >> 16) + amt)
+  const g = clamp(((num >> 8) & 0xff) + amt)
+  const b = clamp((num & 0xff) + amt)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
 const progressColor = (p) =>
   p >= 80 ? 'bg-success-500' : p >= 40 ? 'bg-primary-500' : p > 0 ? 'bg-warning-500' : 'bg-surface-200 dark:bg-surface-600'
 
@@ -313,32 +325,110 @@ const StudyCourse = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/study')}
-          className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-          aria-label="Back to my courses"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-display font-bold" style={{ color: course?.color || undefined }}>
-            {course?.name || 'Course'}
-          </h1>
-          <p className="text-surface-500 mt-1">Expand a subject to jump straight into any topic</p>
-        </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => navigate(`/courses/${courseId}/manage`)}
-            className="ml-auto btn-secondary text-sm px-3 py-2"
+      {/* Banner */}
+      {(() => {
+        const color = course?.color || '#3B82F6'
+        return (
+          <div
+            className="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${shade(color, 25)} 0%, ${shade(color, -45)} 100%)` }}
           >
-            <Settings2 size={16} /> <span className="hidden sm:inline">Manage course</span>
-          </button>
-        )}
-      </div>
+            {/* Decorative glow */}
+            <div className="pointer-events-none absolute -top-16 -right-10 w-64 h-64 rounded-full bg-white/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-black/10 blur-2xl" />
+
+            <div className="relative">
+              <div className="flex items-start gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate('/study')}
+                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors backdrop-blur-sm"
+                  aria-label="Back to my courses"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {course?.thumbnail ? (
+                    <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <GraduationCap size={30} />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
+                      {course?.name || 'Course'}
+                    </h1>
+                    {course?.code && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm">
+                        {course.code}
+                      </span>
+                    )}
+                    {course?.course_type && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-sm capitalize">
+                        {course.course_type}
+                      </span>
+                    )}
+                  </div>
+                  {course?.description ? (
+                    <p className="text-white/80 text-sm mt-1.5 max-w-2xl line-clamp-2">
+                      {course.description}
+                    </p>
+                  ) : (
+                    <p className="text-white/80 text-sm mt-1.5">
+                      Expand a subject to jump straight into any topic
+                    </p>
+                  )}
+                </div>
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/courses/${courseId}/manage`)}
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors backdrop-blur-sm font-medium flex-shrink-0"
+                  >
+                    <Settings2 size={16} /> <span className="hidden sm:inline">Manage</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Quick stats */}
+              <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/15 backdrop-blur-sm">
+                  <span className="text-lg font-bold">{summary.progress}%</span>
+                  <span className="text-xs text-white/80">complete</span>
+                </div>
+                {[
+                  { icon: GraduationCap, value: summary.subjects, label: 'Subjects' },
+                  { icon: BookOpen, value: summary.chapters, label: 'Chapters' },
+                  { icon: PenTool, value: summary.topics, label: 'Topics' },
+                ].map((s) => {
+                  const Icon = s.icon
+                  return (
+                    <div key={s.label} className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-sm">
+                      <Icon size={15} className="text-white/80" />
+                      <span className="text-sm font-semibold">{s.value}</span>
+                      <span className="text-xs text-white/70">{s.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-4 w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${summary.progress}%` }}
+                  transition={{ duration: 0.9 }}
+                  className="h-full rounded-full bg-white"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {subjectsLoading ? (
         <Loading />
