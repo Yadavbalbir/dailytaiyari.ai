@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Briefcase, MapPin, Building2, ExternalLink, Clock, Upload,
-  Loader2, CheckCircle2, FileText, Send, XCircle,
+  Loader2, CheckCircle2, FileText, Send, XCircle, Flag, AlertTriangle,
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
 import { stageMeta, formatSalary, formatExperience, categoryMeta } from '../components/jobs/jobShared'
@@ -22,6 +22,8 @@ const JobDetail = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showApply, setShowApply] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [reportForm, setReportForm] = useState({ reason: 'closed', note: '' })
   const [form, setForm] = useState({ cover_letter: '', phone: '', portfolio_url: '', linkedin_url: '' })
   const [resume, setResume] = useState(null)
 
@@ -60,6 +62,17 @@ const JobDetail = () => {
     mutationFn: () => jobService.withdraw(jobId),
     onSuccess: () => { toast.success('Application withdrawn.'); invalidate() },
     onError: (e) => toast.error(e?.response?.data?.error || 'Could not withdraw.'),
+  })
+
+  const reportMutation = useMutation({
+    mutationFn: () => jobService.report(jobId, reportForm),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Thanks — your report has been recorded.')
+      setShowReport(false)
+      if (data?.archived) { navigate('/jobs'); return }
+      invalidate()
+    },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Could not submit report.'),
   })
 
   if (isLoading) return <Loading fullScreen />
@@ -191,6 +204,88 @@ const JobDetail = () => {
         <div className="card p-6">
           <h2 className="font-semibold text-lg mb-3">Requirements</h2>
           <JobContent content={job.requirements} />
+        </div>
+      )}
+
+      {/* Report as closed */}
+      {job.my_report ? (
+        <div className="card p-4 border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-900/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-sm text-surface-700 dark:text-surface-300">
+              <p className="font-medium text-amber-700 dark:text-amber-300">Thanks — we're reviewing your report.</p>
+              <p className="mt-0.5">
+                Once <strong>{job.report_threshold ?? 3}</strong> or more students report this opening as closed,
+                we'll archive it automatically so it drops off the board.
+                {typeof job.reports_count === 'number' && (
+                  <> Currently <strong>{job.reports_count}</strong> of {job.report_threshold ?? 3} reports.</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+          <p className="text-xs text-surface-500">Is this opening no longer active?</p>
+          <button
+            onClick={() => setShowReport(true)}
+            className="text-sm inline-flex items-center gap-1.5 text-surface-500 hover:text-error-600 dark:hover:text-error-400 transition-colors"
+          >
+            <Flag className="w-4 h-4" /> Report as closed
+          </button>
+        </div>
+      )}
+
+      {/* Report modal */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowReport(false)}>
+          <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <Flag className="w-5 h-5 text-error-500" />
+              <h2 className="text-xl font-display font-bold">Report this opening</h2>
+            </div>
+            <p className="text-sm text-surface-500 mb-5">
+              Let us know if this position is closed or the link no longer works. Once{' '}
+              {job.report_threshold ?? 3} or more students report it, we'll archive it automatically.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Reason</label>
+                <select
+                  value={reportForm.reason}
+                  onChange={(e) => setReportForm((s) => ({ ...s, reason: e.target.value }))}
+                  className="input py-2.5"
+                >
+                  <option value="closed">Position closed / filled</option>
+                  <option value="expired">Link expired or unavailable</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Note (optional)</label>
+                <textarea
+                  rows={3}
+                  value={reportForm.note}
+                  onChange={(e) => setReportForm((s) => ({ ...s, note: e.target.value }))}
+                  placeholder="Anything else we should know?"
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button onClick={() => setShowReport(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={() => reportMutation.mutate()}
+                disabled={reportMutation.isPending}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                {reportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
+                Submit report
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

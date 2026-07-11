@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Job, JobApplication, ApplicationEvent
+from .models import Job, JobApplication, ApplicationEvent, JobReport
+
+
+class JobReportInline(admin.TabularInline):
+    model = JobReport
+    extra = 0
+    fields = ('reporter', 'reason', 'note', 'created_at')
+    readonly_fields = fields
+    show_change_link = True
 
 
 class JobApplicationInline(admin.TabularInline):
@@ -13,10 +21,10 @@ class JobApplicationInline(admin.TabularInline):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('title', 'job_type', 'status', 'department', 'location', 'openings', 'created_at')
-    list_filter = ('job_type', 'status', 'employment_type', 'work_mode', 'tenant')
+    list_display = ('title', 'category', 'job_type', 'status', 'department', 'location', 'openings', 'created_at')
+    list_filter = ('category', 'job_type', 'status', 'employment_type', 'work_mode', 'tenant')
     search_fields = ('title', 'department', 'location')
-    inlines = [JobApplicationInline]
+    inlines = [JobApplicationInline, JobReportInline]
 
 
 class ApplicationEventInline(admin.TabularInline):
@@ -38,3 +46,10 @@ class JobApplicationAdmin(admin.ModelAdmin):
 class ApplicationEventAdmin(admin.ModelAdmin):
     list_display = ('application', 'event_type', 'from_stage', 'to_stage', 'created_at')
     list_filter = ('event_type',)
+
+
+@admin.register(JobReport)
+class JobReportAdmin(admin.ModelAdmin):
+    list_display = ('job', 'reporter', 'reason', 'created_at')
+    list_filter = ('reason', 'job__tenant')
+    search_fields = ('job__title',)

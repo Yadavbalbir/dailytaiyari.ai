@@ -48,6 +48,10 @@ class Job(TimeStampedModel):
         ('archived', 'Archived'),
     ]
 
+    # Number of distinct student "this is closed" reports that auto-archives an
+    # opening so only genuinely active jobs stay on the board.
+    REPORT_ARCHIVE_THRESHOLD = 3
+
     # Required tenant (overrides the nullable FK on TimeStampedModel): no job
     # exists outside a tenant.
     tenant = models.ForeignKey(
@@ -177,6 +181,39 @@ class JobApplication(TimeStampedModel):
     @property
     def is_active(self):
         return self.stage not in ('rejected', 'withdrawn', 'applied_external')
+
+
+class JobReport(TimeStampedModel):
+    """A student's report that an opening is no longer active.
+
+    Once ``Job.REPORT_ARCHIVE_THRESHOLD`` distinct students report the same job,
+    it is auto-archived so only genuinely active openings remain on the board.
+    """
+
+    REASON_CHOICES = [
+        ('closed', 'Position closed / filled'),
+        ('expired', 'Link expired or unavailable'),
+        ('other', 'Other'),
+    ]
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(
+        'users.StudentProfile', on_delete=models.CASCADE, related_name='job_reports',
+    )
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, default='closed')
+    note = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Job Report'
+        verbose_name_plural = 'Job Reports'
+        unique_together = ['job', 'reporter']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['job']),
+        ]
+
+    def __str__(self):
+        return f'report on {self.job_id} by {self.reporter_id}'
 
 
 class ApplicationEvent(TimeStampedModel):

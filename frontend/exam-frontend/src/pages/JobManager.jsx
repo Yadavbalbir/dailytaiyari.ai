@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
   Briefcase, Plus, Users, ExternalLink, Pencil, Trash2, Loader2,
-  ChevronRight, X, Building2, MapPin,
+  ChevronRight, X, Building2, MapPin, Flag,
 } from 'lucide-react'
 import { jobAdminService } from '../services/jobService'
 import { EMPLOYMENT_TYPES, WORK_MODES, CATEGORIES, categoryMeta } from '../components/jobs/jobShared'
@@ -230,6 +230,9 @@ const JobManager = () => {
                     {job.department && <span className="inline-flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{job.department}</span>}
                     {job.location && <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>}
                     <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" />{job.applications_count ?? 0} applicant{(job.applications_count ?? 0) === 1 ? '' : 's'}</span>
+                    {(job.reports_count ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><Flag className="w-3.5 h-3.5" />{job.reports_count} closed-report{job.reports_count === 1 ? '' : 's'}</span>
+                    )}
                   </div>
                 </button>
 

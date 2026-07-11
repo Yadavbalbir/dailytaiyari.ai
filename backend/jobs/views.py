@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 
-from .models import Job, JobApplication, ApplicationEvent
+from .models import Job, JobApplication, ApplicationEvent, JobReport
 from .serializers import (
     JobListSerializer, JobDetailSerializer,
     MyJobApplicationSerializer, MyApplicationWithJobSerializer,
@@ -43,15 +43,34 @@ class JobViewSet(viewsets.ReadOnlyModelViewSet):
 
     def _attach_applications(self, jobs):
         student = self._student()
-        if not student:
+        if student:
+            by_job = {
+                a.job_id: a for a in JobApplication.objects.filter(
+                    applicant=student, job__in=jobs,
+                )
+            }
+            for j in jobs:
+                j._my_application = by_job.get(j.id)
+        self._attach_reports(jobs, student)
+
+    def _attach_reports(self, jobs, student=None):
+        student = student or self._student()
+        job_ids = [j.id for j in jobs]
+        if not job_ids:
             return
-        by_job = {
-            a.job_id: a for a in JobApplication.objects.filter(
-                applicant=student, job__in=jobs,
+        counts = {}
+        for r in JobReport.objects.filter(job_id__in=job_ids):
+            counts[r.job_id] = counts.get(r.job_id, 0) + 1
+        mine = set()
+        if student:
+            mine = set(
+                JobReport.objects.filter(
+                    reporter=student, job_id__in=job_ids,
+                ).values_list('job_id', flat=True)
             )
-        }
         for j in jobs:
-            j._my_application = by_job.get(j.id)
+            j._reports_count = counts.get(j.id, 0)
+            j._my_report = j.id in mine
 
     def list(self, request, *args, **kwargs):
         jobs = list(self.get_queryset())
@@ -197,3 +216,55 @@ class JobViewSet(viewsets.ReadOnlyModelViewSet):
         )
         self._attach_applications([job])
         return Response(self.get_serializer(job).data)
+
+    @action(detail=True, methods=['post'])
+    def report(self, request, pk=None):
+        """Report an opening as no longer active.
+
+        Records one report per student. Once ``REPORT_ARCHIVE_THRESHOLD``
+        distinct students report the same job, it is auto-archived so it drops
+        off the board and only active openings remain.
+        """
+        job = self.get_object()
+        student = self._student()
+        if not student:
+            return Response({'error': 'Student profile required.'}, status=400)
+
+        reason = (request.data.get('reason') or 'closed').strip()
+        if reason not in dict(JobReport.REASON_CHOICES):
+            reason = 'closed'
+        note = (request.data.get('note') or '').strip()
+
+        JobReport.objects.get_or_create(
+            job=job, reporter=student,
+            defaults={'reason': reason, 'note': note, 'tenant': job.tenant},
+        )
+
+        count = JobReport.objects.filter(job=job).count()
+        threshold = Job.REPORT_ARCHIVE_THRESHOLD
+        archived = False
+        if count >= threshold and job.status != 'archived':
+            job.status = 'archived'
+            job.save(update_fields=['status'])
+            archived = True
+
+        if archived:
+            message = (
+                'Thanks for flagging this. It reached the review threshold and '
+                'has been archived, so it will no longer appear on the board.'
+            )
+        else:
+            remaining = max(threshold - count, 0)
+            message = (
+                "Thanks — we're reviewing this report. Once "
+                f"{threshold} or more students report it, we'll archive it "
+                f"automatically ({remaining} more to go)."
+            )
+
+        return Response({
+            'message': message,
+            'reports_count': count,
+            'report_threshold': threshold,
+            'archived': archived,
+            'my_report': True,
+        }, status=status.HTTP_200_OK)

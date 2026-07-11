@@ -27,6 +27,8 @@ export const jobService = {
 
   applyExternal: async (id) => (await api.post(`/jobs/${id}/apply-external/`)).data,
   withdraw: async (id) => (await api.post(`/jobs/${id}/withdraw/`)).data,
+  report: async (id, { reason = 'closed', note = '' } = {}) =>
+    (await api.post(`/jobs/${id}/report/`, { reason, note })).data,
 }
 
 /** Admin job portal service (tenant-admin only). */

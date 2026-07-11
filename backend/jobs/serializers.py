@@ -28,6 +28,9 @@ class JobListSerializer(serializers.ModelSerializer):
     work_mode_display = serializers.CharField(source='get_work_mode_display', read_only=True)
     my_application = serializers.SerializerMethodField()
     applicants_count = serializers.SerializerMethodField()
+    my_report = serializers.SerializerMethodField()
+    reports_count = serializers.SerializerMethodField()
+    report_threshold = serializers.SerializerMethodField()
 
     class Meta:
         model = Job
@@ -38,7 +41,8 @@ class JobListSerializer(serializers.ModelSerializer):
             'employment_type_display', 'experience_min', 'experience_max',
             'salary_min', 'salary_max', 'salary_currency', 'salary_period',
             'openings', 'deadline', 'status', 'is_open', 'external_url',
-            'my_application', 'applicants_count', 'created_at',
+            'my_application', 'applicants_count', 'my_report', 'reports_count',
+            'report_threshold', 'created_at',
         ]
 
     def get_my_application(self, obj):
@@ -48,6 +52,15 @@ class JobListSerializer(serializers.ModelSerializer):
     def get_applicants_count(self, obj):
         # Only meaningful for internal jobs; cheap when prefetched/annotated.
         return getattr(obj, '_applicants_count', None)
+
+    def get_my_report(self, obj):
+        return bool(getattr(obj, '_my_report', False))
+
+    def get_reports_count(self, obj):
+        return getattr(obj, '_reports_count', None)
+
+    def get_report_threshold(self, obj):
+        return Job.REPORT_ARCHIVE_THRESHOLD
 
 
 class JobDetailSerializer(JobListSerializer):

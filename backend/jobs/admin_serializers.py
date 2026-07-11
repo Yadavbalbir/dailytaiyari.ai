@@ -7,6 +7,7 @@ from .models import Job, JobApplication, ApplicationEvent
 class AdminJobSerializer(serializers.ModelSerializer):
     applications_count = serializers.SerializerMethodField()
     stage_counts = serializers.SerializerMethodField()
+    reports_count = serializers.SerializerMethodField()
     is_open = serializers.BooleanField(read_only=True)
     is_external = serializers.BooleanField(read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
@@ -22,7 +23,7 @@ class AdminJobSerializer(serializers.ModelSerializer):
             'description', 'requirements', 'external_url', 'openings',
             'deadline', 'status', 'is_open', 'views_count',
             'created_by', 'created_by_name', 'applications_count',
-            'stage_counts', 'created_at', 'updated_at',
+            'stage_counts', 'reports_count', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'views_count', 'created_by', 'created_at', 'updated_at']
 
@@ -43,6 +44,9 @@ class AdminJobSerializer(serializers.ModelSerializer):
         for app in obj.applications.all():
             counts[app.stage] = counts.get(app.stage, 0) + 1
         return counts
+
+    def get_reports_count(self, obj):
+        return obj.reports.count()
 
     def get_created_by_name(self, obj):
         u = obj.created_by
