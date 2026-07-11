@@ -71,6 +71,8 @@ const TopicRow = ({ item, index, onEnter }) => {
   const total = reading.length + videos.length + quizzes.length + assignments.length + coding.length
   const done = readingDone + videosDone + quizzesDone + assignmentsDone + codingDone
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
+  const hasContent = total > 0
+  const complete = hasContent && progress === 100
 
   const stats = [
     { icon: BookOpen, done: readingDone, total: reading.length, label: 'read' },
@@ -83,28 +85,34 @@ const TopicRow = ({ item, index, onEnter }) => {
   return (
     <div className="flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-xl hover:bg-surface-50 dark:hover:bg-surface-800/60 transition-colors">
       <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
-        progress === 100
+        complete
           ? 'bg-success-100 text-success-600 dark:bg-success-900/30'
           : 'bg-surface-100 text-surface-500 dark:bg-surface-700'
       }`}>
-        {progress === 100 ? <CheckCircle2 size={15} /> : index + 1}
+        {complete ? <CheckCircle2 size={15} /> : index + 1}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{topic.name}</p>
-        {stats.length > 0 && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-surface-400">
-            {stats.map((s, i) => {
-              const Icon = s.icon
-              return (
-                <span key={i} className="flex items-center gap-1">
-                  <Icon size={11} /> {s.done}/{s.total} {s.label}
-                </span>
-              )
-            })}
-          </div>
+        {hasContent ? (
+          stats.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-surface-400">
+              {stats.map((s, i) => {
+                const Icon = s.icon
+                return (
+                  <span key={i} className="flex items-center gap-1">
+                    <Icon size={11} /> {s.done}/{s.total} {s.label}
+                  </span>
+                )
+              })}
+            </div>
+          )
+        ) : (
+          <p className="text-[11px] text-surface-400 mt-0.5 italic">No content yet</p>
         )}
       </div>
-      <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">{progress}%</span>
+      <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">
+        {hasContent ? `${progress}%` : '—'}
+      </span>
       <button
         type="button"
         onClick={onEnter}
@@ -126,6 +134,14 @@ const ChapterRow = ({ chapter, index, courseColor, navigate }) => {
   })
   const topics = data?.topics || []
 
+  // A chapter is only "complete" if it actually has content — 0/0 is never 100%.
+  const chapterItems =
+    (chapter.reading?.total ?? 0) + (chapter.videos?.total ?? 0) +
+    (chapter.quizzes?.total ?? 0) + (chapter.assignments?.total ?? 0) +
+    (chapter.coding?.total ?? 0)
+  const hasContent = chapterItems > 0
+  const complete = hasContent && chapter.progress === 100
+
   return (
     <div className="border border-surface-100 dark:border-surface-700 rounded-xl overflow-hidden">
       <button
@@ -138,23 +154,23 @@ const ChapterRow = ({ chapter, index, courseColor, navigate }) => {
           className={`text-surface-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
         />
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-          chapter.progress === 100
+          complete
             ? 'bg-success-100 text-success-600 dark:bg-success-900/30'
             : 'bg-surface-100 text-surface-500 dark:bg-surface-700'
         }`}>
-          {chapter.progress === 100 ? <CheckCircle2 size={16} /> : index + 1}
+          {complete ? <CheckCircle2 size={16} /> : index + 1}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{chapter.name}</p>
           <p className="text-xs text-surface-400 mt-0.5">
-            {chapter.topics_count ?? '—'} topics
+            {chapter.topics_count ?? '—'} topics{hasContent ? '' : ' · No content yet'}
           </p>
         </div>
         <div className="w-28 hidden sm:block flex-shrink-0">
-          <Bar value={chapter.progress} />
+          <Bar value={hasContent ? chapter.progress : 0} />
         </div>
         <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">
-          {chapter.progress}%
+          {hasContent ? `${chapter.progress}%` : '—'}
         </span>
       </button>
 
@@ -200,6 +216,7 @@ const SubjectRow = ({ subject, defaultOpen, courseColor, navigate }) => {
   })
   const chapters = data?.chapters || []
   const IconComp = iconMap[subject.icon] || BookOpen
+  const hasContent = (subject.total_content ?? 0) > 0
 
   return (
     <div className="card overflow-hidden">
@@ -225,13 +242,13 @@ const SubjectRow = ({ subject, defaultOpen, courseColor, navigate }) => {
           </p>
         </div>
         <div className="w-40 hidden md:block flex-shrink-0">
-          <Bar value={subject.progress} />
+          <Bar value={hasContent ? subject.progress : 0} />
           <p className="text-[11px] text-surface-400 mt-1 text-right">
-            {subject.completed_content}/{subject.total_content} completed
+            {hasContent ? `${subject.completed_content}/${subject.total_content} completed` : 'No content yet'}
           </p>
         </div>
-        <span className="text-lg font-bold w-12 text-right flex-shrink-0" style={{ color: subject.color }}>
-          {subject.progress}%
+        <span className="text-lg font-bold w-12 text-right flex-shrink-0" style={{ color: hasContent ? subject.color : undefined }}>
+          {hasContent ? `${subject.progress}%` : '—'}
         </span>
       </button>
 
