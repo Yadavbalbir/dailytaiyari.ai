@@ -30,6 +30,9 @@ const StudyTopicContent = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('all')
 
+  // Carried into quiz attempt/review so their "Back to Course" returns here.
+  const quizNavState = { from: 'course', chapterId, topicId }
+
   const { data, isLoading } = useQuery({
     queryKey: ['studyChapterDetail', chapterId],
     queryFn: () => courseService.getStudyChapterDetail(chapterId),
@@ -180,10 +183,10 @@ const StudyTopicContent = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} coding={codingProblems} navigate={navigate} />}
+          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} coding={codingProblems} navigate={navigate} quizNavState={quizNavState} />}
           {activeTab === 'reading' && <ReadingTab items={reading} navigate={navigate} />}
           {activeTab === 'videos' && <VideosTab items={videos} navigate={navigate} />}
-          {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} />}
+          {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} quizNavState={quizNavState} />}
           {activeTab === 'assignments' && <AssignmentsTab items={assignments} navigate={navigate} />}
           {activeTab === 'coding' && <CodingTab items={codingProblems} navigate={navigate} />}
         </motion.div>
@@ -249,7 +252,7 @@ const codingStatus = (p) => {
   return { tone: 'idle', icon: Circle, label: 'Not attempted' }
 }
 
-const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navigate }) => {
+const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navigate, quizNavState }) => {
   // Reading + videos share a real `order`; interleave them, quizzes go last.
   const materials = [...reading, ...videos]
     .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
@@ -321,7 +324,7 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
         }
 
         const onClick = () => {
-          if (isQuiz) navigate(`/quiz/${item.id}`)
+          if (isQuiz) navigate(`/quiz/${item.id}`, { state: quizNavState })
           else if (isAssignment) navigate(`/assignment/${item.id}`)
           else if (isCoding) navigate(`/coding/${item.id}`)
           else navigate(`/content/${item.id}`)
@@ -492,7 +495,7 @@ const VideosTab = ({ items, navigate }) => {
   )
 }
 
-const QuizzesTab = ({ items, navigate }) => {
+const QuizzesTab = ({ items, navigate, quizNavState }) => {
   if (items.length === 0) {
     return <EmptyState icon={PenTool} message="No practice quizzes available yet" />
   }
@@ -516,18 +519,18 @@ const QuizzesTab = ({ items, navigate }) => {
                 {Math.round(quiz.best_score)}%
               </span>
             )}
-            onClick={() => navigate(`/quiz/${quiz.id}`)}
+            onClick={() => navigate(`/quiz/${quiz.id}`, { state: quizNavState })}
             action={
               <div className="flex gap-2 mt-3">
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/quiz/${quiz.id}`) }}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/quiz/${quiz.id}`, { state: quizNavState }) }}
                   className="flex-1 btn-primary text-xs py-1.5"
                 >
                   {attempted ? 'Retry' : 'Start'}
                 </button>
                 {attempted && quiz.last_attempt && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/quiz/review/${quiz.last_attempt.id}`) }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/quiz/review/${quiz.last_attempt.id}`, { state: quizNavState }) }}
                     className="flex-1 btn-outline text-xs py-1.5"
                   >
                     Review

@@ -422,6 +422,7 @@ class QuizAttemptReviewSerializer(serializers.ModelSerializer):
     Includes ALL questions (answered and unanswered).
     """
     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+    topic = serializers.CharField(source='quiz.topic_id', read_only=True)
     all_questions = serializers.SerializerMethodField()
     
     class Meta:
@@ -431,7 +432,7 @@ class QuizAttemptReviewSerializer(serializers.ModelSerializer):
             'time_taken_seconds', 'status', 'total_questions',
             'attempted_questions', 'correct_answers', 'wrong_answers',
             'skipped_questions', 'marks_obtained', 'total_marks',
-            'percentage', 'xp_earned', 'all_questions'
+            'percentage', 'xp_earned', 'all_questions', 'topic'
         ]
     
     def get_all_questions(self, obj):
