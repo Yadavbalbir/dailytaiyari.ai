@@ -235,17 +235,7 @@ function App() {
           <Route path="/jobs" element={<FeatureRoute feature="jobs"><Jobs /></FeatureRoute>} />
           <Route path="/jobs/:jobId" element={<FeatureRoute feature="jobs"><JobDetail /></FeatureRoute>} />
 
-          {/* Job Portal (admin) */}
-          <Route path="/admin/jobs" element={<AdminRoute><JobManager /></AdminRoute>} />
-          <Route path="/admin/jobs/:jobId" element={<AdminRoute><JobApplicants /></AdminRoute>} />
-          <Route path="/admin/jobs/:jobId/applications/:applicationId" element={<AdminRoute><JobApplicationReview /></AdminRoute>} />
-
-          {/* Admin Dashboard */}
-          <Route path="/admin/mock-tests" element={<AdminRoute><MockTestManager /></AdminRoute>} />
-          <Route path="/admin/mock-tests/grading" element={<AdminRoute><MockTestGrading /></AdminRoute>} />
-          <Route path="/admin/mock-tests/:testId/submissions" element={<AdminRoute><MockTestSubmissions /></AdminRoute>} />
-          <Route path="/admin/mock-tests/:testId/submissions/:attemptId" element={<AdminRoute><MockTestSubmissionReview /></AdminRoute>} />
-          <Route path="/admin/mock-tests/:testId" element={<AdminRoute><MockTestBuilder /></AdminRoute>} />
+          {/* Admin Job Portal & Mock Tests now live under the full-page Admin View below */}
         </Route>
 
         {/* Full-page Admin View */}
@@ -260,6 +250,18 @@ function App() {
         >
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin-dashboard/content/:courseId" element={<CourseManager />} />
+
+          {/* Job Portal (admin) */}
+          <Route path="/admin/jobs" element={<JobManager />} />
+          <Route path="/admin/jobs/:jobId" element={<JobApplicants />} />
+          <Route path="/admin/jobs/:jobId/applications/:applicationId" element={<JobApplicationReview />} />
+
+          {/* Mock Tests (admin) */}
+          <Route path="/admin/mock-tests" element={<MockTestManager />} />
+          <Route path="/admin/mock-tests/grading" element={<MockTestGrading />} />
+          <Route path="/admin/mock-tests/:testId/submissions" element={<MockTestSubmissions />} />
+          <Route path="/admin/mock-tests/:testId/submissions/:attemptId" element={<MockTestSubmissionReview />} />
+          <Route path="/admin/mock-tests/:testId" element={<MockTestBuilder />} />
         </Route>
 
 
