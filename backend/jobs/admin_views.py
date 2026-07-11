@@ -17,7 +17,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsTenantAdmin
 
-from .models import Job, JobApplication, ApplicationEvent
+from .models import Job, JobApplication, ApplicationEvent, JobReport
 from .admin_serializers import (
     AdminJobSerializer, AdminApplicationSerializer,
     AdminApplicationDetailSerializer, ApplicationEventSerializer,
@@ -56,6 +56,23 @@ class AdminJobViewSet(viewsets.ModelViewSet):
         if not tenant:
             raise PermissionDenied('A valid tenant is required.')
         serializer.save(tenant=tenant, created_by=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        """Republish an archived/closed job and clear its closed-reports.
+
+        Clearing the reports resets the counter so a single new report can't
+        immediately re-archive a job the admin has vouched is still active.
+        """
+        job = self.get_object()
+        cleared = job.reports.count()
+        job.reports.all().delete()
+        job.status = 'published'
+        job.save(update_fields=['status'])
+        return Response({
+            'message': f'Job restored and republished. Cleared {cleared} report(s).',
+            'job': AdminJobSerializer(job, context={'request': request}).data,
+        })
 
     @action(detail=True, methods=['get'])
     def applications(self, request, pk=None):

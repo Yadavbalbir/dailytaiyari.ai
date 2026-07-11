@@ -38,6 +38,7 @@ export const jobAdminService = {
   createJob: async (data) => (await api.post('/jobs/admin/jobs/', data)).data,
   updateJob: async (id, data) => (await api.patch(`/jobs/admin/jobs/${id}/`, data)).data,
   deleteJob: async (id) => (await api.delete(`/jobs/admin/jobs/${id}/`)).data,
+  restoreJob: async (id) => (await api.post(`/jobs/admin/jobs/${id}/restore/`)).data,
   getApplications: async (jobId) => (await api.get(`/jobs/admin/jobs/${jobId}/applications/`)).data,
 
   getApplication: async (id) => (await api.get(`/jobs/admin/applications/${id}/`)).data,

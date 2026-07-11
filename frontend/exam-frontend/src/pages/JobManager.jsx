@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
   Briefcase, Plus, Users, ExternalLink, Pencil, Trash2, Loader2,
-  ChevronRight, X, Building2, MapPin, Flag,
+  ChevronRight, X, Building2, MapPin, Flag, RotateCcw,
 } from 'lucide-react'
 import { jobAdminService } from '../services/jobService'
 import { EMPLOYMENT_TYPES, WORK_MODES, CATEGORIES, categoryMeta } from '../components/jobs/jobShared'
@@ -175,6 +175,12 @@ const JobManager = () => {
     onError: () => toast.error('Could not delete job.'),
   })
 
+  const restore = useMutation({
+    mutationFn: (id) => jobAdminService.restoreJob(id),
+    onSuccess: (data) => { toast.success(data?.message || 'Job restored.'); queryClient.invalidateQueries({ queryKey: ['admin-jobs'] }) },
+    onError: () => toast.error('Could not restore job.'),
+  })
+
   const onSaved = () => {
     setShowForm(false); setEditing(null)
     queryClient.invalidateQueries({ queryKey: ['admin-jobs'] })
@@ -237,6 +243,16 @@ const JobManager = () => {
                 </button>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {(job.status === 'archived' || job.status === 'closed') && (
+                    <button
+                      onClick={() => restore.mutate(job.id)}
+                      disabled={restore.isPending}
+                      className="btn-secondary text-sm inline-flex items-center gap-1.5"
+                      title="Republish and clear closed-reports"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Restore
+                    </button>
+                  )}
                   {!job.is_external && (
                     <button
                       onClick={() => navigate(`/admin/jobs/${job.id}`)}
