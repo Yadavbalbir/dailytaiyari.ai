@@ -17,6 +17,19 @@ export const FEATURE_KEYS = [
     'jobs',
 ];
 
+// Swap the document <link rel="icon"> to the tenant's favicon at runtime so the
+// browser tab reflects the institution's branding.
+const applyFavicon = (url) => {
+    if (typeof document === 'undefined' || !url) return;
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+    }
+    link.href = url;
+};
+
 export const useTenantStore = create((set, get) => ({
     tenant: null,
     isLoading: true,
@@ -34,9 +47,13 @@ export const useTenantStore = create((set, get) => ({
             const response = await tenantApi.get(`/tenant/${tenantId}/`);
             set({ tenant: response.data, isLoading: false });
 
-            // Optionally update document title
-            if (response.data.name) {
-                document.title = response.data.name;
+            // Apply branding to the document: title (name + tagline) and favicon.
+            const { name, tagline, favicon } = response.data;
+            if (name) {
+                document.title = tagline ? `${name} - ${tagline}` : name;
+            }
+            if (favicon) {
+                applyFavicon(favicon);
             }
         } catch (error) {
             console.error('Failed to fetch tenant configuration', error);

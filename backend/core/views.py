@@ -67,8 +67,10 @@ class TenantDetailView(APIView):
             return Response({
                 "id": str(tenant.id),
                 "name": tenant.name,
+                "tagline": tenant.tagline,
                 "subdomain": tenant.subdomain,
                 "logo": request.build_absolute_uri(tenant.logo.url) if tenant.logo else None,
+                "favicon": request.build_absolute_uri(tenant.favicon.url) if tenant.favicon else None,
                 "features": tenant.get_features(),
             })
         except Tenant.DoesNotExist:

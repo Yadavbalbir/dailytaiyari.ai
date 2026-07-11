@@ -1238,6 +1238,7 @@ const TenantSettings = () => {
     const queryClient = useQueryClient()
     const fetchTenantConfig = useTenantStore((s) => s.fetchTenantConfig)
     const fileInputRef = useRef(null)
+    const faviconInputRef = useRef(null)
 
     const { data: settings, isLoading } = useQuery({
         queryKey: ['tenantSettings'],
@@ -1245,9 +1246,15 @@ const TenantSettings = () => {
     })
 
     const [features, setFeatures] = useState({})
+    const [name, setName] = useState('')
+    const [tagline, setTagline] = useState('')
 
     useEffect(() => {
         if (settings?.features) setFeatures(settings.features)
+        if (settings) {
+            setName(settings.name || '')
+            setTagline(settings.tagline || '')
+        }
     }, [settings])
 
     const availableFeatures = settings?.available_features || []
@@ -1262,6 +1269,16 @@ const TenantSettings = () => {
         onError: () => toast.error('Failed to update features'),
     })
 
+    const brandingMutation = useMutation({
+        mutationFn: (payload) => tenantAdminService.updateBranding(payload),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Branding updated')
+        },
+        onError: () => toast.error('Failed to update branding'),
+    })
+
     const logoMutation = useMutation({
         mutationFn: (file) => tenantAdminService.updateLogo(file),
         onSuccess: (data) => {
@@ -1272,11 +1289,33 @@ const TenantSettings = () => {
         onError: () => toast.error('Failed to upload logo'),
     })
 
+    const faviconMutation = useMutation({
+        mutationFn: (file) => tenantAdminService.updateFavicon(file),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Favicon updated')
+        },
+        onError: () => toast.error('Failed to upload favicon'),
+    })
+
     const toggleFeature = (key) => {
         const next = { ...features, [key]: !features[key] }
         setFeatures(next)
         featuresMutation.mutate({ [key]: next[key] })
     }
+
+    const saveBranding = () => {
+        const trimmed = name.trim()
+        if (!trimmed) {
+            toast.error('Name cannot be empty')
+            return
+        }
+        brandingMutation.mutate({ name: trimmed, tagline: tagline.trim() })
+    }
+
+    const brandingDirty =
+        name.trim() !== (settings?.name || '') || tagline.trim() !== (settings?.tagline || '')
 
     const handleLogoChange = (e) => {
         const file = e.target.files?.[0]
@@ -1286,6 +1325,17 @@ const TenantSettings = () => {
             return
         }
         logoMutation.mutate(file)
+        e.target.value = ''
+    }
+
+    const handleFaviconChange = (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please choose an image file')
+            return
+        }
+        faviconMutation.mutate(file)
         e.target.value = ''
     }
 
@@ -1299,13 +1349,56 @@ const TenantSettings = () => {
 
     return (
         <div className="space-y-6">
-            {/* Branding */}
+            {/* Identity — name + tagline */}
             <div className="card p-6 space-y-4">
                 <div className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5 text-primary-500" />
-                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Branding</h3>
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Institution Details</h3>
                 </div>
-                <p className="text-sm text-surface-500">Upload your institution's logo. It appears in the sidebar for all your students.</p>
+                <p className="text-sm text-surface-500">Your institution's name and tagline appear in the sidebar, login screens and browser tab for all your students.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Name</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            maxLength={255}
+                            placeholder="e.g. Test Academy"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Tagline</label>
+                        <input
+                            type="text"
+                            value={tagline}
+                            onChange={(e) => setTagline(e.target.value)}
+                            maxLength={255}
+                            placeholder="e.g. Ace Your Exams"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                </div>
+                <div className="flex justify-end">
+                    <button
+                        onClick={saveBranding}
+                        disabled={brandingMutation.isPending || !brandingDirty}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                    >
+                        {brandingMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+
+            {/* Logo */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Logo</h3>
+                </div>
+                <p className="text-sm text-surface-500">Upload your institution's logo. It appears in the sidebar and login screens for all your students.</p>
                 <div className="flex items-center gap-5">
                     <div className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
                         {settings?.logo ? (
@@ -1327,6 +1420,38 @@ const TenantSettings = () => {
                             {settings?.logo ? 'Change Logo' : 'Upload Logo'}
                         </button>
                         <p className="text-xs text-surface-400 mt-2">PNG, JPG or SVG. Square images look best.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Favicon */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Favicon</h3>
+                </div>
+                <p className="text-sm text-surface-500">The small icon shown in the browser tab. A square image works best.</p>
+                <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                        {settings?.favicon ? (
+                            <img src={settings.favicon} alt="Favicon" className="w-full h-full object-contain" />
+                        ) : (
+                            <span className="text-xl font-bold text-surface-400">
+                                {(settings?.name || 'DT').slice(0, 1).toUpperCase()}
+                            </span>
+                        )}
+                    </div>
+                    <div>
+                        <input ref={faviconInputRef} type="file" accept="image/*" onChange={handleFaviconChange} className="hidden" />
+                        <button
+                            onClick={() => faviconInputRef.current?.click()}
+                            disabled={faviconMutation.isPending}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                        >
+                            {faviconMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            {settings?.favicon ? 'Change Favicon' : 'Upload Favicon'}
+                        </button>
+                        <p className="text-xs text-surface-400 mt-2">PNG, ICO or SVG. 32×32 or larger.</p>
                     </div>
                 </div>
             </div>

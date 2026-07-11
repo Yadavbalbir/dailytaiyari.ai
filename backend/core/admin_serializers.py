@@ -14,10 +14,11 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
 
     features = serializers.JSONField(required=False)
     logo = serializers.ImageField(required=False, allow_null=True)
+    favicon = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Tenant
-        fields = ['id', 'name', 'subdomain', 'logo', 'features']
+        fields = ['id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'features']
         read_only_fields = ['id', 'subdomain']
 
     def validate_features(self, value):

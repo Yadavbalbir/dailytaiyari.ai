@@ -53,9 +53,27 @@ export const tenantAdminService = {
         return response.data
     },
 
+    // Branding text — institution name and tagline.
+    updateBranding: async ({ name, tagline }) => {
+        const payload = {}
+        if (name !== undefined) payload.name = name
+        if (tagline !== undefined) payload.tagline = tagline
+        const response = await api.patch('/tenant-admin/settings/', payload)
+        return response.data
+    },
+
     updateLogo: async (file) => {
         const formData = new FormData()
         formData.append('logo', file)
+        const response = await api.patch('/tenant-admin/settings/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        return response.data
+    },
+
+    updateFavicon: async (file) => {
+        const formData = new FormData()
+        formData.append('favicon', file)
         const response = await api.patch('/tenant-admin/settings/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         })

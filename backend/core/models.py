@@ -30,8 +30,10 @@ class Tenant(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
+    tagline = models.CharField(max_length=255, blank=True, default='')
     subdomain = models.CharField(max_length=100, unique=True, null=True, blank=True)
     logo = models.ImageField(upload_to='tenant_logos/', null=True, blank=True)
+    favicon = models.ImageField(upload_to='tenant_favicons/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     # Per-tenant feature toggles: {feature_key: bool}. Missing keys default to

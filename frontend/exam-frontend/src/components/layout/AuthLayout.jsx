@@ -40,7 +40,7 @@ const AuthLayout = () => {
               )}
               <div>
                 <h1 className="text-2xl font-display font-bold">{tenantName}</h1>
-                <p className="text-white/70 text-sm">Ace Your Exams</p>
+                <p className="text-white/70 text-sm">{tenant?.tagline || 'Ace Your Exams'}</p>
               </div>
             </div>
 
