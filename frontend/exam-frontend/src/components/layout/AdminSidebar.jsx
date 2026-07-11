@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useSearchParams } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
 import { useAppStore } from '../../context/appStore'
@@ -30,16 +30,17 @@ export const ADMIN_NAV_ITEMS = [
 
 const AdminSidebar = () => {
   const location = useLocation()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { profile } = useAuthStore()
   const { closeMobileMenu } = useAppStore()
   const tenant = useTenantStore((s) => s.tenant)
 
   const activeTab = searchParams.get('tab') || 'overview'
-  const onAdminDashboard = location.pathname.startsWith('/admin-dashboard')
+  const onAdminDashboard = location.pathname === '/admin-dashboard'
 
   const selectTab = (tab) => {
-    setSearchParams(tab === 'overview' ? {} : { tab })
+    navigate(tab === 'overview' ? '/admin-dashboard' : `/admin-dashboard?tab=${tab}`)
     closeMobileMenu()
   }
 
