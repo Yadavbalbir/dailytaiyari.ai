@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -24,8 +24,21 @@ import Confetti from 'react-confetti'
 const QuizAttempt = () => {
   const { quizId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { fetchProfile, user } = useAuthStore()
+
+  // Where the user came from (set when launched from a course topic page).
+  const courseCtx = location.state
+  const goBackToCourse = () => {
+    if (courseCtx?.chapterId && courseCtx?.topicId) {
+      navigate(`/study/chapter/${courseCtx.chapterId}/topic/${courseCtx.topicId}`)
+    } else if (quiz?.topic) {
+      navigate(`/topic/${quiz.topic}`)
+    } else {
+      navigate('/quiz')
+    }
+  }
 
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -335,17 +348,17 @@ const QuizAttempt = () => {
           {/* Actions */}
           <div className="space-y-3">
             <button
-              onClick={() => navigate(`/quiz/review/${result.id}`)}
+              onClick={() => navigate(`/quiz/review/${result.id}`, { state: courseCtx })}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
               <FileText size={20} /> Review Answers
             </button>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => navigate('/quiz')}
+                onClick={goBackToCourse}
                 className="btn-secondary"
               >
-                Back to Quizzes
+                Back to Course
               </button>
               <button
                 onClick={() => navigate('/analytics')}

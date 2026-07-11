@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { quizService } from '../services/quizService'
@@ -41,11 +41,24 @@ const REPORT_TYPES = [
 const QuizReview = () => {
   const { attemptId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [reportingQuestion, setReportingQuestion] = useState(null)
   const [reportType, setReportType] = useState('')
   const [reportDescription, setReportDescription] = useState('')
   const [filter, setFilter] = useState('all') // all, correct, wrong, skipped
+
+  // Where the user came from (set when launched from a course topic page).
+  const courseCtx = location.state
+  const goBackToCourse = () => {
+    if (courseCtx?.chapterId && courseCtx?.topicId) {
+      navigate(`/study/chapter/${courseCtx.chapterId}/topic/${courseCtx.topicId}`)
+    } else if (attempt?.topic) {
+      navigate(`/topic/${attempt.topic}`)
+    } else {
+      navigate('/quiz')
+    }
+  }
 
   const { data: attempt, isLoading, error } = useQuery({
     queryKey: ['attemptReview', attemptId],
@@ -144,17 +157,17 @@ const QuizReview = () => {
       <div className="flex items-center justify-between">
         <div>
           <button
-            onClick={() => navigate(-1)}
+            onClick={goBackToCourse}
             className="flex items-center gap-1 text-surface-500 hover:text-surface-700 mb-2"
           >
             <ChevronLeft size={18} />
-            Back
+            Back to Course
           </button>
           <h1 className="text-2xl font-display font-bold">Quiz Review</h1>
           <p className="text-surface-500 mt-1">{attempt?.quiz_title}</p>
         </div>
         <button
-          onClick={() => navigate(`/quiz/${attempt?.quiz}`)}
+          onClick={() => navigate(`/quiz/${attempt?.quiz}`, { state: courseCtx })}
           className="btn-primary"
         >
           Retry Quiz
@@ -482,13 +495,13 @@ const QuizReview = () => {
       {/* Bottom Actions */}
       <div className="flex gap-4 justify-center pb-8">
         <button
-          onClick={() => navigate('/quiz')}
+          onClick={goBackToCourse}
           className="btn-secondary"
         >
-          Back to Quizzes
+          Back to Course
         </button>
         <button
-          onClick={() => navigate(`/quiz/${attempt?.quiz}`)}
+          onClick={() => navigate(`/quiz/${attempt?.quiz}`, { state: courseCtx })}
           className="btn-primary"
         >
           Retry This Quiz
