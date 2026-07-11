@@ -24,7 +24,8 @@ class CourseSerializer(serializers.ModelSerializer):
             'subjects_count', 'mock_tests_count', 'quizzes_count',
             'pricing_type', 'price', 'original_price', 'currency',
             'is_free', 'discount_percent', 'subtitle', 'highlights',
-            'refund_policy', 'instructors', 'created_at'
+            'refund_policy', 'certificate_enabled', 'certificate_template',
+            'instructors', 'created_at'
         ]
 
     def get_subjects_count(self, obj):

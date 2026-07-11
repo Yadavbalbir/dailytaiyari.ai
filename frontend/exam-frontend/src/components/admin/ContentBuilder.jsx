@@ -52,6 +52,13 @@ const SCHEMAS = {
             { name: 'description', label: 'Description', type: 'textarea', full: true, image: true, rows: 10, hint: 'Supports rich HTML / Markdown and images — paste, drop, or add an image directly.' },
             { name: 'highlights', label: 'What you will get (one point per line)', type: 'stringlist', full: true, placeholder: 'All Previous Year Questions (PYQ)\nFully solved answers\nExam-oriented approach' },
             { name: 'refund_policy', label: 'Refund policy', type: 'textarea', full: true },
+            { name: 'certificate_enabled', label: 'Issue certificate on completion', type: 'checkbox' },
+            { name: 'certificate_template', label: 'Certificate design', type: 'select', options: [
+                { value: 'classic', label: 'Classic — navy & gold, ornate' },
+                { value: 'modern', label: 'Modern — bold color blocks' },
+                { value: 'elegant', label: 'Elegant — cream & gold' },
+                { value: 'minimal', label: 'Minimal — clean & monochrome' },
+            ], default: 'classic', hint: 'Design students receive when they reach 100% completion (enable the checkbox above).' },
         ],
     },
     subject: {
