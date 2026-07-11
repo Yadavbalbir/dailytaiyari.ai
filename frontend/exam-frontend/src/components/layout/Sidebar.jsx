@@ -65,7 +65,7 @@ const Sidebar = () => {
           )}
           <div>
             <h1 className="font-display font-bold text-lg gradient-text">{tenant?.name || 'DailyTaiyari'}</h1>
-            <p className="text-xs text-surface-500">Ace Your Exams</p>
+            <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
           </div>
         </div>
       </div>
