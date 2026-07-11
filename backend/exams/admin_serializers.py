@@ -29,6 +29,7 @@ class AdminCourseSerializer(serializers.ModelSerializer):
             'negative_marking_ratio', 'total_students', 'total_questions',
             'pricing_type', 'price', 'original_price', 'currency',
             'discount_percent', 'subtitle', 'highlights', 'refund_policy',
+            'certificate_enabled', 'certificate_template',
             'subjects_count', 'instructors', 'instructors_detail',
             'created_at', 'updated_at',
         ]

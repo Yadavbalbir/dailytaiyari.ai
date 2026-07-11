@@ -8,6 +8,7 @@ TENANT_EXEMPT_PATHS = [
     '/admin/',
     '/api/v1/tenant/',
     '/api/v1/platform/',
+    '/api/v1/certificates/verify/',
     '/api/docs/',
     '/api/redoc/',
     '/static/',

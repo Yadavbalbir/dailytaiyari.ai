@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
+import { certificateService } from '../services/certificateService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
+import CertificateModal from '../components/certificate/CertificateModal'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
   ChevronRight, ChevronDown, GraduationCap, ArrowLeft, Settings2,
-  PlayCircle, PenTool, ClipboardList, Code2, Trophy, CheckCircle2,
+  PlayCircle, PenTool, ClipboardList, Code2, Trophy, CheckCircle2, Award,
 } from 'lucide-react'
 
 const iconMap = {
@@ -291,6 +293,13 @@ const StudyCourse = () => {
     enabled: !!courseId,
   })
 
+  const { data: certInfo } = useQuery({
+    queryKey: ['courseCertificate', courseId],
+    queryFn: () => certificateService.getCourseCertificate(courseId),
+    enabled: !!courseId,
+  })
+  const [certOpen, setCertOpen] = useState(false)
+
   useEffect(() => {
     if (courseId) localStorage.setItem('study:lastCourseId', courseId)
   }, [courseId])
@@ -503,6 +512,47 @@ const StudyCourse = () => {
               )}
             </div>
 
+            {/* Certificate of completion */}
+            {certInfo?.enabled && (
+              <div className="card p-5">
+                <h3 className="font-semibold flex items-center gap-2 mb-3">
+                  <Award size={18} className="text-amber-500" /> Certificate
+                </h3>
+                {certInfo.eligible && certInfo.certificate ? (
+                  <>
+                    <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 p-3 mb-3">
+                      <CheckCircle2 size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        You&apos;ve completed this course. Your certificate is ready!
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setCertOpen(true)}
+                      className="btn-primary w-full"
+                      style={{ backgroundColor: course?.color || undefined }}
+                    >
+                      <Award size={16} /> View &amp; download certificate
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-surface-500 mb-3">
+                      Finish 100% of this course to unlock your downloadable certificate of completion.
+                    </p>
+                    <div className="w-full h-2 bg-surface-100 dark:bg-surface-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${certInfo.progress || summary.progress}%`, backgroundColor: course?.color || '#3B82F6' }}
+                      />
+                    </div>
+                    <p className="text-xs text-surface-400 mt-2 text-right">
+                      {certInfo.progress ?? summary.progress}% complete
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Leaderboard by completion */}
             {leaderboard && leaderboard.length > 0 && (
               <div className="card p-5">
@@ -538,6 +588,13 @@ const StudyCourse = () => {
           </aside>
         </div>
       )}
+
+      <CertificateModal
+        open={certOpen}
+        onClose={() => setCertOpen(false)}
+        certificate={certInfo?.certificate}
+        accentColor={course?.color}
+      />
     </div>
   )
 }

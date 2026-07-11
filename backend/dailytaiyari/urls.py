@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/v1/assignments/', include('assignments.urls')),
     path('api/v1/coding/', include('coding.urls')),
     path('api/v1/jobs/', include('jobs.urls')),
+    path('api/v1/certificates/', include('certificates.urls')),
     
     # API Documentation
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

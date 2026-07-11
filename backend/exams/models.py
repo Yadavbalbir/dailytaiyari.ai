@@ -24,6 +24,14 @@ class Course(TimeStampedModel):
         ('inactive', 'Inactive'),
     ]
 
+    # Selectable certificate designs a student receives on 100% completion.
+    CERTIFICATE_TEMPLATES = [
+        ('classic', 'Classic — navy & gold, ornate border'),
+        ('modern', 'Modern — bold color blocks'),
+        ('elegant', 'Elegant — cream & gold, refined'),
+        ('minimal', 'Minimal — clean & monochrome'),
+    ]
+
     tenant = models.ForeignKey(
         'core.Tenant',
         on_delete=models.CASCADE,
@@ -75,6 +83,14 @@ class Course(TimeStampedModel):
     # "What you will get" bullet points — a list of short strings.
     highlights = models.JSONField(default=list, blank=True)
     refund_policy = models.TextField(blank=True, default='')
+
+    # ── Certificate of completion ──────────────────────────────────────────
+    # When enabled, a student who reaches 100% completion can download a
+    # certificate rendered from the chosen template (with tenant logo + name).
+    certificate_enabled = models.BooleanField(default=False)
+    certificate_template = models.CharField(
+        max_length=20, choices=CERTIFICATE_TEMPLATES, default='classic'
+    )
 
     # Instructors assigned by a tenant admin. Assigned instructors can edit the
     # course content (chapters, topics, quizzes, etc.) but cannot manage the

@@ -15,7 +15,7 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, ArrowRight, GraduationCap, CheckCircle2, Clock, PlusCircle,
   BookOpen, Layers, ShieldCheck, Sparkles, Users, Tag, Settings2,
-  ChevronDown, FileText, Video, ListChecks, ClipboardList, Code2,
+  ChevronDown, FileText, Video, ListChecks, ClipboardList, Code2, Award,
 } from 'lucide-react'
 
 const CURRENCY_SYMBOLS = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
@@ -223,6 +223,12 @@ const CourseDetail = () => {
               <span className="inline-flex items-center gap-1.5"><Users size={15} /> {instructors.map((i) => i.name).join(', ')}</span>
             )}
           </div>
+          {course.certificate_enabled && (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-400/20 ring-1 ring-amber-200/40 text-amber-50 text-sm font-medium backdrop-blur-sm">
+              <Award size={16} className="text-amber-200" />
+              Certificate of completion — earn it by finishing 100% of this course
+            </div>
+          )}
         </div>
       </div>
 
