@@ -14,6 +14,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 
+# Optional dedicated key (urlsafe base64 Fernet key) for encrypting sensitive
+# fields at rest, e.g. tenant payment-gateway secrets. When unset, a key is
+# derived from SECRET_KEY (see core.encryption). Set this in production so
+# rotating SECRET_KEY does not invalidate previously-stored ciphertext.
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 

@@ -66,6 +66,18 @@ class Tenant(models.Model):
     # enabled so newly introduced features are on until an admin turns them off.
     features = models.JSONField(default=dict, blank=True)
 
+    # ── Enrollment mode flags ──────────────────────────────────────────────
+    # These decide how a student joins a course:
+    #   * request_enrollment_* = True  → student sends a request, admin approves
+    #     (the current, gateway-independent behaviour).
+    #   * request_enrollment_free = False → free courses allow instant self-enrol.
+    #   * request_enrollment_paid = False → paid courses enrol only after online
+    #     payment, so this may only be turned off when an active payment gateway
+    #     is configured (enforced in the admin serializer). Defaults keep every
+    #     existing tenant on the request/approve flow.
+    request_enrollment_free = models.BooleanField(default=True)
+    request_enrollment_paid = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -81,6 +93,73 @@ class Tenant(models.Model):
         """Return the full feature map, defaulting any missing key to enabled."""
         stored = self.features or {}
         return {key: bool(stored.get(key, True)) for key in self.FEATURE_CHOICES}
+
+    @property
+    def has_active_payment_gateway(self):
+        """True when this tenant has a fully-configured, active payment gateway."""
+        try:
+            gateway = self.payment_gateway
+        except PaymentGateway.DoesNotExist:
+            return False
+        return bool(gateway and gateway.is_active and gateway.is_configured)
+
+
+class PaymentGateway(models.Model):
+    """A tenant's online payment gateway credentials (Razorpay / Cashfree).
+
+    Secrets are encrypted at rest via :mod:`core.encryption`; the plaintext
+    secret is only ever exposed through the :pyattr:`key_secret` property and is
+    never serialized back to API clients. Each tenant has at most one gateway.
+    """
+
+    PROVIDER_RAZORPAY = 'razorpay'
+    PROVIDER_CASHFREE = 'cashfree'
+    PROVIDER_CHOICES = [
+        (PROVIDER_RAZORPAY, 'Razorpay'),
+        (PROVIDER_CASHFREE, 'Cashfree'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.OneToOneField(
+        Tenant, on_delete=models.CASCADE, related_name='payment_gateway'
+    )
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+
+    # Public-ish identifier: Razorpay ``key_id`` / Cashfree ``app_id`` (client id).
+    key_id = models.CharField(max_length=255, blank=True, default='')
+    # Encrypted secret: Razorpay ``key_secret`` / Cashfree ``secret_key``.
+    key_secret_encrypted = models.TextField(blank=True, default='')
+
+    # When False the gateway is stored but not used for checkout yet.
+    is_active = models.BooleanField(default=False)
+    # Test/sandbox vs. live credentials.
+    is_test_mode = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Payment Gateway'
+        verbose_name_plural = 'Payment Gateways'
+
+    def __str__(self):
+        return f'{self.tenant.name} — {self.get_provider_display()}'
+
+    @property
+    def key_secret(self):
+        """Decrypted secret (empty string when not set)."""
+        from .encryption import decrypt
+        return decrypt(self.key_secret_encrypted)
+
+    @key_secret.setter
+    def key_secret(self, raw):
+        from .encryption import encrypt
+        self.key_secret_encrypted = encrypt(raw or '')
+
+    @property
+    def is_configured(self):
+        """True once both the id and secret are present."""
+        return bool(self.key_id and self.key_secret_encrypted)
 
 
 class TimeStampedModel(models.Model):
