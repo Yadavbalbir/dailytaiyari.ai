@@ -388,6 +388,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
             for i, option_text in enumerate(poll_options):
                 PollOption.objects.create(
                     post=post,
+                    tenant=post.tenant,
                     option_text=option_text,
                     order=i
                 )
@@ -396,6 +397,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         if quiz_data:
             CommunityQuiz.objects.create(
                 post=post,
+                tenant=post.tenant,
                 question=quiz_data['question'],
                 options=quiz_data['options'],
                 correct_answer=quiz_data['correct_answer'],
@@ -406,6 +408,7 @@ class PostCreateSerializer(serializers.ModelSerializer):
         if event_data:
             CommunityEvent.objects.create(
                 post=post,
+                tenant=post.tenant,
                 start_at=event_data['start_at'],
                 end_at=event_data.get('end_at') or None,
                 meeting_url=event_data['meeting_url'],
@@ -476,6 +479,7 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
         attempt = QuizAttempt.objects.create(
             user=user,
             quiz=quiz,
+            tenant=getattr(quiz, 'tenant', None) or getattr(quiz.post, 'tenant', None),
             selected_answer=selected,
             is_correct=is_correct,
             xp_earned=5 if is_correct else 0
