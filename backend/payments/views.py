@@ -15,7 +15,6 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.models import PaymentGateway
 from exams.models import Course
 from users.models import CourseEnrollment
 
@@ -28,11 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 def _active_gateway(tenant):
-    try:
-        gateway = tenant.payment_gateway
-    except PaymentGateway.DoesNotExist:
-        return None
-    if gateway and gateway.is_active and gateway.is_configured:
+    gateway = tenant.active_payment_gateway
+    if gateway and gateway.is_configured:
         return gateway
     return None
 

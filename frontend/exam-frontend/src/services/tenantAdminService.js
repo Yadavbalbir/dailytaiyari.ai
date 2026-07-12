@@ -81,7 +81,9 @@ export const tenantAdminService = {
         return response.data
     },
 
-    // Payment Gateway — Razorpay / Cashfree credentials (secret write-only).
+    // Payment Gateways — one stored config per provider (Razorpay / Cashfree /
+    // PayU); exactly one is active. Secrets are write-only. Returns
+    // { gateways: [...], active_provider }.
     getPaymentGateway: async () => {
         const response = await api.get('/tenant-admin/payment-gateway/')
         return response.data
@@ -92,8 +94,10 @@ export const tenantAdminService = {
         return response.data
     },
 
-    deletePaymentGateway: async () => {
-        const response = await api.delete('/tenant-admin/payment-gateway/')
+    deletePaymentGateway: async (provider) => {
+        const response = await api.delete('/tenant-admin/payment-gateway/', {
+            params: provider ? { provider } : undefined,
+        })
         return response.data
     },
 
