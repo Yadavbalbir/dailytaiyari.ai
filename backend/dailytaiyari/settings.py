@@ -294,6 +294,11 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 CORS_ALLOW_CREDENTIALS = True
+# Per-tenant frontends hosted outside the dailytaiyari domains (e.g. Netlify
+# deploys) that must be allowed to call the public platform endpoints.
+CORS_ALLOWED_ORIGINS += [
+    'https://testlaevacademy.netlify.app',
+]
 # Allow the marketing site + demo portal (any *.dailytaiyari.in / *.dailytaiyari.ai
 # subdomain, plus the apex) to call the public platform endpoints cross-origin.
 CORS_ALLOWED_ORIGIN_REGEXES = [
