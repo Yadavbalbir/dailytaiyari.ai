@@ -146,14 +146,19 @@ const JobDetail = () => {
     setResume(f)
   }
 
+  const hasCourses = job.related_courses?.length > 0
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className={`space-y-6 ${hasCourses ? 'max-w-6xl' : 'max-w-3xl'}`}>
       <button
         onClick={() => navigate('/jobs')}
         className="text-surface-500 hover:text-primary-600 flex items-center gap-1 text-sm"
       >
         <ArrowLeft size={16} /> Back to Careers
       </button>
+
+      <div className={`grid gap-6 ${hasCourses ? 'lg:grid-cols-3 items-start' : ''}`}>
+        <div className={`space-y-6 ${hasCourses ? 'lg:col-span-2' : ''}`}>
 
       {/* Header card */}
       <div className="card p-6">
@@ -259,25 +264,7 @@ const JobDetail = () => {
         </div>
       )}
 
-      {/* Upskill — recommended courses */}
-      {job.related_courses?.length > 0 && (
-        <div className="card p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-lg">Boost your chances for this role</h2>
-              <p className="text-sm text-surface-500">Recommended courses to help you build the skills this {job.category === 'internship' ? 'internship' : 'role'} looks for.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {job.related_courses.map((c) => (
-              <CourseTile key={c.id} course={c} onOpen={(course) => navigate(`/courses/${course.id}`)} />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Upskill — recommended courses moved to right sidebar */}
 
       {/* Report as closed */}
       {job.my_report ? (
@@ -307,6 +294,30 @@ const JobDetail = () => {
           </button>
         </div>
       )}
+
+        </div>
+
+        {hasCourses && (
+          <div className="lg:col-span-1">
+            <div className="card p-6 lg:sticky lg:top-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-lg">Boost your chances for this role</h2>
+                  <p className="text-sm text-surface-500">Recommended courses to help you build the skills this {job.category === 'internship' ? 'internship' : 'role'} looks for.</p>
+                </div>
+              </div>
+              <div className="grid gap-3">
+                {job.related_courses.map((c) => (
+                  <CourseTile key={c.id} course={c} onOpen={(course) => navigate(`/courses/${course.id}`)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Report modal */}
       {showReport && (
