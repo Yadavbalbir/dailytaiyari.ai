@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { tenantApi } from '../services/api';
+import { applyTheme, DEFAULT_THEME } from '../config/themes';
 
 // Keep in sync with backend core/models.py Tenant.FEATURE_CHOICES.
 // Features default to enabled so nothing is hidden before config loads or when
@@ -47,14 +48,16 @@ export const useTenantStore = create((set, get) => ({
             const response = await tenantApi.get(`/tenant/${tenantId}/`);
             set({ tenant: response.data, isLoading: false });
 
-            // Apply branding to the document: title (name + tagline) and favicon.
-            const { name, tagline, favicon } = response.data;
+            // Apply branding to the document: title (name + tagline), favicon
+            // and the tenant's selected colour theme.
+            const { name, tagline, favicon, theme } = response.data;
             if (name) {
                 document.title = tagline ? `${name} - ${tagline}` : name;
             }
             if (favicon) {
                 applyFavicon(favicon);
             }
+            applyTheme(theme || DEFAULT_THEME);
         } catch (error) {
             console.error('Failed to fetch tenant configuration', error);
             set({ error: 'Failed to load tenant configuration', isLoading: false });

@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Default theme (Sunrise Orange). primary/accent palettes are exposed as
+ * "R G B" channels so Tailwind classes like bg-primary-500/25 work. Tenants can
+ * override these at runtime via src/config/themes.js -> applyTheme().
+ */
+:root {
+  --color-primary-50: 255 247 237;
+  --color-primary-100: 255 237 213;
+  --color-primary-200: 254 215 170;
+  --color-primary-300: 253 186 116;
+  --color-primary-400: 251 146 60;
+  --color-primary-500: 249 115 22;
+  --color-primary-600: 234 88 12;
+  --color-primary-700: 194 65 12;
+  --color-primary-800: 154 52 18;
+  --color-primary-900: 124 45 18;
+
+  --color-accent-50: 253 244 255;
+  --color-accent-100: 250 232 255;
+  --color-accent-200: 245 208 254;
+  --color-accent-300: 240 171 252;
+  --color-accent-400: 232 121 249;
+  --color-accent-500: 217 70 239;
+  --color-accent-600: 192 38 211;
+  --color-accent-700: 162 28 175;
+  --color-accent-800: 134 25 143;
+  --color-accent-900: 112 26 117;
+}
+
 /* Custom base styles */
 @layer base {
   * {
@@ -160,11 +189,11 @@
 
   /* Glow effects */
   .glow-primary {
-    @apply shadow-[0_0_30px_rgba(249,115,22,0.3)];
+    @apply shadow-[0_0_30px_rgb(var(--color-primary-500)/0.3)];
   }
 
   .glow-accent {
-    @apply shadow-[0_0_30px_rgba(217,70,239,0.3)];
+    @apply shadow-[0_0_30px_rgb(var(--color-accent-500)/0.3)];
   }
 
   /* Glass effect */
@@ -183,7 +212,10 @@
   /* Streak fire animation */
   .fire-glow {
     @apply animate-pulse;
-    text-shadow: 0 0 10px #f97316, 0 0 20px #f97316, 0 0 30px #ea580c;
+    text-shadow:
+      0 0 10px rgb(var(--color-primary-500)),
+      0 0 20px rgb(var(--color-primary-500)),
+      0 0 30px rgb(var(--color-primary-600));
   }
 }
 

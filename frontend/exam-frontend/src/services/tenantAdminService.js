@@ -62,6 +62,11 @@ export const tenantAdminService = {
         return response.data
     },
 
+    updateTheme: async (theme) => {
+        const response = await api.patch('/tenant-admin/settings/', { theme })
+        return response.data
+    },
+
     updateLogo: async (file) => {
         const formData = new FormData()
         formData.append('logo', file)

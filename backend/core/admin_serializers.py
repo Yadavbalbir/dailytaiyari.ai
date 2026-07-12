@@ -18,8 +18,16 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tenant
-        fields = ['id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'features']
+        fields = ['id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'theme', 'features']
         read_only_fields = ['id', 'subdomain']
+
+    def validate_theme(self, value):
+        if value not in Tenant.THEME_CHOICES:
+            raise serializers.ValidationError(
+                'Unknown theme. Choose one of: '
+                + ', '.join(Tenant.THEME_CHOICES)
+            )
+        return value
 
     def validate_features(self, value):
         if not isinstance(value, dict):
@@ -38,6 +46,10 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
         data['available_features'] = [
             {'key': key, 'label': label}
             for key, label in Tenant.FEATURE_CHOICES.items()
+        ]
+        data['available_themes'] = [
+            {'key': key, 'label': label}
+            for key, label in Tenant.THEME_CHOICES.items()
         ]
         return data
 

@@ -4,9 +4,9 @@ from .models import Tenant, DemoBooking, ContactMessage, JobApplication
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ('name', 'tagline', 'subdomain', 'is_active', 'created_at')
+    list_display = ('name', 'tagline', 'theme', 'subdomain', 'is_active', 'created_at')
     search_fields = ('name', 'tagline', 'subdomain')
-    list_filter = ('is_active',)
+    list_filter = ('is_active', 'theme')
 
 
 @admin.register(DemoBooking)

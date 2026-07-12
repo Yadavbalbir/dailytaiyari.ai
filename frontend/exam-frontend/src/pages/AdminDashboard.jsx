@@ -7,6 +7,7 @@ import { analyticsService } from '../services/analyticsService'
 import { tenantAdminService } from '../services/tenantAdminService'
 import { courseService } from '../services/courseService'
 import { useTenantStore } from '../context/tenantStore'
+import { THEME_LIST, applyTheme, DEFAULT_THEME } from '../config/themes'
 import CourseBuilder from '../components/admin/CourseBuilder'
 import {
     Users,
@@ -45,6 +46,7 @@ import {
     Upload,
     Image as ImageIcon,
     ToggleRight,
+    Palette,
     SlidersHorizontal as SlidersIcon,
 } from 'lucide-react'
 
@@ -1299,6 +1301,28 @@ const TenantSettings = () => {
         onError: () => toast.error('Failed to upload favicon'),
     })
 
+    const themeMutation = useMutation({
+        mutationFn: (theme) => tenantAdminService.updateTheme(theme),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Theme updated')
+        },
+        onError: () => {
+            // Revert the live preview back to the saved theme on failure.
+            applyTheme(settings?.theme || DEFAULT_THEME)
+            toast.error('Failed to update theme')
+        },
+    })
+
+    const activeTheme = settings?.theme || DEFAULT_THEME
+
+    const selectTheme = (key) => {
+        if (key === activeTheme || themeMutation.isPending) return
+        applyTheme(key) // instant live preview
+        themeMutation.mutate(key)
+    }
+
     const toggleFeature = (key) => {
         const next = { ...features, [key]: !features[key] }
         setFeatures(next)
@@ -1453,6 +1477,43 @@ const TenantSettings = () => {
                         </button>
                         <p className="text-xs text-surface-400 mt-2">PNG, ICO or SVG. 32×32 or larger.</p>
                     </div>
+                </div>
+            </div>
+
+            {/* Theme */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Theme</h3>
+                </div>
+                <p className="text-sm text-surface-500">Pick a colour theme for your institution. It applies across the whole student app instantly.</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {THEME_LIST.map((t) => {
+                        const selected = t.key === activeTheme
+                        return (
+                            <button
+                                key={t.key}
+                                onClick={() => selectTheme(t.key)}
+                                disabled={themeMutation.isPending}
+                                className={`relative text-left rounded-2xl border p-4 transition-all disabled:opacity-60 ${
+                                    selected
+                                        ? 'border-primary-500 ring-2 ring-primary-500/40 bg-primary-50/50 dark:bg-primary-900/20'
+                                        : 'border-surface-200 dark:border-surface-700 hover:border-primary-300 dark:hover:border-primary-700'
+                                }`}
+                            >
+                                {selected && (
+                                    <span className="absolute top-3 right-3 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary-500 text-white">
+                                        <Check className="w-3.5 h-3.5" />
+                                    </span>
+                                )}
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="w-8 h-8 rounded-lg shadow-sm" style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 0%, ${t.swatch[0]} 55%, ${t.swatch[1]} 55%, ${t.swatch[1]} 100%)` }} />
+                                    <span className="font-semibold text-surface-900 dark:text-white">{t.label}</span>
+                                </div>
+                                <p className="text-xs text-surface-500 leading-snug">{t.description}</p>
+                            </button>
+                        )
+                    })}
                 </div>
             </div>
 
