@@ -6,7 +6,6 @@ import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
 import toast from 'react-hot-toast'
 import ImageCropper from '../components/common/ImageCropper'
-import MyCourses from '../components/profile/MyCourses'
 
 import {
   Camera,
@@ -41,6 +40,10 @@ const Profile = () => {
 
   const [formData, setFormData] = useState({
 
+    // Account info (User model)
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    phone: user?.phone || '',
     // Personal info
     date_of_birth: profile?.date_of_birth || '',
     bio: profile?.bio || '',
@@ -62,6 +65,9 @@ const Profile = () => {
   useEffect(() => {
     if (profile) {
       setFormData({
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
+        phone: user?.phone || '',
         date_of_birth: profile.date_of_birth || '',
         bio: profile.bio || '',
         instagram_handle: profile.instagram_handle || '',
@@ -75,7 +81,7 @@ const Profile = () => {
         preferred_study_time: profile.preferred_study_time || 'evening',
       })
     }
-  }, [profile])
+  }, [profile, user])
 
   const handleSave = async () => {
     // Update study goal separately if changed
@@ -90,9 +96,16 @@ const Profile = () => {
       submitData.append('user.avatar', avatarFile)
     }
 
+    // User (account) fields are nested under `user.` and compared against `user`
+    const userFields = ['first_name', 'last_name', 'phone']
+
     // Add other fields
     Object.keys(formData).forEach(key => {
-      if (formData[key] !== profile?.[key]) {
+      if (userFields.includes(key)) {
+        if (formData[key] !== (user?.[key] || '')) {
+          submitData.append(`user.${key}`, formData[key])
+        }
+      } else if (formData[key] !== profile?.[key]) {
         submitData.append(key, formData[key])
       }
     })
@@ -113,6 +126,9 @@ const Profile = () => {
   const handleCancel = () => {
     // Reset form data to current profile
     setFormData({
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      phone: user?.phone || '',
       date_of_birth: profile?.date_of_birth || '',
       bio: profile?.bio || '',
       instagram_handle: profile?.instagram_handle || '',
@@ -281,19 +297,51 @@ const Profile = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* First Name */}
+          <div>
+            <label className="block text-sm font-medium text-surface-500 mb-1">First Name</label>
+            {isEditing && activeSection === 'personal' ? (
+              <input
+                type="text"
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                className="input"
+                placeholder="Enter your first name"
+              />
+            ) : (
+              <p className="text-base py-2">{formData.first_name || '—'}</p>
+            )}
+          </div>
+
+          {/* Last Name */}
+          <div>
+            <label className="block text-sm font-medium text-surface-500 mb-1">Last Name</label>
+            {isEditing && activeSection === 'personal' ? (
+              <input
+                type="text"
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                className="input"
+                placeholder="Enter your last name"
+              />
+            ) : (
+              <p className="text-base py-2">{formData.last_name || '—'}</p>
+            )}
+          </div>
+
           {/* Phone */}
           <div>
             <label className="block text-sm font-medium text-surface-500 mb-1">Phone Number</label>
             {isEditing && activeSection === 'personal' ? (
               <input
                 type="tel"
-                value={user?.phone || ''}
-                disabled
-                className="input bg-surface-100 cursor-not-allowed"
-                placeholder="Set in account settings"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="input"
+                placeholder="Enter your phone number"
               />
             ) : (
-              <p className="text-base py-2">{user?.phone || '—'}</p>
+              <p className="text-base py-2">{formData.phone || '—'}</p>
             )}
           </div>
 
@@ -454,9 +502,6 @@ const Profile = () => {
           </div>
         </div>
       </div>
-
-      {/* My Exams — request enrollment & approval status */}
-      <MyCourses />
 
       {/* Location */}
       <div className="card p-6">
