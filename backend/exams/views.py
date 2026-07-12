@@ -232,6 +232,10 @@ class AvailableCoursesForEnrollmentView(APIView):
                 'is_free': e.is_free,
                 'discount_percent': e.discount_percent,
                 'subtitle': e.subtitle or '',
+                'enroll_mode': (
+                    request.tenant.enroll_mode_for(e)
+                    if getattr(request, 'tenant', None) else 'request'
+                ),
             }
             for e in courses
         ]

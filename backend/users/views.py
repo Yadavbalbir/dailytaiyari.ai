@@ -307,15 +307,37 @@ class CourseEnrollmentListView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         student = request.user.profile
-        course = request.data.get('course')
-        existing = CourseEnrollment.objects.filter(student=student, course_id=course).first()
+        course_id = request.data.get('course')
+        tenant = getattr(request, 'tenant', None)
+
+        from exams.models import Course
+        course = Course.objects.filter(id=course_id).first() if course_id else None
+        if course is None:
+            return Response(
+                {'course': ['Course not found.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Resolve how this student may join the course given the tenant's flags.
+        mode = tenant.enroll_mode_for(course) if tenant else 'request'
+        if mode == 'payment':
+            # Paid, pay-to-enrol: the client must go through the payment flow.
+            return Response(
+                {'detail': 'This course requires payment to enrol.',
+                 'code': 'payment_required'},
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+        # 'self' → auto-approve (free course, request flow disabled); else pending.
+        target_status = 'approved' if mode == 'self' else 'pending'
+
+        existing = CourseEnrollment.objects.filter(student=student, course=course).first()
         if existing:
             if existing.status == 'rejected':
-                # Allow re-request after rejection: reopen as pending
-                existing.status = 'pending'
+                # Allow re-request after rejection: reopen (or self-enrol).
+                existing.status = target_status
                 existing.is_active = True
                 existing.rejection_reason = ''
-                existing.reviewed_at = None
+                existing.reviewed_at = timezone.now() if target_status == 'approved' else None
                 existing.reviewed_by = None
                 existing.save()
                 return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
@@ -323,7 +345,12 @@ class CourseEnrollmentListView(generics.ListCreateAPIView):
                 {'course': ['You have already requested or are enrolled in this course.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return super().create(request, *args, **kwargs)
+
+        enrollment = CourseEnrollment.objects.create(
+            student=student, course=course, status=target_status, is_active=True,
+            reviewed_at=timezone.now() if target_status == 'approved' else None,
+        )
+        return Response(self.get_serializer(enrollment).data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         serializer.save(student=self.request.user.profile, status='pending', is_active=True)

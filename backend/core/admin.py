@@ -14,8 +14,8 @@ class PaymentGatewayAdmin(admin.ModelAdmin):
     list_display = ('tenant', 'provider', 'is_active', 'is_test_mode', 'is_configured', 'updated_at')
     list_filter = ('provider', 'is_active', 'is_test_mode')
     search_fields = ('tenant__name', 'key_id')
-    # Never expose the encrypted secret blob for editing in the Django admin.
-    exclude = ('key_secret_encrypted',)
+    # Never expose the encrypted secret blobs for editing in the Django admin.
+    exclude = ('key_secret_encrypted', 'webhook_secret_encrypted')
     readonly_fields = ('id', 'is_configured', 'created_at', 'updated_at')
 
 

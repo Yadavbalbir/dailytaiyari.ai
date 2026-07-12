@@ -1847,6 +1847,7 @@ const PaymentSettings = ({ settings }) => {
     const [provider, setProvider] = useState('razorpay')
     const [keyId, setKeyId] = useState('')
     const [keySecret, setKeySecret] = useState('')
+    const [webhookSecret, setWebhookSecret] = useState('')
     const [isActive, setIsActive] = useState(false)
     const [isTestMode, setIsTestMode] = useState(true)
 
@@ -1857,11 +1858,17 @@ const PaymentSettings = ({ settings }) => {
             setIsActive(Boolean(gateway.is_active))
             setIsTestMode(Boolean(gateway.is_test_mode))
             setKeySecret('')
+            setWebhookSecret('')
         }
     }, [gateway, configured])
 
     const hasStoredSecret = Boolean(gateway?.has_secret)
+    const hasStoredWebhookSecret = Boolean(gateway?.has_webhook_secret)
     const providerMeta = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0]
+
+    // Webhook URL the admin registers in their provider dashboard.
+    const apiBase = import.meta.env.VITE_API_URL || `${window.location.origin}/api/v1`
+    const webhookUrl = `${apiBase.replace(/\/$/, '')}/payments/webhook/${provider}/`
 
     // Enrollment flags live on the tenant settings object.
     const [enrollFree, setEnrollFree] = useState(true)
@@ -1948,8 +1955,9 @@ const PaymentSettings = ({ settings }) => {
             is_active: isActive,
             is_test_mode: isTestMode,
         }
-        // Only send the secret when the admin typed a new one.
+        // Only send secrets when the admin typed a new value.
         if (keySecret.trim()) payload.key_secret = keySecret.trim()
+        if (webhookSecret.trim()) payload.webhook_secret = webhookSecret.trim()
         saveMutation.mutate(payload)
     }
 
@@ -2037,7 +2045,7 @@ const PaymentSettings = ({ settings }) => {
                         return (
                             <button
                                 key={p.id}
-                                onClick={() => { setProvider(p.id); setKeySecret('') }}
+                                onClick={() => { setProvider(p.id); setKeySecret(''); setWebhookSecret('') }}
                                 className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${selected
                                     ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
                                     : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-surface-300'}`}
@@ -2071,6 +2079,44 @@ const PaymentSettings = ({ settings }) => {
                                 value={keySecret}
                                 onChange={(e) => setKeySecret(e.target.value)}
                                 placeholder={hasStoredSecret ? '•••••••• (leave blank to keep)' : 'Enter secret'}
+                                autoComplete="new-password"
+                                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Webhook */}
+                <div className="rounded-xl border border-surface-200 dark:border-surface-700 p-4 space-y-3 bg-surface-50/60 dark:bg-surface-900/40">
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-primary-500" />
+                        <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">Webhook</span>
+                    </div>
+                    <p className="text-xs text-surface-500">
+                        Add this URL as a webhook in your {providerMeta.label} dashboard so payments are confirmed
+                        reliably even if the learner closes the tab.
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <code className="flex-1 text-xs px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 break-all">{webhookUrl}</code>
+                        <button
+                            type="button"
+                            onClick={() => { navigator.clipboard?.writeText(webhookUrl); toast.success('Webhook URL copied') }}
+                            className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-600 dark:text-surface-300"
+                        >
+                            Copy
+                        </button>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                            Webhook secret {provider === 'cashfree' && <span className="text-surface-400 font-normal">(optional — defaults to your secret key)</span>}
+                        </label>
+                        <div className="relative">
+                            <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+                            <input
+                                type="password"
+                                value={webhookSecret}
+                                onChange={(e) => setWebhookSecret(e.target.value)}
+                                placeholder={hasStoredWebhookSecret ? '•••••••• (leave blank to keep)' : (provider === 'razorpay' ? 'Razorpay webhook secret' : 'Leave blank to use secret key')}
                                 autoComplete="new-password"
                                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                             />

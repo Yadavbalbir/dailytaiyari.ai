@@ -103,6 +103,23 @@ class Tenant(models.Model):
             return False
         return bool(gateway and gateway.is_active and gateway.is_configured)
 
+    def enroll_mode_for(self, course):
+        """Resolve how a student joins ``course`` given this tenant's flags.
+
+        Returns one of:
+          * ``'request'`` — student requests, an admin approves (default).
+          * ``'self'``    — instant self-enrolment (free course, flag off).
+          * ``'payment'`` — enrol after online payment (paid course, flag off
+            and an active gateway is configured).
+        """
+        is_free = getattr(course, 'is_free', False)
+        if is_free:
+            return 'request' if self.request_enrollment_free else 'self'
+        # Paid course.
+        if not self.request_enrollment_paid and self.has_active_payment_gateway:
+            return 'payment'
+        return 'request'
+
 
 class PaymentGateway(models.Model):
     """A tenant's online payment gateway credentials (Razorpay / Cashfree).
@@ -129,6 +146,10 @@ class PaymentGateway(models.Model):
     key_id = models.CharField(max_length=255, blank=True, default='')
     # Encrypted secret: Razorpay ``key_secret`` / Cashfree ``secret_key``.
     key_secret_encrypted = models.TextField(blank=True, default='')
+    # Encrypted webhook signing secret. Razorpay uses a dedicated webhook secret
+    # (set in its dashboard); Cashfree signs webhooks with the account secret, so
+    # this is optional there and falls back to ``key_secret``.
+    webhook_secret_encrypted = models.TextField(blank=True, default='')
 
     # When False the gateway is stored but not used for checkout yet.
     is_active = models.BooleanField(default=False)
@@ -155,6 +176,19 @@ class PaymentGateway(models.Model):
     def key_secret(self, raw):
         from .encryption import encrypt
         self.key_secret_encrypted = encrypt(raw or '')
+
+    @property
+    def webhook_secret(self):
+        """Decrypted webhook secret; falls back to the account secret when unset."""
+        from .encryption import decrypt
+        if self.webhook_secret_encrypted:
+            return decrypt(self.webhook_secret_encrypted)
+        return decrypt(self.key_secret_encrypted)
+
+    @webhook_secret.setter
+    def webhook_secret(self, raw):
+        from .encryption import encrypt
+        self.webhook_secret_encrypted = encrypt(raw or '')
 
     @property
     def is_configured(self):

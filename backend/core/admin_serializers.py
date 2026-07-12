@@ -98,12 +98,17 @@ class PaymentGatewaySerializer(serializers.ModelSerializer):
     key_secret = serializers.CharField(
         write_only=True, required=False, allow_blank=True, style={'input_type': 'password'}
     )
+    webhook_secret = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, style={'input_type': 'password'}
+    )
     has_secret = serializers.SerializerMethodField()
+    has_webhook_secret = serializers.SerializerMethodField()
 
     class Meta:
         model = PaymentGateway
         fields = [
             'id', 'provider', 'key_id', 'key_secret', 'has_secret',
+            'webhook_secret', 'has_webhook_secret',
             'is_active', 'is_test_mode', 'is_configured',
             'created_at', 'updated_at',
         ]
@@ -111,6 +116,9 @@ class PaymentGatewaySerializer(serializers.ModelSerializer):
 
     def get_has_secret(self, obj):
         return bool(obj.key_secret_encrypted)
+
+    def get_has_webhook_secret(self, obj):
+        return bool(obj.webhook_secret_encrypted)
 
     def validate_provider(self, value):
         valid = {c[0] for c in PaymentGateway.PROVIDER_CHOICES}
@@ -139,17 +147,23 @@ class PaymentGatewaySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         secret = validated_data.pop('key_secret', '')
+        webhook = validated_data.pop('webhook_secret', '')
         instance = PaymentGateway(**validated_data)
         if secret:
             instance.key_secret = secret
+        if webhook:
+            instance.webhook_secret = webhook
         instance.save()
         return instance
 
     def update(self, instance, validated_data):
-        # Only overwrite the stored secret when a non-blank value is supplied.
+        # Only overwrite stored secrets when a non-blank value is supplied.
         secret = validated_data.pop('key_secret', None)
+        webhook = validated_data.pop('webhook_secret', None)
         if secret:
             instance.key_secret = secret
+        if webhook:
+            instance.webhook_secret = webhook
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

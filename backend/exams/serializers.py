@@ -13,6 +13,7 @@ class CourseSerializer(serializers.ModelSerializer):
     discount_percent = serializers.ReadOnlyField()
     is_free = serializers.ReadOnlyField()
     instructors = serializers.SerializerMethodField()
+    enroll_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -25,8 +26,15 @@ class CourseSerializer(serializers.ModelSerializer):
             'pricing_type', 'price', 'original_price', 'currency',
             'is_free', 'discount_percent', 'subtitle', 'highlights',
             'refund_policy', 'certificate_enabled', 'certificate_template',
-            'instructors', 'created_at'
+            'instructors', 'enroll_mode', 'created_at'
         ]
+
+    def get_enroll_mode(self, obj):
+        """How a student joins this course: 'request', 'self' or 'payment'."""
+        tenant = getattr(obj, 'tenant', None)
+        if tenant is None:
+            return 'request'
+        return tenant.enroll_mode_for(obj)
 
     def get_subjects_count(self, obj):
         return obj.subjects.count()
