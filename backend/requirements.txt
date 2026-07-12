@@ -25,6 +25,9 @@ drf-yasg>=1.21.7
 better-profanity>=0.7.0
 requests>=2.31.0
 
+# Encryption — securing tenant secrets (e.g. payment gateway keys) at rest
+cryptography>=42.0.0
+
 # Production Server
 gunicorn>=21.2.0
 

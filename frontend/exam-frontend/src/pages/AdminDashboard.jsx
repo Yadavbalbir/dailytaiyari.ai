@@ -48,6 +48,10 @@ import {
     ToggleRight,
     Palette,
     SlidersHorizontal as SlidersIcon,
+    CreditCard,
+    KeyRound,
+    Trash2,
+    ShieldCheck,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -1465,6 +1469,7 @@ const TenantSettings = () => {
     const [features, setFeatures] = useState({})
     const [name, setName] = useState('')
     const [tagline, setTagline] = useState('')
+    const [subTab, setSubTab] = useState('general')
 
     useEffect(() => {
         if (settings?.features) setFeatures(settings.features)
@@ -1601,6 +1606,31 @@ const TenantSettings = () => {
 
     return (
         <div className="space-y-6">
+            {/* Settings sub-tabs — General vs. Payments */}
+            <div className="flex items-center gap-2 border-b border-surface-200 dark:border-surface-800">
+                {[
+                    { id: 'general', label: 'General', icon: SlidersIcon },
+                    { id: 'payments', label: 'Payments', icon: CreditCard },
+                ].map((st) => {
+                    const active = subTab === st.id
+                    return (
+                        <button
+                            key={st.id}
+                            onClick={() => setSubTab(st.id)}
+                            className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${active
+                                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                                : 'border-transparent text-surface-500 hover:text-surface-800 dark:hover:text-surface-200'}`}
+                        >
+                            <st.icon className="w-4 h-4" /> {st.label}
+                        </button>
+                    )
+                })}
+            </div>
+
+            {subTab === 'payments' ? (
+                <PaymentSettings settings={settings} />
+            ) : (
+            <div className="space-y-6">
             {/* Identity — name + tagline */}
             <div className="card p-6 space-y-4">
                 <div className="flex items-center gap-2">
@@ -1787,6 +1817,297 @@ const TenantSettings = () => {
                             </div>
                         )
                     })}
+                </div>
+            </div>
+            </div>
+            )}
+        </div>
+    )
+}
+
+/* ---------------------------------------------------------------------------
+ * PaymentSettings — enrollment mode flags + payment gateway credentials
+ * ------------------------------------------------------------------------- */
+const PROVIDERS = [
+    { id: 'razorpay', label: 'Razorpay', idLabel: 'Key ID', secretLabel: 'Key Secret', idHint: 'rzp_live_… / rzp_test_…' },
+    { id: 'cashfree', label: 'Cashfree', idLabel: 'App ID (Client ID)', secretLabel: 'Secret Key', idHint: 'CF App ID' },
+]
+
+const PaymentSettings = ({ settings }) => {
+    const queryClient = useQueryClient()
+    const fetchTenantConfig = useTenantStore((s) => s.fetchTenantConfig)
+
+    const { data: gateway, isLoading } = useQuery({
+        queryKey: ['tenantPaymentGateway'],
+        queryFn: () => tenantAdminService.getPaymentGateway(),
+    })
+
+    const configured = Boolean(gateway && gateway.configured !== false && gateway.provider)
+
+    const [provider, setProvider] = useState('razorpay')
+    const [keyId, setKeyId] = useState('')
+    const [keySecret, setKeySecret] = useState('')
+    const [isActive, setIsActive] = useState(false)
+    const [isTestMode, setIsTestMode] = useState(true)
+
+    useEffect(() => {
+        if (configured) {
+            setProvider(gateway.provider || 'razorpay')
+            setKeyId(gateway.key_id || '')
+            setIsActive(Boolean(gateway.is_active))
+            setIsTestMode(Boolean(gateway.is_test_mode))
+            setKeySecret('')
+        }
+    }, [gateway, configured])
+
+    const hasStoredSecret = Boolean(gateway?.has_secret)
+    const providerMeta = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0]
+
+    // Enrollment flags live on the tenant settings object.
+    const [enrollFree, setEnrollFree] = useState(true)
+    const [enrollPaid, setEnrollPaid] = useState(true)
+    useEffect(() => {
+        if (settings) {
+            setEnrollFree(settings.request_enrollment_free !== false)
+            setEnrollPaid(settings.request_enrollment_paid !== false)
+        }
+    }, [settings])
+
+    const hasActiveGateway = Boolean(settings?.has_active_payment_gateway)
+
+    const enrollMutation = useMutation({
+        mutationFn: (payload) => tenantAdminService.updateEnrollmentSettings(payload),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            toast.success('Enrollment settings updated')
+        },
+        onError: (err) => {
+            // Revert optimistic toggle and surface the server-side reason.
+            setEnrollPaid(settings?.request_enrollment_paid !== false)
+            setEnrollFree(settings?.request_enrollment_free !== false)
+            const detail = err?.response?.data?.request_enrollment_paid
+            toast.error(Array.isArray(detail) ? detail[0] : (detail || 'Failed to update enrollment settings'))
+        },
+    })
+
+    const toggleEnrollFree = () => {
+        const next = !enrollFree
+        setEnrollFree(next)
+        enrollMutation.mutate({ request_enrollment_free: next })
+    }
+
+    const toggleEnrollPaid = () => {
+        const next = !enrollPaid
+        if (next === false && !hasActiveGateway) {
+            toast.error('Set up and activate a payment gateway before enabling self-enrolment for paid courses.')
+            return
+        }
+        setEnrollPaid(next)
+        enrollMutation.mutate({ request_enrollment_paid: next })
+    }
+
+    const saveMutation = useMutation({
+        mutationFn: (payload) => tenantAdminService.savePaymentGateway(payload),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantPaymentGateway'], data)
+            queryClient.invalidateQueries({ queryKey: ['tenantSettings'] })
+            fetchTenantConfig()
+            toast.success('Payment gateway saved')
+        },
+        onError: (err) => {
+            const data = err?.response?.data
+            const msg = data?.non_field_errors?.[0] || data?.detail || 'Failed to save payment gateway'
+            toast.error(msg)
+        },
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: () => tenantAdminService.deletePaymentGateway(),
+        onSuccess: () => {
+            queryClient.setQueryData(['tenantPaymentGateway'], { configured: false })
+            queryClient.invalidateQueries({ queryKey: ['tenantSettings'] })
+            fetchTenantConfig()
+            setKeyId(''); setKeySecret(''); setIsActive(false); setIsTestMode(true)
+            toast.success('Payment gateway removed')
+        },
+        onError: () => toast.error('Failed to remove payment gateway'),
+    })
+
+    const save = () => {
+        if (!keyId.trim()) {
+            toast.error(`${providerMeta.idLabel} is required`)
+            return
+        }
+        if (!hasStoredSecret && !keySecret.trim()) {
+            toast.error(`${providerMeta.secretLabel} is required`)
+            return
+        }
+        const payload = {
+            provider,
+            key_id: keyId.trim(),
+            is_active: isActive,
+            is_test_mode: isTestMode,
+        }
+        // Only send the secret when the admin typed a new one.
+        if (keySecret.trim()) payload.key_secret = keySecret.trim()
+        saveMutation.mutate(payload)
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[200px]">
+                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Enrollment mode */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Enrollment Mode</h3>
+                </div>
+                <p className="text-sm text-surface-500">
+                    Choose how students join your courses. When request-based enrolment is on, students
+                    send a request that you approve. When off, free courses allow instant self-enrolment and
+                    paid courses enrol after online payment (requires an active payment gateway below).
+                </p>
+                <div className="divide-y divide-surface-100 dark:divide-surface-800">
+                    <div className="flex items-center justify-between py-3 gap-4">
+                        <div>
+                            <p className="font-medium text-surface-800 dark:text-surface-200">Request enrollment in free courses</p>
+                            <p className="text-xs text-surface-500">On: students request &amp; you approve. Off: instant self-enrolment.</p>
+                        </div>
+                        <button
+                            role="switch"
+                            aria-checked={enrollFree}
+                            onClick={toggleEnrollFree}
+                            disabled={enrollMutation.isPending}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${enrollFree ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enrollFree ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+                    <div className="flex items-center justify-between py-3 gap-4">
+                        <div>
+                            <p className="font-medium text-surface-800 dark:text-surface-200">Request enrollment in paid courses</p>
+                            <p className="text-xs text-surface-500">
+                                On: students request &amp; you approve. Off: enrol after online payment.
+                                {!hasActiveGateway && (
+                                    <span className="text-amber-600 dark:text-amber-400"> Requires an active payment gateway to turn off.</span>
+                                )}
+                            </p>
+                        </div>
+                        <button
+                            role="switch"
+                            aria-checked={enrollPaid}
+                            onClick={toggleEnrollPaid}
+                            disabled={enrollMutation.isPending || (enrollPaid && !hasActiveGateway)}
+                            title={!hasActiveGateway ? 'Configure an active payment gateway first' : undefined}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${enrollPaid ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enrollPaid ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Payment gateway credentials */}
+            <div className="card p-6 space-y-5">
+                <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Payment Gateway</h3>
+                    {configured && gateway?.is_active && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            <ShieldCheck className="w-3.5 h-3.5" /> Active
+                        </span>
+                    )}
+                </div>
+                <p className="text-sm text-surface-500">
+                    Connect your own payment provider to collect course fees. Credentials are encrypted at
+                    rest and never shown again after saving. Checkout for students is enabled in a later release.
+                </p>
+
+                {/* Provider picker */}
+                <div className="flex flex-wrap gap-3">
+                    {PROVIDERS.map((p) => {
+                        const selected = provider === p.id
+                        return (
+                            <button
+                                key={p.id}
+                                onClick={() => { setProvider(p.id); setKeySecret('') }}
+                                className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${selected
+                                    ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                                    : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-surface-300'}`}
+                            >
+                                {p.label}
+                            </button>
+                        )
+                    })}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">{providerMeta.idLabel}</label>
+                        <input
+                            type="text"
+                            value={keyId}
+                            onChange={(e) => setKeyId(e.target.value)}
+                            placeholder={providerMeta.idHint}
+                            autoComplete="off"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                            {providerMeta.secretLabel}
+                        </label>
+                        <div className="relative">
+                            <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+                            <input
+                                type="password"
+                                value={keySecret}
+                                onChange={(e) => setKeySecret(e.target.value)}
+                                placeholder={hasStoredSecret ? '•••••••• (leave blank to keep)' : 'Enter secret'}
+                                autoComplete="new-password"
+                                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={isTestMode} onChange={(e) => setIsTestMode(e.target.checked)} className="rounded border-surface-300 text-primary-500 focus:ring-primary-500" />
+                        <span className="text-sm text-surface-700 dark:text-surface-300">Test / sandbox mode</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-surface-300 text-primary-500 focus:ring-primary-500" />
+                        <span className="text-sm text-surface-700 dark:text-surface-300">Active (use this gateway for checkout)</span>
+                    </label>
+                </div>
+
+                <div className="flex items-center gap-3 pt-1">
+                    <button
+                        onClick={save}
+                        disabled={saveMutation.isPending}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold disabled:opacity-60"
+                    >
+                        {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {configured ? 'Update credentials' : 'Save credentials'}
+                    </button>
+                    {configured && (
+                        <button
+                            onClick={() => { if (window.confirm('Remove the stored payment gateway credentials?')) deleteMutation.mutate() }}
+                            disabled={deleteMutation.isPending}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-sm font-semibold disabled:opacity-60"
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            Remove
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

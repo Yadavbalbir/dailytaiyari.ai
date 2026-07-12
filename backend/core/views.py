@@ -74,9 +74,26 @@ class TenantDetailView(APIView):
                 "theme": tenant.theme or Tenant.DEFAULT_THEME,
                 "show_name": tenant.show_name,
                 "features": tenant.get_features(),
+                "request_enrollment_free": tenant.request_enrollment_free,
+                "request_enrollment_paid": tenant.request_enrollment_paid,
+                "payment_gateway": _public_payment_gateway(tenant),
             })
         except Tenant.DoesNotExist:
             return Response({"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+def _public_payment_gateway(tenant):
+    """Safe, secret-free payment gateway summary for the public tenant config."""
+    try:
+        gateway = tenant.payment_gateway
+    except Exception:  # noqa: BLE001 - reverse OneToOne may not exist
+        return None
+    if not gateway or not gateway.is_active or not gateway.is_configured:
+        return None
+    return {
+        "provider": gateway.provider,
+        "is_test_mode": gateway.is_test_mode,
+    }
 
 
 

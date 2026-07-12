@@ -72,6 +72,31 @@ export const tenantAdminService = {
         return response.data
     },
 
+    // Enrollment mode flags — request/approve vs. self-enrol (+ paid-via-payment).
+    updateEnrollmentSettings: async ({ request_enrollment_free, request_enrollment_paid }) => {
+        const payload = {}
+        if (request_enrollment_free !== undefined) payload.request_enrollment_free = request_enrollment_free
+        if (request_enrollment_paid !== undefined) payload.request_enrollment_paid = request_enrollment_paid
+        const response = await api.patch('/tenant-admin/settings/', payload)
+        return response.data
+    },
+
+    // Payment Gateway — Razorpay / Cashfree credentials (secret write-only).
+    getPaymentGateway: async () => {
+        const response = await api.get('/tenant-admin/payment-gateway/')
+        return response.data
+    },
+
+    savePaymentGateway: async (payload) => {
+        const response = await api.put('/tenant-admin/payment-gateway/', payload)
+        return response.data
+    },
+
+    deletePaymentGateway: async () => {
+        const response = await api.delete('/tenant-admin/payment-gateway/')
+        return response.data
+    },
+
     updateLogo: async (file) => {
         const formData = new FormData()
         formData.append('logo', file)

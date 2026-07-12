@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Tenant, DemoBooking, ContactMessage, JobApplication
+from .models import Tenant, DemoBooking, ContactMessage, JobApplication, PaymentGateway
 
 
 @admin.register(Tenant)
@@ -7,6 +7,16 @@ class TenantAdmin(admin.ModelAdmin):
     list_display = ('name', 'tagline', 'theme', 'subdomain', 'is_active', 'created_at')
     search_fields = ('name', 'tagline', 'subdomain')
     list_filter = ('is_active', 'theme')
+
+
+@admin.register(PaymentGateway)
+class PaymentGatewayAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'provider', 'is_active', 'is_test_mode', 'is_configured', 'updated_at')
+    list_filter = ('provider', 'is_active', 'is_test_mode')
+    search_fields = ('tenant__name', 'key_id')
+    # Never expose the encrypted secret blob for editing in the Django admin.
+    exclude = ('key_secret_encrypted',)
+    readonly_fields = ('id', 'is_configured', 'created_at', 'updated_at')
 
 
 @admin.register(DemoBooking)
