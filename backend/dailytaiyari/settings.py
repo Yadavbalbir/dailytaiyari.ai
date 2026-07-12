@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'coding.apps.CodingConfig',
     'jobs.apps.JobsConfig',
     'certificates.apps.CertificatesConfig',
+    'payments.apps.PaymentsConfig',
 ]
 
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]

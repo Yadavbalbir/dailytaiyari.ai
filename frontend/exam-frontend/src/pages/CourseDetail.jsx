@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { courseService } from '../services/courseService'
+import { paymentService } from '../services/paymentService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
@@ -16,6 +17,7 @@ import {
   ArrowLeft, ArrowRight, GraduationCap, CheckCircle2, Clock, PlusCircle,
   BookOpen, Layers, ShieldCheck, Sparkles, Users, Tag, Settings2,
   ChevronDown, FileText, Video, ListChecks, ClipboardList, Code2, Award,
+  CreditCard,
 } from 'lucide-react'
 
 const CURRENCY_SYMBOLS = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
@@ -132,8 +134,13 @@ const CourseDetail = () => {
     }
     setRequesting(true)
     try {
-      await courseService.requestEnrollment(courseId)
-      toast.success('Enrollment request sent for admin approval')
+      const res = await courseService.requestEnrollment(courseId)
+      // Free courses with self-enrolment turned on come back already approved.
+      if (res?.status === 'approved') {
+        toast.success('Enrolled! You can start learning now.')
+      } else {
+        toast.success('Enrollment request sent for admin approval')
+      }
       queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
       queryClient.invalidateQueries({ queryKey: ['enrollments'] })
     } catch (err) {
@@ -142,6 +149,31 @@ const CourseDetail = () => {
         err?.response?.data?.detail ||
         'Request failed'
       )
+    } finally {
+      setRequesting(false)
+    }
+  }
+
+  const payAndEnroll = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/courses/${courseId}` } })
+      return
+    }
+    setRequesting(true)
+    try {
+      const result = await paymentService.checkout(course, user)
+      if (result?.enrolled) {
+        toast.success('Payment successful — you are enrolled!')
+        queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
+        queryClient.invalidateQueries({ queryKey: ['enrollments'] })
+      } else {
+        toast('Payment is being confirmed. Access unlocks once it clears.', { icon: '⏳' })
+      }
+    } catch (err) {
+      const msg = err?.message === 'cancelled'
+        ? 'Payment cancelled'
+        : (err?.response?.data?.detail || 'Payment could not be completed')
+      if (err?.message !== 'cancelled') toast.error(msg)
     } finally {
       setRequesting(false)
     }
@@ -172,6 +204,8 @@ const CourseDetail = () => {
     ...(instructors.length ? [{ key: 'instructors', label: 'Instructors' }] : []),
   ]
 
+  const enrollMode = course.enroll_mode || 'request'
+
   const EnrollAction = () => {
     if (status === 'approved') {
       return (
@@ -188,12 +222,36 @@ const CourseDetail = () => {
         </span>
       )
     }
+    if (!isAuthenticated) {
+      return (
+        <button onClick={() => navigate('/login', { state: { from: `/courses/${courseId}` } })} className="btn-primary w-full">
+          <PlusCircle size={18} /> Log in to enroll
+        </button>
+      )
+    }
+    // Paid course in pay-to-enrol mode → open the payment checkout.
+    if (enrollMode === 'payment') {
+      return (
+        <button onClick={payAndEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
+          <CreditCard size={18} />
+          {requesting ? 'Processing…' : `Pay ${money(course.currency, course.price)} & enroll`}
+        </button>
+      )
+    }
+    // Free course with self-enrolment enabled → instant join.
+    if (enrollMode === 'self') {
+      return (
+        <button onClick={requestEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
+          <PlusCircle size={18} />
+          {requesting ? 'Enrolling…' : 'Enroll now · Free'}
+        </button>
+      )
+    }
+    // Default: request → admin approval.
     return (
       <button onClick={requestEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
         <PlusCircle size={18} />
-        {!isAuthenticated
-          ? 'Log in to enroll'
-          : requesting
+        {requesting
           ? 'Sending…'
           : isFree
           ? 'Request enrollment · Free'
@@ -426,11 +484,13 @@ const CourseDetail = () => {
 
               <EnrollAction />
 
-              {status !== 'approved' && (
+              {status !== 'approved' && status !== 'pending' && (
                 <p className="text-xs text-center text-surface-400">
-                  {isFree
-                    ? 'Enrollment is confirmed once an admin approves your request.'
-                    : 'Your request goes to the admin for approval. Payment is handled separately.'}
+                  {enrollMode === 'payment'
+                    ? 'Secure payment. Access unlocks as soon as your payment is confirmed.'
+                    : enrollMode === 'self'
+                    ? 'Free course — you get instant access after enrolling.'
+                    : 'Your request goes to the admin for approval.'}
                 </p>
               )}
 
