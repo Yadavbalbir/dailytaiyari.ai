@@ -46,26 +46,39 @@ const Login = () => {
       transition={{ duration: 0.4 }}
     >
       {/* Mobile Logo */}
-      <div className="flex items-center gap-3 mb-8 lg:hidden">
-        {tenant?.logo ? (
-          <img
-            src={tenant.logo}
-            alt={`${tenant.name} Logo`}
-            className="w-12 h-12 shrink-0 rounded-xl object-contain bg-white dark:bg-surface-800 p-1"
-          />
+      <div className="mb-8 lg:hidden">
+        {tenant?.logo && tenant?.show_name === false ? (
+          <div className="flex flex-col items-start gap-2">
+            <img
+              src={tenant.logo}
+              alt={`${tenant.name || 'DailyTaiyari'} Logo`}
+              className="max-h-16 w-auto max-w-full object-contain"
+            />
+            {tenant?.tagline && <p className="text-xs text-surface-500">{tenant.tagline}</p>}
+          </div>
         ) : (
-          <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
-            <span className="text-white text-xl font-bold">
-              {tenant?.name ? tenant.name.substring(0, 2).toLowerCase() : 'dt'}
-            </span>
+          <div className="flex items-center gap-3">
+            {tenant?.logo ? (
+              <img
+                src={tenant.logo}
+                alt={`${tenant.name} Logo`}
+                className="w-12 h-12 shrink-0 rounded-xl object-contain bg-white dark:bg-surface-800 p-1"
+              />
+            ) : (
+              <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
+                <span className="text-white text-xl font-bold">
+                  {tenant?.name ? tenant.name.substring(0, 2).toLowerCase() : 'dt'}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 title={tenant?.name || 'DailyTaiyari'} className="font-display font-bold text-xl gradient-text leading-tight break-words line-clamp-2">
+                {tenant?.name || 'DailyTaiyari'}
+              </h1>
+              <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
+            </div>
           </div>
         )}
-        <div className="min-w-0">
-          <h1 title={tenant?.name || 'DailyTaiyari'} className="font-display font-bold text-xl gradient-text leading-tight break-words line-clamp-2">
-            {tenant?.name || 'DailyTaiyari'}
-          </h1>
-          <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
-        </div>
       </div>
 
       {/* Welcome Text */}

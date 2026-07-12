@@ -51,23 +51,30 @@ const Sidebar = () => {
     <div className="h-full bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-surface-200 dark:border-surface-800">
-        <div className="flex items-center gap-3">
-          {tenant?.logo ? (
-            <div className="w-10 h-10 shrink-0 rounded-xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800">
-              <img src={tenant.logo} alt={tenant.name || 'Logo'} className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">
-                {(tenant?.name || 'dt').slice(0, 2).toLowerCase()}
-              </span>
-            </div>
-          )}
-          <div className="min-w-0">
-            <h1 title={tenant?.name || 'DailyTaiyari'} className="font-display font-bold text-lg gradient-text leading-tight break-words line-clamp-2">{tenant?.name || 'DailyTaiyari'}</h1>
-            <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
+        {tenant?.logo && tenant?.show_name === false ? (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <img src={tenant.logo} alt={tenant.name || 'Logo'} className="w-full max-h-16 object-contain" />
+            {tenant?.tagline && <p className="text-xs text-surface-500">{tenant.tagline}</p>}
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            {tenant?.logo ? (
+              <div className="w-10 h-10 shrink-0 rounded-xl overflow-hidden flex items-center justify-center bg-surface-100 dark:bg-surface-800">
+                <img src={tenant.logo} alt={tenant.name || 'Logo'} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold">
+                  {(tenant?.name || 'dt').slice(0, 2).toLowerCase()}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 title={tenant?.name || 'DailyTaiyari'} className="font-display font-bold text-lg gradient-text leading-tight break-words line-clamp-2">{tenant?.name || 'DailyTaiyari'}</h1>
+              <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Guest CTA card */}

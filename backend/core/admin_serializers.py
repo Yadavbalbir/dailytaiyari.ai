@@ -18,7 +18,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tenant
-        fields = ['id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'theme', 'features']
+        fields = ['id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'theme', 'show_name', 'features']
         read_only_fields = ['id', 'subdomain']
 
     def validate_theme(self, value):

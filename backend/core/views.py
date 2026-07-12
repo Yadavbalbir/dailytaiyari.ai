@@ -72,6 +72,7 @@ class TenantDetailView(APIView):
                 "logo": request.build_absolute_uri(tenant.logo.url) if tenant.logo else None,
                 "favicon": request.build_absolute_uri(tenant.favicon.url) if tenant.favicon else None,
                 "theme": tenant.theme or Tenant.DEFAULT_THEME,
+                "show_name": tenant.show_name,
                 "features": tenant.get_features(),
             })
         except Tenant.DoesNotExist:

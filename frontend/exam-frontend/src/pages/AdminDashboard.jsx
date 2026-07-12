@@ -1538,6 +1538,19 @@ const TenantSettings = () => {
         themeMutation.mutate(key)
     }
 
+    const showNameMutation = useMutation({
+        mutationFn: (showName) => tenantAdminService.updateShowName(showName),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Logo display updated')
+        },
+        onError: () => toast.error('Failed to update logo display'),
+    })
+
+    // "Logo already includes the name" is the inverse of show_name.
+    const logoIncludesName = settings?.show_name === false
+
     const toggleFeature = (key) => {
         const next = { ...features, [key]: !features[key] }
         setFeatures(next)
@@ -1660,6 +1673,23 @@ const TenantSettings = () => {
                         </button>
                         <p className="text-xs text-surface-400 mt-2">PNG, JPG or SVG. Square images look best.</p>
                     </div>
+                </div>
+                {/* Logo-includes-name toggle */}
+                <div className="flex items-center justify-between gap-4 pt-4 border-t border-surface-100 dark:border-surface-800">
+                    <div className="min-w-0">
+                        <p className="font-medium text-surface-800 dark:text-surface-200">My logo already includes the name</p>
+                        <p className="text-sm text-surface-500">Hides the separate text name and shows your logo full-width, with the tagline below it.</p>
+                    </div>
+                    <button
+                        role="switch"
+                        aria-checked={logoIncludesName}
+                        onClick={() => showNameMutation.mutate(logoIncludesName)}
+                        disabled={showNameMutation.isPending || !settings?.logo}
+                        title={!settings?.logo ? 'Upload a logo first' : undefined}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${logoIncludesName ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
+                    >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${logoIncludesName ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
                 </div>
             </div>
 
