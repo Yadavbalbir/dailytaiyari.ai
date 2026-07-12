@@ -1831,6 +1831,7 @@ const TenantSettings = () => {
 const PROVIDERS = [
     { id: 'razorpay', label: 'Razorpay', idLabel: 'Key ID', secretLabel: 'Key Secret', idHint: 'rzp_live_… / rzp_test_…' },
     { id: 'cashfree', label: 'Cashfree', idLabel: 'App ID (Client ID)', secretLabel: 'Secret Key', idHint: 'CF App ID' },
+    { id: 'payu', label: 'PayU', idLabel: 'Merchant Key', secretLabel: 'Merchant Salt', idHint: 'PayU merchant key' },
 ]
 
 const PaymentSettings = ({ settings }) => {
@@ -1866,9 +1867,13 @@ const PaymentSettings = ({ settings }) => {
     const hasStoredWebhookSecret = Boolean(gateway?.has_webhook_secret)
     const providerMeta = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0]
 
-    // Webhook URL the admin registers in their provider dashboard.
+    // URL the admin registers in their provider dashboard. PayU uses a signed
+    // browser+S2S callback (surl/furl); the others use a JSON webhook endpoint.
     const apiBase = import.meta.env.VITE_API_URL || `${window.location.origin}/api/v1`
-    const webhookUrl = `${apiBase.replace(/\/$/, '')}/payments/webhook/${provider}/`
+    const cleanBase = apiBase.replace(/\/$/, '')
+    const webhookUrl = provider === 'payu'
+        ? `${cleanBase}/payments/payu/callback/`
+        : `${cleanBase}/payments/webhook/${provider}/`
 
     // Enrollment flags live on the tenant settings object.
     const [enrollFree, setEnrollFree] = useState(true)
@@ -2035,7 +2040,8 @@ const PaymentSettings = ({ settings }) => {
                 </div>
                 <p className="text-sm text-surface-500">
                     Connect your own payment provider to collect course fees. Credentials are encrypted at
-                    rest and never shown again after saving. Checkout for students is enabled in a later release.
+                    rest and never shown again after saving. Once active, paid courses can enrol students
+                    straight after a successful payment.
                 </p>
 
                 {/* Provider picker */}
@@ -2090,38 +2096,43 @@ const PaymentSettings = ({ settings }) => {
                 <div className="rounded-xl border border-surface-200 dark:border-surface-700 p-4 space-y-3 bg-surface-50/60 dark:bg-surface-900/40">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-primary-500" />
-                        <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">Webhook</span>
+                        <span className="text-sm font-semibold text-surface-800 dark:text-surface-200">
+                            {provider === 'payu' ? 'Success / Failure URL' : 'Webhook'}
+                        </span>
                     </div>
                     <p className="text-xs text-surface-500">
-                        Add this URL as a webhook in your {providerMeta.label} dashboard so payments are confirmed
-                        reliably even if the learner closes the tab.
+                        {provider === 'payu'
+                            ? `Whitelist this Success/Failure (surl/furl) URL in your PayU dashboard. PayU also posts its server-to-server verification here — everything is signed with your Merchant Salt, so no extra secret is needed.`
+                            : `Add this URL as a webhook in your ${providerMeta.label} dashboard so payments are confirmed reliably even if the learner closes the tab.`}
                     </p>
                     <div className="flex items-center gap-2">
                         <code className="flex-1 text-xs px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 break-all">{webhookUrl}</code>
                         <button
                             type="button"
-                            onClick={() => { navigator.clipboard?.writeText(webhookUrl); toast.success('Webhook URL copied') }}
+                            onClick={() => { navigator.clipboard?.writeText(webhookUrl); toast.success('URL copied') }}
                             className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-600 dark:text-surface-300"
                         >
                             Copy
                         </button>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
-                            Webhook secret {provider === 'cashfree' && <span className="text-surface-400 font-normal">(optional — defaults to your secret key)</span>}
-                        </label>
-                        <div className="relative">
-                            <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
-                            <input
-                                type="password"
-                                value={webhookSecret}
-                                onChange={(e) => setWebhookSecret(e.target.value)}
-                                placeholder={hasStoredWebhookSecret ? '•••••••• (leave blank to keep)' : (provider === 'razorpay' ? 'Razorpay webhook secret' : 'Leave blank to use secret key')}
-                                autoComplete="new-password"
-                                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
+                    {provider !== 'payu' && (
+                        <div>
+                            <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">
+                                Webhook secret {provider === 'cashfree' && <span className="text-surface-400 font-normal">(optional — defaults to your secret key)</span>}
+                            </label>
+                            <div className="relative">
+                                <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+                                <input
+                                    type="password"
+                                    value={webhookSecret}
+                                    onChange={(e) => setWebhookSecret(e.target.value)}
+                                    placeholder={hasStoredWebhookSecret ? '•••••••• (leave blank to keep)' : (provider === 'razorpay' ? 'Razorpay webhook secret' : 'Leave blank to use secret key')}
+                                    autoComplete="new-password"
+                                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">

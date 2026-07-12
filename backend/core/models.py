@@ -122,7 +122,7 @@ class Tenant(models.Model):
 
 
 class PaymentGateway(models.Model):
-    """A tenant's online payment gateway credentials (Razorpay / Cashfree).
+    """A tenant's online payment gateway credentials (Razorpay / Cashfree / PayU).
 
     Secrets are encrypted at rest via :mod:`core.encryption`; the plaintext
     secret is only ever exposed through the :pyattr:`key_secret` property and is
@@ -131,9 +131,11 @@ class PaymentGateway(models.Model):
 
     PROVIDER_RAZORPAY = 'razorpay'
     PROVIDER_CASHFREE = 'cashfree'
+    PROVIDER_PAYU = 'payu'
     PROVIDER_CHOICES = [
         (PROVIDER_RAZORPAY, 'Razorpay'),
         (PROVIDER_CASHFREE, 'Cashfree'),
+        (PROVIDER_PAYU, 'PayU'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -142,13 +144,14 @@ class PaymentGateway(models.Model):
     )
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
 
-    # Public-ish identifier: Razorpay ``key_id`` / Cashfree ``app_id`` (client id).
+    # Public-ish identifier: Razorpay ``key_id`` / Cashfree ``app_id`` / PayU merchant key.
     key_id = models.CharField(max_length=255, blank=True, default='')
-    # Encrypted secret: Razorpay ``key_secret`` / Cashfree ``secret_key``.
+    # Encrypted secret: Razorpay ``key_secret`` / Cashfree ``secret_key`` / PayU salt.
     key_secret_encrypted = models.TextField(blank=True, default='')
     # Encrypted webhook signing secret. Razorpay uses a dedicated webhook secret
-    # (set in its dashboard); Cashfree signs webhooks with the account secret, so
-    # this is optional there and falls back to ``key_secret``.
+    # (set in its dashboard); Cashfree signs webhooks with the account secret and
+    # PayU signs with its salt, so this is optional for them and falls back to
+    # ``key_secret``.
     webhook_secret_encrypted = models.TextField(blank=True, default='')
 
     # When False the gateway is stored but not used for checkout yet.
