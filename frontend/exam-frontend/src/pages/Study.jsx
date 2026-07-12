@@ -93,21 +93,21 @@ const Study = () => {
                   <p className="text-sm text-surface-500 mt-2.5 line-clamp-2">{stripHtml(course.description)}</p>
                 )}
 
-                <div className="mt-auto pt-4 space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/study/course/${course.id}`)}
-                    className="btn-primary w-full group/btn"
-                  >
-                    Enter course
-                    <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
-                  </button>
+                <div className="mt-auto pt-4 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => navigate(`/courses/${course.id}`)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                    className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-surface-600 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
                   >
                     View details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/study/course/${course.id}`)}
+                    className="btn-primary flex-1 group/btn"
+                  >
+                    Enter course
+                    <ArrowRight size={18} className="transition-transform group-hover/btn:translate-x-0.5" />
                   </button>
                 </div>
               </div>
