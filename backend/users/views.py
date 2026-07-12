@@ -311,7 +311,7 @@ class CourseEnrollmentListView(generics.ListCreateAPIView):
         tenant = getattr(request, 'tenant', None)
 
         from exams.models import Course
-        course = Course.objects.filter(id=course_id).first() if course_id else None
+        course = Course.objects.filter(id=course_id, tenant=tenant).first() if course_id else None
         if course is None:
             return Response(
                 {'course': ['Course not found.']},

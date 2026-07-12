@@ -118,7 +118,7 @@ class RazorpayClient:
         order_id = entity.get('order_id') or entity.get('id')
         payment_id = entity.get('id') if entity.get('order_id') else ''
         etype = event.get('event', '')
-        is_paid = etype in ('payment.captured', 'order.paid', 'payment.authorized')
+        is_paid = etype in ('payment.captured', 'order.paid')
         return order_id, payment_id, is_paid
 
     def is_order_paid(self, provider_order_id):
