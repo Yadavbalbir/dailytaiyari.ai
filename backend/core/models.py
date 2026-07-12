@@ -28,12 +28,30 @@ class Tenant(models.Model):
         'jobs': 'Job Portal',
     }
 
+    # Canonical list of selectable colour themes. Keys are stable identifiers the
+    # frontend maps to a full colour palette; values are the human-readable
+    # labels shown in the tenant-admin settings UI. Keep in sync with the
+    # frontend theme config (src/config/themes.js).
+    THEME_CHOICES = {
+        'sunrise': 'Sunrise Orange',
+        'ocean': 'Ocean Blue',
+        'emerald': 'Emerald Green',
+        'violet': 'Royal Purple',
+        'rose': 'Crimson Rose',
+    }
+    DEFAULT_THEME = 'sunrise'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     tagline = models.CharField(max_length=255, blank=True, default='')
     subdomain = models.CharField(max_length=100, unique=True, null=True, blank=True)
     logo = models.ImageField(upload_to='tenant_logos/', null=True, blank=True)
     favicon = models.ImageField(upload_to='tenant_favicons/', null=True, blank=True)
+    theme = models.CharField(
+        max_length=32,
+        choices=[(k, v) for k, v in THEME_CHOICES.items()],
+        default=DEFAULT_THEME,
+    )
     is_active = models.BooleanField(default=True)
 
     # Per-tenant feature toggles: {feature_key: bool}. Missing keys default to
