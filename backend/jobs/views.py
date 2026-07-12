@@ -22,6 +22,15 @@ class JobViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
+    # Browsing the job board is public so anonymous visitors can explore
+    # openings before signing up. Only the write/apply actions require auth.
+    _public_actions = {'list', 'retrieve'}
+
+    def get_permissions(self):
+        if self.action in self._public_actions:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     def get_serializer_class(self):
         return JobDetailSerializer if self.action == 'retrieve' else JobListSerializer
 

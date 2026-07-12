@@ -7,6 +7,7 @@ import {
   Loader2, CheckCircle2, FileText, Send, XCircle, Flag, AlertTriangle,
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
+import { useAuthStore } from '../context/authStore'
 import { stageMeta, formatSalary, formatExperience, categoryMeta } from '../components/jobs/jobShared'
 import JobContent from '../components/jobs/JobContent'
 import Loading from '../components/common/Loading'
@@ -21,11 +22,21 @@ const JobDetail = () => {
   const { jobId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [showApply, setShowApply] = useState(false)
   const [showReport, setShowReport] = useState(false)
   const [reportForm, setReportForm] = useState({ reason: 'closed', note: '' })
   const [form, setForm] = useState({ cover_letter: '', phone: '', portfolio_url: '', linkedin_url: '' })
   const [resume, setResume] = useState(null)
+
+  // Any action that writes (apply, withdraw, report) needs a logged-in user.
+  const requireAuth = (fn) => () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/jobs/${jobId}` } })
+      return
+    }
+    fn()
+  }
 
   const { data: job, isLoading } = useQuery({
     queryKey: ['job', jobId],
@@ -176,16 +187,16 @@ const JobDetail = () => {
             <p className="text-sm text-surface-500">This position is no longer accepting applications.</p>
           ) : job.is_external ? (
             <button
-              onClick={() => externalMutation.mutate()}
+              onClick={requireAuth(() => externalMutation.mutate())}
               disabled={externalMutation.isPending}
               className="btn-primary inline-flex items-center gap-2"
             >
               {externalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-              Apply on external site
+              {isAuthenticated ? 'Apply on external site' : 'Log in to apply'}
             </button>
           ) : (
-            <button onClick={() => setShowApply(true)} className="btn-primary inline-flex items-center gap-2">
-              <Send className="w-4 h-4" /> Apply now
+            <button onClick={requireAuth(() => setShowApply(true))} className="btn-primary inline-flex items-center gap-2">
+              <Send className="w-4 h-4" /> {isAuthenticated ? 'Apply now' : 'Log in to apply'}
             </button>
           )}
         </div>
@@ -228,7 +239,7 @@ const JobDetail = () => {
         <div className="flex items-center justify-between gap-3 flex-wrap px-1">
           <p className="text-xs text-surface-500">Is this opening no longer active?</p>
           <button
-            onClick={() => setShowReport(true)}
+            onClick={requireAuth(() => setShowReport(true))}
             className="text-sm inline-flex items-center gap-1.5 text-surface-500 hover:text-error-600 dark:hover:text-error-400 transition-colors"
           >
             <Flag className="w-4 h-4" /> Report as closed

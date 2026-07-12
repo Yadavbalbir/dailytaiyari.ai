@@ -72,7 +72,7 @@ const CoursePrice = ({ course }) => {
 
 const Courses = () => {
   const navigate = useNavigate()
-  const { user, profile } = useAuthStore()
+  const { user, profile, isAuthenticated } = useAuthStore()
   const role = user?.role || profile?.user?.role
   const isAdmin = role === 'admin'
   const isInstructor = role === 'instructor'
@@ -95,6 +95,7 @@ const Courses = () => {
   const { data: studyData = { courses: [], pending: [] } } = useQuery({
     queryKey: ['studyCourses'],
     queryFn: () => courseService.getStudyCourses(),
+    enabled: isAuthenticated,
   })
 
   const statusById = useMemo(() => {
@@ -135,8 +136,12 @@ const Courses = () => {
 
   const filterTabs = [
     { key: 'all', label: 'All', count: counts.all },
-    { key: 'enrolled', label: 'Enrolled', count: counts.enrolled },
-    { key: 'pending', label: 'Pending', count: counts.pending },
+    ...(isAuthenticated
+      ? [
+          { key: 'enrolled', label: 'Enrolled', count: counts.enrolled },
+          { key: 'pending', label: 'Pending', count: counts.pending },
+        ]
+      : []),
   ]
 
   if (availLoading) return <Loading fullScreen />

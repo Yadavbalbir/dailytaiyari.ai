@@ -8,6 +8,7 @@ import AuthLayout from './components/layout/AuthLayout'
 import AdminLayout from './components/layout/AdminLayout'
 import SuspensionOverlay from './components/layout/SuspensionOverlay'
 import VerificationGate from './components/layout/VerificationGate'
+import LoginGate from './components/auth/LoginGate'
 
 // Auth Pages
 import Login from './pages/auth/Login'
@@ -78,6 +79,27 @@ const ProtectedRoute = ({ children }) => {
   }
 
   return children
+}
+
+// App shell that renders for everyone, including anonymous visitors, so they can
+// explore public sections (courses, jobs). Authenticated-but-not-onboarded users
+// are still routed to onboarding. Pages that require login gate themselves via
+// <LoginGate>, which shows a blurred screen + login prompt to anonymous users.
+const AppShell = () => {
+  const { isAuthenticated, isOnboarded } = useAuthStore()
+
+  if (isAuthenticated && !isOnboarded) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  return <MainLayout />
+}
+
+// Root/catch-all redirect: send authenticated users to their dashboard and
+// anonymous visitors to the public course catalog.
+const RootRedirect = () => {
+  const { isAuthenticated } = useAuthStore()
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/courses'} replace />
 }
 
 // Admin-only Route Component
@@ -188,50 +210,45 @@ function App() {
         </Route>
 
         {/* Main App Routes */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<AppShell />}>
+          <Route path="/dashboard" element={<LoginGate><Dashboard /></LoginGate>} />
+          {/* Public: anyone can browse the course catalog and course details */}
           <Route path="/courses" element={<FeatureRoute feature="courses"><Courses /></FeatureRoute>} />
           <Route path="/courses/:courseId" element={<FeatureRoute feature="courses"><CourseDetail /></FeatureRoute>} />
-          <Route path="/courses/:courseId/manage" element={<EditorRoute><CourseManager /></EditorRoute>} />
-          <Route path="/courses/:courseId/manage/assignments/:assignmentId" element={<EditorRoute><AssignmentGrading /></EditorRoute>} />
-          <Route path="/courses/:courseId/manage/assignments/:assignmentId/submissions/:submissionId" element={<EditorRoute><SubmissionReview /></EditorRoute>} />
-          <Route path="/courses/:courseId/manage/coding/:problemId" element={<EditorRoute><CodingGrading /></EditorRoute>} />
-          <Route path="/courses/:courseId/manage/coding/:problemId/submissions/:submissionId" element={<EditorRoute><CodingSubmissionReview /></EditorRoute>} />
-          <Route path="/study" element={<FeatureRoute feature="study"><Study /></FeatureRoute>} />
-          <Route path="/study/course/:courseId" element={<FeatureRoute feature="study"><StudyCourse /></FeatureRoute>} />
-          <Route path="/study/:subjectId" element={<FeatureRoute feature="study"><StudyChapters /></FeatureRoute>} />
-          <Route path="/study/chapter/:chapterId" element={<FeatureRoute feature="study"><StudyChapterTopics /></FeatureRoute>} />
-          <Route path="/study/chapter/:chapterId/topic/:topicId" element={<FeatureRoute feature="study"><StudyTopicContent /></FeatureRoute>} />
-          <Route path="/topic/:topicId" element={<FeatureRoute feature="study"><TopicView /></FeatureRoute>} />
-          <Route path="/content/:contentId" element={<FeatureRoute feature="study"><ContentViewer /></FeatureRoute>} />
-          <Route path="/assignment/:assignmentId" element={<AssignmentView />} />
-          <Route path="/coding/:problemId" element={<CodingProblem />} />
-          <Route path="/quiz" element={<FeatureRoute feature="quiz"><Quiz /></FeatureRoute>} />
-          <Route path="/quiz/:quizId" element={<FeatureRoute feature="quiz"><QuizAttempt /></FeatureRoute>} />
-          <Route path="/quiz/review/:attemptId" element={<FeatureRoute feature="quiz"><QuizReview /></FeatureRoute>} />
-          <Route path="/mock-test" element={<FeatureRoute feature="mock_tests"><MockTest /></FeatureRoute>} />
-          <Route path="/mock-test/live/:testId" element={<FeatureRoute feature="mock_tests"><RichMockAttempt /></FeatureRoute>} />
-          <Route path="/mock-test/live-review/:attemptId" element={<FeatureRoute feature="mock_tests"><RichMockReview /></FeatureRoute>} />
-          <Route path="/mock-test/:testId" element={<FeatureRoute feature="mock_tests"><MockTestAttempt /></FeatureRoute>} />
-          <Route path="/mock-test/review/:attemptId" element={<FeatureRoute feature="mock_tests"><MockTestReview /></FeatureRoute>} />
-          <Route path="/pyp" element={<FeatureRoute feature="pyq"><PreviousYearPapers /></FeatureRoute>} />
-          <Route path="/analytics" element={<FeatureRoute feature="analytics"><Analytics /></FeatureRoute>} />
-          <Route path="/leaderboard" element={<FeatureRoute feature="leaderboard"><Leaderboard /></FeatureRoute>} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/doubt-solver" element={<FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute>} />
-          <Route path="/ai-doubt-solver" element={<FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute>} />
-          <Route path="/ai-learning" element={<FeatureRoute feature="ai"><AILearning /></FeatureRoute>} />
-          <Route path="/ai-quiz-review/:attemptId" element={<FeatureRoute feature="ai"><AIQuizReview /></FeatureRoute>} />
-          <Route path="/community" element={<FeatureRoute feature="community"><Community /></FeatureRoute>} />
-          <Route path="/community/:id" element={<FeatureRoute feature="community"><CommunityPost /></FeatureRoute>} />
+          <Route path="/courses/:courseId/manage" element={<LoginGate><EditorRoute><CourseManager /></EditorRoute></LoginGate>} />
+          <Route path="/courses/:courseId/manage/assignments/:assignmentId" element={<LoginGate><EditorRoute><AssignmentGrading /></EditorRoute></LoginGate>} />
+          <Route path="/courses/:courseId/manage/assignments/:assignmentId/submissions/:submissionId" element={<LoginGate><EditorRoute><SubmissionReview /></EditorRoute></LoginGate>} />
+          <Route path="/courses/:courseId/manage/coding/:problemId" element={<LoginGate><EditorRoute><CodingGrading /></EditorRoute></LoginGate>} />
+          <Route path="/courses/:courseId/manage/coding/:problemId/submissions/:submissionId" element={<LoginGate><EditorRoute><CodingSubmissionReview /></EditorRoute></LoginGate>} />
+          <Route path="/study" element={<LoginGate><FeatureRoute feature="study"><Study /></FeatureRoute></LoginGate>} />
+          <Route path="/study/course/:courseId" element={<LoginGate><FeatureRoute feature="study"><StudyCourse /></FeatureRoute></LoginGate>} />
+          <Route path="/study/:subjectId" element={<LoginGate><FeatureRoute feature="study"><StudyChapters /></FeatureRoute></LoginGate>} />
+          <Route path="/study/chapter/:chapterId" element={<LoginGate><FeatureRoute feature="study"><StudyChapterTopics /></FeatureRoute></LoginGate>} />
+          <Route path="/study/chapter/:chapterId/topic/:topicId" element={<LoginGate><FeatureRoute feature="study"><StudyTopicContent /></FeatureRoute></LoginGate>} />
+          <Route path="/topic/:topicId" element={<LoginGate><FeatureRoute feature="study"><TopicView /></FeatureRoute></LoginGate>} />
+          <Route path="/content/:contentId" element={<LoginGate><FeatureRoute feature="study"><ContentViewer /></FeatureRoute></LoginGate>} />
+          <Route path="/assignment/:assignmentId" element={<LoginGate><AssignmentView /></LoginGate>} />
+          <Route path="/coding/:problemId" element={<LoginGate><CodingProblem /></LoginGate>} />
+          <Route path="/quiz" element={<LoginGate><FeatureRoute feature="quiz"><Quiz /></FeatureRoute></LoginGate>} />
+          <Route path="/quiz/:quizId" element={<LoginGate><FeatureRoute feature="quiz"><QuizAttempt /></FeatureRoute></LoginGate>} />
+          <Route path="/quiz/review/:attemptId" element={<LoginGate><FeatureRoute feature="quiz"><QuizReview /></FeatureRoute></LoginGate>} />
+          <Route path="/mock-test" element={<LoginGate><FeatureRoute feature="mock_tests"><MockTest /></FeatureRoute></LoginGate>} />
+          <Route path="/mock-test/live/:testId" element={<LoginGate><FeatureRoute feature="mock_tests"><RichMockAttempt /></FeatureRoute></LoginGate>} />
+          <Route path="/mock-test/live-review/:attemptId" element={<LoginGate><FeatureRoute feature="mock_tests"><RichMockReview /></FeatureRoute></LoginGate>} />
+          <Route path="/mock-test/:testId" element={<LoginGate><FeatureRoute feature="mock_tests"><MockTestAttempt /></FeatureRoute></LoginGate>} />
+          <Route path="/mock-test/review/:attemptId" element={<LoginGate><FeatureRoute feature="mock_tests"><MockTestReview /></FeatureRoute></LoginGate>} />
+          <Route path="/pyp" element={<LoginGate><FeatureRoute feature="pyq"><PreviousYearPapers /></FeatureRoute></LoginGate>} />
+          <Route path="/analytics" element={<LoginGate><FeatureRoute feature="analytics"><Analytics /></FeatureRoute></LoginGate>} />
+          <Route path="/leaderboard" element={<LoginGate><FeatureRoute feature="leaderboard"><Leaderboard /></FeatureRoute></LoginGate>} />
+          <Route path="/profile" element={<LoginGate><Profile /></LoginGate>} />
+          <Route path="/doubt-solver" element={<LoginGate><FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute></LoginGate>} />
+          <Route path="/ai-doubt-solver" element={<LoginGate><FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute></LoginGate>} />
+          <Route path="/ai-learning" element={<LoginGate><FeatureRoute feature="ai"><AILearning /></FeatureRoute></LoginGate>} />
+          <Route path="/ai-quiz-review/:attemptId" element={<LoginGate><FeatureRoute feature="ai"><AIQuizReview /></FeatureRoute></LoginGate>} />
+          <Route path="/community" element={<LoginGate><FeatureRoute feature="community"><Community /></FeatureRoute></LoginGate>} />
+          <Route path="/community/:id" element={<LoginGate><FeatureRoute feature="community"><CommunityPost /></FeatureRoute></LoginGate>} />
 
-          {/* Job Portal (students) */}
+          {/* Job Portal (students) — public browsing, login required to apply */}
           <Route path="/jobs" element={<FeatureRoute feature="jobs"><Jobs /></FeatureRoute>} />
           <Route path="/jobs/:jobId" element={<FeatureRoute feature="jobs"><JobDetail /></FeatureRoute>} />
 
@@ -266,8 +283,8 @@ function App() {
 
 
         {/* Redirects */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="*" element={<RootRedirect />} />
       </Routes>
     </>
   )

@@ -196,9 +196,11 @@ class TenantContentExplorerView(APIView):
 
 class AvailableCoursesForEnrollmentView(APIView):
     """
-    Return active courses for the enrollment dropdown. Course must belong to the request tenant.
+    Return active courses for the enrollment dropdown / public catalog. Course
+    must belong to the request tenant. Public so anonymous visitors can browse
+    the course catalog before signing up.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         qs = Course.objects.filter(status='active').order_by('name')

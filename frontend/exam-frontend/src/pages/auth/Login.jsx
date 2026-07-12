@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '../../context/authStore'
 import { useTenantStore } from '../../context/tenantStore'
@@ -12,6 +12,9 @@ const Login = () => {
   const { login, isLoading, error, clearError } = useAuthStore()
   const { tenant } = useTenantStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Return the user to the page they were gated out of, when provided.
+  const from = location.state?.from
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -24,7 +27,7 @@ const Login = () => {
       const { isOnboarded } = useAuthStore.getState()
       // Navigate based on onboarding status
       if (isOnboarded) {
-        navigate('/dashboard', { replace: true })
+        navigate(from || '/dashboard', { replace: true })
       } else {
         navigate('/onboarding', { replace: true })
       }

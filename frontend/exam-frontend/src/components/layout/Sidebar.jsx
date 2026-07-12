@@ -38,7 +38,7 @@ const navItems = [
 
 const Sidebar = () => {
   const location = useLocation()
-  const { profile } = useAuthStore()
+  const { profile, isAuthenticated } = useAuthStore()
   const { closeMobileMenu } = useAppStore()
   const tenant = useTenantStore((s) => s.tenant)
   const isFeatureEnabled = useTenantStore((s) => s.isFeatureEnabled)
@@ -69,6 +69,23 @@ const Sidebar = () => {
           </div>
         </div>
       </div>
+
+      {/* Guest CTA card */}
+      {!isAuthenticated && (
+        <div className="p-4 mx-4 mt-4 rounded-xl bg-gradient-to-br from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20">
+          <p className="text-sm font-medium">You're browsing as a guest</p>
+          <p className="text-xs text-surface-500 mt-1">
+            Log in to track progress, take quizzes and mock tests.
+          </p>
+          <NavLink
+            to="/login"
+            onClick={closeMobileMenu}
+            className="btn-primary w-full mt-3 text-sm justify-center"
+          >
+            Log in / Sign up
+          </NavLink>
+        </div>
+      )}
 
       {/* User Profile Card */}
       {profile && (
