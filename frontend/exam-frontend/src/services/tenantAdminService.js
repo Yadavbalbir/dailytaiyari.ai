@@ -67,6 +67,11 @@ export const tenantAdminService = {
         return response.data
     },
 
+    updateShowName: async (showName) => {
+        const response = await api.patch('/tenant-admin/settings/', { show_name: showName })
+        return response.data
+    },
+
     updateLogo: async (file) => {
         const formData = new FormData()
         formData.append('logo', file)

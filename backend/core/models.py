@@ -57,6 +57,9 @@ class Tenant(models.Model):
         choices=[(k, v) for k, v in THEME_CHOICES.items()],
         default=DEFAULT_THEME,
     )
+    # When False, the frontend hides the text name and shows the logo alone
+    # (full-width) — useful when the logo already contains the institution name.
+    show_name = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     # Per-tenant feature toggles: {feature_key: bool}. Missing keys default to
