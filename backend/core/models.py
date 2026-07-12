@@ -38,6 +38,11 @@ class Tenant(models.Model):
         'emerald': 'Emerald Green',
         'violet': 'Royal Purple',
         'rose': 'Crimson Rose',
+        'indigo': 'Midnight Indigo',
+        'slate': 'Graphite Slate',
+        'amber': 'Golden Amber',
+        'cherry': 'Cherry Red',
+        'lime': 'Fresh Lime',
     }
     DEFAULT_THEME = 'sunrise'
 
