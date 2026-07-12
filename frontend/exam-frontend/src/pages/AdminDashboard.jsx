@@ -785,77 +785,292 @@ const StudentManagement = () => {
 }
 
 /* ---------------------------------------------------------------------------
- * PerformanceReports
+ * PerformanceReports — course-level analytics + downloadable reports
  * ------------------------------------------------------------------------- */
+const downloadCsv = (headers, rows, filename) => {
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+}
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '')
+
 const PerformanceReports = () => {
-    const { data: subjectStats, isLoading: loadingStats } = useQuery({
-        queryKey: ['tenantSubjectStats'],
-        queryFn: () => analyticsService.getTenantSubjectStats(),
+    const [filterCourse, setFilterCourse] = useState('all')
+    const [filterStatus, setFilterStatus] = useState('all')
+    const [reportOpen, setReportOpen] = useState(false)
+
+    const { data: students, isLoading } = useQuery({
+        queryKey: ['tenantStudents'],
+        queryFn: () => tenantAdminService.getStudents(),
     })
 
-    const { data: leaderboard, isLoading: loadingLeaderboard } = useQuery({
-        queryKey: ['tenantLeaderboard'],
-        queryFn: () => analyticsService.getTenantLeaderboard(5),
+    const { data: examsData } = useQuery({
+        queryKey: ['adminExamOptions'],
+        queryFn: () => courseService.getAvailableCoursesForEnrollment(),
     })
+    const courses = Array.isArray(examsData) ? examsData : (examsData?.results || examsData?.courses || [])
 
-    if (loadingStats || loadingLeaderboard) return <div className="py-12 text-center text-surface-500">Generating reports…</div>
+    const studentList = Array.isArray(students) ? students : (students?.results || [])
+
+    // Roster filtered by the active course + status selectors.
+    const filtered = useMemo(() => {
+        return studentList.filter((s) => {
+            const matchesCourse = filterCourse === 'all' || String(s.primary_course) === String(filterCourse)
+            const matchesStatus =
+                filterStatus === 'all' ||
+                (filterStatus === 'active' && !s.user.is_suspended) ||
+                (filterStatus === 'suspended' && s.user.is_suspended)
+            return matchesCourse && matchesStatus
+        })
+    }, [studentList, filterCourse, filterStatus])
+
+    // Aggregate the roster into per-course performance rows.
+    const courseStats = useMemo(() => {
+        const map = new Map()
+        studentList.forEach((s) => {
+            const key = s.primary_course ?? 'none'
+            const name = s.primary_course_name || 'No Course Assigned'
+            if (!map.has(key)) {
+                map.set(key, { id: key, name, students: 0, active: 0, xp: 0, level: 0, accuracy: 0, questions: 0, correct: 0, minutes: 0 })
+            }
+            const g = map.get(key)
+            g.students += 1
+            if (!s.user.is_suspended) g.active += 1
+            g.xp += s.total_xp || 0
+            g.level += s.current_level || 0
+            g.accuracy += s.overall_accuracy || 0
+            g.questions += s.total_questions_attempted || 0
+            g.correct += s.total_correct_answers || 0
+            g.minutes += s.total_study_time_minutes || 0
+        })
+        return Array.from(map.values())
+            .map((g) => ({
+                ...g,
+                avgAccuracy: g.students ? Math.round((g.accuracy / g.students) * 10) / 10 : 0,
+                avgXp: g.students ? Math.round(g.xp / g.students) : 0,
+                avgLevel: g.students ? Math.round((g.level / g.students) * 10) / 10 : 0,
+                studyHours: Math.round(g.minutes / 60),
+            }))
+            .sort((a, b) => b.students - a.students)
+    }, [studentList])
+
+    const maxAccuracy = Math.max(100, ...courseStats.map((c) => c.avgAccuracy))
+
+    // Institutional totals across the filtered roster.
+    const totals = useMemo(() => {
+        const count = filtered.length
+        const active = filtered.filter((s) => !s.user.is_suspended).length
+        const avgAccuracy = count ? Math.round((filtered.reduce((a, s) => a + (s.overall_accuracy || 0), 0) / count) * 10) / 10 : 0
+        const totalXp = filtered.reduce((a, s) => a + (s.total_xp || 0), 0)
+        const questions = filtered.reduce((a, s) => a + (s.total_questions_attempted || 0), 0)
+        return { count, active, avgAccuracy, totalXp, questions }
+    }, [filtered])
+
+    const topPerformers = useMemo(
+        () => [...filtered].sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0)).slice(0, 5),
+        [filtered]
+    )
+
+    const courseLabel = filterCourse === 'all' ? 'all-courses' : (courseStats.find((c) => String(c.id) === String(filterCourse))?.name || 'course')
+    const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const stamp = new Date().toISOString().slice(0, 10)
+
+    // -------- Report generators --------
+    const reportRoster = () => {
+        if (!filtered.length) return toast.error('No students match the current filters')
+        const headers = ['Full Name', 'Email', 'Phone', 'Course', 'Status', 'Grade', 'Target Year', 'School', 'Coaching', 'Board', 'Medium', 'City', 'State', 'Level', 'Total XP', 'Accuracy %', 'Questions Attempted', 'Correct Answers', 'Study Minutes', 'Joined', 'Last Active']
+        const rows = filtered.map((s) => [
+            s.user.full_name, s.user.email, s.user.phone, s.primary_course_name, s.user.is_suspended ? 'Suspended' : 'Active',
+            s.grade, s.target_year, s.school, s.coaching, s.board, s.medium, s.city, s.state,
+            s.current_level, s.total_xp, s.overall_accuracy, s.total_questions_attempted, s.total_correct_answers, s.total_study_time_minutes,
+            fmtDate(s.user.created_at), fmtDate(s.user.last_active),
+        ])
+        downloadCsv(headers, rows, `roster-${slug(courseLabel)}-${stamp}.csv`)
+        toast.success(`Exported ${rows.length} students`)
+    }
+
+    const reportCourseSummary = () => {
+        if (!courseStats.length) return toast.error('No course data available')
+        const headers = ['Course', 'Students', 'Active', 'Avg Accuracy %', 'Avg Level', 'Avg XP', 'Total Questions', 'Total Correct', 'Study Hours']
+        const rows = courseStats.map((c) => [c.name, c.students, c.active, c.avgAccuracy, c.avgLevel, c.avgXp, c.questions, c.correct, c.studyHours])
+        downloadCsv(headers, rows, `course-summary-${stamp}.csv`)
+        toast.success('Exported course performance summary')
+    }
+
+    const reportLeaderboard = () => {
+        const ranked = [...filtered].sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
+        if (!ranked.length) return toast.error('No students match the current filters')
+        const headers = ['Rank', 'Full Name', 'Email', 'Course', 'Level', 'Total XP', 'Accuracy %']
+        const rows = ranked.map((s, i) => [i + 1, s.user.full_name, s.user.email, s.primary_course_name, s.current_level, s.total_xp, s.overall_accuracy])
+        downloadCsv(headers, rows, `leaderboard-${slug(courseLabel)}-${stamp}.csv`)
+        toast.success('Exported leaderboard')
+    }
+
+    const reportEngagement = () => {
+        if (!filtered.length) return toast.error('No students match the current filters')
+        const headers = ['Full Name', 'Email', 'Course', 'Status', 'Study Minutes', 'Questions Attempted', 'Correct Answers', 'Accuracy %', 'Joined', 'Last Active']
+        const rows = filtered.map((s) => [
+            s.user.full_name, s.user.email, s.primary_course_name, s.user.is_suspended ? 'Suspended' : 'Active',
+            s.total_study_time_minutes, s.total_questions_attempted, s.total_correct_answers, s.overall_accuracy,
+            fmtDate(s.user.created_at), fmtDate(s.user.last_active),
+        ])
+        downloadCsv(headers, rows, `engagement-${slug(courseLabel)}-${stamp}.csv`)
+        toast.success('Exported engagement report')
+    }
+
+    const reportTypes = [
+        { key: 'roster', label: 'Student Roster', desc: 'Full profile & performance for every student', icon: Users, run: reportRoster },
+        { key: 'summary', label: 'Course Performance Summary', desc: 'Aggregated metrics per course', icon: BarChart3, run: reportCourseSummary },
+        { key: 'leaderboard', label: 'Leaderboard', desc: 'Students ranked by XP', icon: Award, run: reportLeaderboard },
+        { key: 'engagement', label: 'Engagement & Activity', desc: 'Study time, attempts & last active', icon: Clock, run: reportEngagement },
+    ]
+
+    if (isLoading) return <div className="py-12 text-center text-surface-500">Generating reports…</div>
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            <div className="lg:col-span-2 space-y-6">
-                <div className="card p-5 sm:p-6">
-                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-primary-500" /> Subject-wise Accuracy
-                    </h3>
-                    <div className="space-y-6">
-                        {subjectStats?.map((item) => (
-                            <div key={item.subject} className="group">
-                                <div className="flex justify-between items-end mb-2">
-                                    <div>
-                                        <span className="text-sm font-semibold text-surface-700 dark:text-surface-300 group-hover:text-primary-500 transition-colors">{item.subject}</span>
-                                        <span className="text-[10px] text-surface-500 ml-2">({item.student_count} students)</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-primary-600 dark:text-primary-400">{item.accuracy}%</span>
-                                </div>
-                                <div className="h-3 bg-surface-100 dark:bg-surface-800 rounded-full overflow-hidden">
-                                    <motion.div initial={{ width: 0 }} animate={{ width: `${item.accuracy}%` }} className="h-full bg-gradient-to-r from-primary-500 to-primary-400" />
-                                </div>
-                                <div className="mt-1 flex justify-between text-[10px] text-surface-400">
-                                    <span>Avg. Study Time: {item.avg_study_minutes}m</span>
-                                </div>
-                            </div>
-                        ))}
-                        {(!subjectStats || subjectStats.length === 0) && (
-                            <div className="text-center py-12 text-surface-500 italic font-medium">No subject data available yet.</div>
-                        )}
+        <div className="space-y-6">
+            {/* Filter + download toolbar */}
+            <div className="card p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
+                    <div className="space-y-1 flex-1 min-w-0">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-surface-400 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Course</label>
+                        <select className="input py-2.5 w-full" value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)}>
+                            <option value="all">All Courses</option>
+                            {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                     </div>
+                    <div className="space-y-1 flex-1 min-w-0">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-surface-400 flex items-center gap-1"><Shield className="w-3 h-3" /> Status</label>
+                        <select className="input py-2.5 w-full" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="suspended">Suspended</option>
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <button onClick={() => setReportOpen((v) => !v)} className="btn-primary justify-center whitespace-nowrap w-full lg:w-auto">
+                            <Download className="w-4 h-4" /> Download Report <ChevronDown className={`w-4 h-4 transition-transform ${reportOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        <AnimatePresence>
+                            {reportOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setReportOpen(false)} />
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                                        className="absolute right-0 mt-2 w-72 z-20 card p-2 shadow-xl border border-surface-200 dark:border-surface-700"
+                                    >
+                                        {reportTypes.map((r) => (
+                                            <button
+                                                key={r.key}
+                                                onClick={() => { r.run(); setReportOpen(false) }}
+                                                className="w-full flex items-start gap-3 p-2.5 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 text-left transition-colors"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
+                                                    <r.icon className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-semibold text-surface-800 dark:text-surface-100">{r.label}</div>
+                                                    <div className="text-[11px] text-surface-500 leading-tight">{r.desc}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                </>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-surface-500">
+                    <Filter className="w-3.5 h-3.5" />
+                    Reporting on <span className="font-bold text-surface-700 dark:text-surface-200">{filtered.length}</span> student{filtered.length === 1 ? '' : 's'}
+                    {filterCourse !== 'all' && <span>· {courseLabel}</span>}
                 </div>
             </div>
 
-            <div className="space-y-6">
-                <div className="card p-5 sm:p-6 bg-gradient-to-br from-surface-50 to-white dark:from-surface-900 dark:to-surface-800 border-primary-500/10">
-                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                        <Award className="w-5 h-5 text-amber-500" /> Institutional Top 5
-                    </h3>
-                    <div className="space-y-4">
-                        {leaderboard?.map((student, index) => (
-                            <div key={student.id} className="flex items-center gap-4 p-3 rounded-xl bg-white dark:bg-surface-800/50 shadow-sm border border-surface-100 dark:border-surface-700">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${index === 0 ? 'bg-amber-100 text-amber-600' : index === 1 ? 'bg-slate-100 text-slate-600' : index === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface-100 text-surface-500'}`}>
-                                    {index + 1}
+            {/* Summary stat cards for the current filter */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {[
+                    { label: 'Students', value: totals.count.toLocaleString(), icon: Users, color: 'text-primary-500' },
+                    { label: 'Active', value: totals.active.toLocaleString(), icon: CheckCircle2, color: 'text-emerald-500' },
+                    { label: 'Avg Accuracy', value: `${totals.avgAccuracy}%`, icon: TrendingUp, color: 'text-amber-500' },
+                    { label: 'Total XP', value: totals.totalXp.toLocaleString(), icon: Zap, color: 'text-violet-500' },
+                ].map((s) => (
+                    <div key={s.label} className="card p-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{s.label}</span>
+                            <s.icon className={`w-4 h-4 ${s.color}`} />
+                        </div>
+                        <div className="mt-2 text-2xl font-black text-surface-900 dark:text-white">{s.value}</div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                {/* Course-wise performance */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="card p-5 sm:p-6">
+                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                            <BarChart3 className="w-5 h-5 text-primary-500" /> Course-wise Performance
+                        </h3>
+                        <div className="space-y-6">
+                            {courseStats.map((item) => (
+                                <div key={item.id} className="group">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <div className="min-w-0">
+                                            <span className="text-sm font-semibold text-surface-700 dark:text-surface-300 group-hover:text-primary-500 transition-colors">{item.name}</span>
+                                            <span className="text-[10px] text-surface-500 ml-2">({item.students} student{item.students === 1 ? '' : 's'})</span>
+                                        </div>
+                                        <span className="text-sm font-bold text-primary-600 dark:text-primary-400">{item.avgAccuracy}%</span>
+                                    </div>
+                                    <div className="h-3 bg-surface-100 dark:bg-surface-800 rounded-full overflow-hidden">
+                                        <motion.div initial={{ width: 0 }} animate={{ width: `${(item.avgAccuracy / maxAccuracy) * 100}%` }} className="h-full bg-gradient-to-r from-primary-500 to-primary-400" />
+                                    </div>
+                                    <div className="mt-1 flex justify-between text-[10px] text-surface-400">
+                                        <span>Avg Level {item.avgLevel} · {item.avgXp.toLocaleString()} XP</span>
+                                        <span>{item.studyHours}h studied · {item.questions.toLocaleString()} questions</span>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-sm truncate dark:text-white">{student.name}</div>
-                                    <div className="text-[10px] text-surface-500">Level {student.level} • {student.accuracy}% Accuracy</div>
+                            ))}
+                            {courseStats.length === 0 && (
+                                <div className="text-center py-12 text-surface-500 italic font-medium">No course data available yet.</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Top performers for current filter */}
+                <div className="space-y-6">
+                    <div className="card p-5 sm:p-6 bg-gradient-to-br from-surface-50 to-white dark:from-surface-900 dark:to-surface-800 border-primary-500/10">
+                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                            <Award className="w-5 h-5 text-amber-500" /> Top Performers
+                        </h3>
+                        <div className="space-y-4">
+                            {topPerformers.map((student, index) => (
+                                <div key={student.id} className="flex items-center gap-4 p-3 rounded-xl bg-white dark:bg-surface-800/50 shadow-sm border border-surface-100 dark:border-surface-700">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${index === 0 ? 'bg-amber-100 text-amber-600' : index === 1 ? 'bg-slate-100 text-slate-600' : index === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface-100 text-surface-500'}`}>
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-bold text-sm truncate dark:text-white">{student.user.full_name}</div>
+                                        <div className="text-[10px] text-surface-500">Level {student.current_level} • {student.overall_accuracy}% Accuracy</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xs font-black text-primary-600 dark:text-primary-400">{(student.total_xp || 0).toLocaleString()}</div>
+                                        <div className="text-[8px] uppercase tracking-wider text-surface-400 font-bold">XP</div>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-xs font-black text-primary-600 dark:text-primary-400">{student.xp.toLocaleString()}</div>
-                                    <div className="text-[8px] uppercase tracking-wider text-surface-400 font-bold">XP</div>
-                                </div>
-                            </div>
-                        ))}
-                        {(!leaderboard || leaderboard.length === 0) && (
-                            <p className="text-center text-surface-500 py-8 italic text-sm">No leaderboard data yet.</p>
-                        )}
+                            ))}
+                            {topPerformers.length === 0 && (
+                                <p className="text-center text-surface-500 py-8 italic text-sm">No students match the current filters.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
