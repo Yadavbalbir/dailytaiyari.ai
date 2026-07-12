@@ -1,4 +1,4 @@
-"""Payment provider clients (Razorpay & Cashfree).
+"""Payment provider clients (Razorpay, Cashfree & PayU).
 
 Thin wrappers over each provider's REST API using ``requests`` (already a
 dependency) so we avoid pulling in provider-specific SDKs. Each client is built
@@ -17,6 +17,7 @@ import base64
 import hashlib
 import hmac
 import json
+from urllib.parse import parse_qs
 
 import requests
 
@@ -43,7 +44,8 @@ class RazorpayClient:
     def _auth(self):
         return (self.key_id, self.key_secret)
 
-    def create_order(self, amount, currency, receipt, notes=None, customer=None):
+    def create_order(self, amount, currency, receipt, notes=None, customer=None,
+                     return_url=None, callback_url=None):
         """Create a Razorpay order. ``amount`` is a Decimal in major units."""
         payload = {
             # Razorpay expects the smallest currency unit (paise for INR).
@@ -165,7 +167,8 @@ class CashfreeClient:
             'Content-Type': 'application/json',
         }
 
-    def create_order(self, amount, currency, receipt, notes=None, customer=None):
+    def create_order(self, amount, currency, receipt, notes=None, customer=None,
+                     return_url=None, callback_url=None):
         customer = customer or {}
         payload = {
             'order_id': receipt,
@@ -251,10 +254,188 @@ class CashfreeClient:
         return False, ''
 
 
+# ---------------------------------------------------------------------------
+# PayU (India)
+# ---------------------------------------------------------------------------
+class PayUClient:
+    """PayU (India) uses a hash-signed form redirect rather than a JS modal.
+
+    Checkout flow:
+      1. ``create_order`` builds the ``_payment`` form params + a SHA-512 request
+         hash. The browser POSTs the form straight to PayU's hosted page.
+      2. PayU redirects the browser (POST) back to ``surl``/``furl`` — our
+         :class:`payments.views.PayUCallbackView` — with a signed response.
+      3. We verify the reverse hash, grant enrolment, and redirect the learner
+         back to the app. PayU's server-to-server webhook posts the same signed
+         payload, so the generic webhook endpoint works too.
+
+    Credentials: ``key_id`` = Merchant Key, ``key_secret`` = Merchant Salt.
+    """
+    provider = 'payu'
+
+    def __init__(self, gateway):
+        self.gateway = gateway
+        self.key = gateway.key_id          # PayU Merchant Key
+        self.salt = gateway.key_secret     # PayU Merchant Salt (signs everything)
+        if gateway.is_test_mode:
+            self.payment_url = 'https://test.payu.in/_payment'
+            self.verify_url = 'https://test.payu.in/merchant/postservice.php?form=2'
+        else:
+            self.payment_url = 'https://secure.payu.in/_payment'
+            self.verify_url = 'https://info.payu.in/merchant/postservice.php?form=2'
+
+    @staticmethod
+    def _sha512(value):
+        return hashlib.sha512(value.encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def _clean(text):
+        # PayU hashes these fields verbatim; a literal pipe would corrupt it.
+        return (text or '').replace('|', ' ').strip()
+
+    def _response_hash(self, p):
+        """Reverse hash PayU signs the response/webhook with.
+
+        ``salt|status|udf10|…|udf1|email|firstname|productinfo|amount|txnid|key``
+        (prefixed with ``additionalCharges|`` when that field is present).
+        """
+        udfs = [p.get(f'udf{i}', '') or '' for i in range(10, 0, -1)]
+        seq = [self.salt, p.get('status', '') or ''] + udfs + [
+            p.get('email', '') or '',
+            p.get('firstname', '') or '',
+            p.get('productinfo', '') or '',
+            p.get('amount', '') or '',
+            p.get('txnid', '') or '',
+            self.key,
+        ]
+        base = '|'.join(seq)
+        additional = p.get('additionalCharges')
+        if additional:
+            base = f'{additional}|{base}'
+        return self._sha512(base)
+
+    def create_order(self, amount, currency, receipt, notes=None, customer=None,
+                     return_url=None, callback_url=None):
+        notes = notes or {}
+        customer = customer or {}
+        # PayU txnids must be unique & short; the order UUID (dashless) fits.
+        txnid = receipt.replace('-', '')[:25]
+        amount_str = f'{float(amount):.2f}'
+        productinfo = self._clean(notes.get('note') or 'Course enrolment')[:100]
+        firstname = self._clean(customer.get('name') or 'Student')[:60]
+        email = customer.get('email') or 'student@example.com'
+        phone = customer.get('phone') or '9999999999'
+        # udf1 carries the app URL to return to; it's inside the hash → tamper-proof.
+        udf1 = (return_url or '')[:255]
+        udf2 = udf3 = udf4 = udf5 = ''
+
+        # Request hash: key|txnid|amount|productinfo|firstname|email|udf1..udf5||||||salt
+        hash_seq = '|'.join([
+            self.key, txnid, amount_str, productinfo, firstname, email,
+            udf1, udf2, udf3, udf4, udf5, '', '', '', '', '', self.salt,
+        ])
+        request_hash = self._sha512(hash_seq)
+
+        params = {
+            'key': self.key,
+            'txnid': txnid,
+            'amount': amount_str,
+            'productinfo': productinfo,
+            'firstname': firstname,
+            'email': email,
+            'phone': phone,
+            'surl': callback_url or '',
+            'furl': callback_url or '',
+            'hash': request_hash,
+            'udf1': udf1,
+        }
+        return {
+            'provider': self.provider,
+            'provider_order_id': txnid,
+            'amount': amount,
+            'currency': currency or 'INR',
+            'checkout': {
+                'provider': self.provider,
+                'action_url': self.payment_url,
+                'params': params,
+            },
+        }
+
+    def verify_return(self, payload):
+        """Verify PayU's signed browser return (surl/furl POST)."""
+        txnid = payload.get('txnid')
+        posted = payload.get('hash')
+        if not (txnid and posted):
+            return False, ''
+        expected = self._response_hash(payload)
+        if not hmac.compare_digest(expected, posted):
+            return False, ''
+        status = (payload.get('status') or '').lower()
+        if status == 'success':
+            return True, str(payload.get('mihpayid', '') or '')
+        return False, ''
+
+    @staticmethod
+    def _parse_body(raw_body):
+        body = raw_body.decode() if isinstance(raw_body, bytes) else (raw_body or '')
+        body = body.strip()
+        if body.startswith('{'):
+            try:
+                return json.loads(body)
+            except ValueError:
+                return {}
+        return {k: v[0] for k, v in parse_qs(body, keep_blank_values=True).items()}
+
+    @staticmethod
+    def parse_webhook(raw_body):
+        p = PayUClient._parse_body(raw_body)
+        txnid = p.get('txnid')
+        payment_id = str(p.get('mihpayid', '') or '')
+        is_paid = (p.get('status') or '').lower() == 'success'
+        return txnid, payment_id, is_paid
+
+    def verify_webhook(self, raw_body, headers):
+        """PayU's S2S webhook posts the same signed payload as the return."""
+        p = self._parse_body(raw_body)
+        posted = p.get('hash')
+        if not posted:
+            return False
+        expected = self._response_hash(p)
+        return hmac.compare_digest(expected, posted)
+
+    def is_order_paid(self, provider_order_id):
+        """Authoritatively confirm a txn via PayU's verify_payment API."""
+        command = 'verify_payment'
+        var1 = provider_order_id
+        hash_str = '|'.join([self.key, command, var1, self.salt])
+        data = {
+            'key': self.key,
+            'command': command,
+            'var1': var1,
+            'hash': self._sha512(hash_str),
+        }
+        try:
+            resp = requests.post(self.verify_url, data=data, timeout=TIMEOUT)
+        except requests.RequestException as exc:
+            raise PaymentError(f'PayU status check failed: {exc}') from exc
+        if resp.status_code >= 300:
+            raise PaymentError(f'PayU error: {resp.text}')
+        try:
+            body = resp.json()
+        except ValueError as exc:
+            raise PaymentError('PayU returned a non-JSON verify response') from exc
+        details = (body.get('transaction_details') or {}).get(var1, {})
+        if (details.get('status') or '').lower() == 'success':
+            return True, str(details.get('mihpayid', '') or '')
+        return False, ''
+
+
 def get_client(gateway):
     """Build the provider client for a tenant's gateway."""
     if gateway.provider == 'razorpay':
         return RazorpayClient(gateway)
     if gateway.provider == 'cashfree':
         return CashfreeClient(gateway)
+    if gateway.provider == 'payu':
+        return PayUClient(gateway)
     raise PaymentError(f'Unsupported provider: {gateway.provider}')

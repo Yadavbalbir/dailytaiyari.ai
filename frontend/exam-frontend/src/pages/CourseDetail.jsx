@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useMemo, useState, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
@@ -93,6 +93,7 @@ const TabButton = ({ active, onClick, children }) => (
 const CourseDetail = () => {
   const { courseId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { user, profile, isAuthenticated } = useAuthStore()
   const role = user?.role || profile?.user?.role
@@ -126,6 +127,23 @@ const CourseDetail = () => {
     if ((studyData.pending || []).some((c) => String(c.id) === String(courseId))) return 'pending'
     return null
   }, [studyData, courseId])
+
+  // Redirect-based providers (PayU) return here with ?payment=success|failed.
+  useEffect(() => {
+    const result = searchParams.get('payment')
+    if (!result) return
+    if (result === 'success') {
+      toast.success('Payment successful — you are enrolled!')
+      queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] })
+    } else {
+      toast.error('Payment was not completed. Please try again.')
+    }
+    // Strip the flag so a refresh doesn't re-trigger the toast.
+    searchParams.delete('payment')
+    setSearchParams(searchParams, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const requestEnroll = async () => {
     if (!isAuthenticated) {
@@ -161,7 +179,8 @@ const CourseDetail = () => {
     }
     setRequesting(true)
     try {
-      const result = await paymentService.checkout(course, user)
+      const returnUrl = `${window.location.origin}/courses/${courseId}`
+      const result = await paymentService.checkout(course, user, returnUrl)
       if (result?.enrolled) {
         toast.success('Payment successful — you are enrolled!')
         queryClient.invalidateQueries({ queryKey: ['studyCourses'] })

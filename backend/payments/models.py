@@ -25,6 +25,7 @@ class PaymentOrder(models.Model):
     PROVIDER_CHOICES = [
         ('razorpay', 'Razorpay'),
         ('cashfree', 'Cashfree'),
+        ('payu', 'PayU'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

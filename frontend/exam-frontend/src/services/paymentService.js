@@ -34,8 +34,11 @@ function loadScript(src) {
     return loadedScripts[src]
 }
 
-async function createOrder(courseId) {
-    const { data } = await api.post('/payments/orders/', { course: courseId })
+async function createOrder(courseId, returnUrl) {
+    const { data } = await api.post('/payments/orders/', {
+        course: courseId,
+        return_url: returnUrl,
+    })
     return data // { order, checkout }
 }
 
@@ -107,18 +110,42 @@ async function payWithCashfree({ checkout, orderId }) {
     return verifyOrder(orderId, { order_id: checkout.order_id })
 }
 
+/** Redirect the browser to PayU's hosted checkout via an auto-submitted form. */
+function payWithPayU({ checkout }) {
+    const { action_url, params } = checkout
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = action_url
+    form.style.display = 'none'
+    Object.entries(params || {}).forEach(([name, value]) => {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = name
+        input.value = value ?? ''
+        form.appendChild(input)
+    })
+    document.body.appendChild(form)
+    form.submit()
+    // The page now navigates away to PayU; this promise never resolves here.
+    return new Promise(() => {})
+}
+
 /**
  * Run the full checkout flow for a paid course. Returns the verified result
- * ({ status: 'paid', enrolled: true }) or throws on cancel/failure.
+ * ({ status: 'paid', enrolled: true }) or throws on cancel/failure. For PayU
+ * the browser is redirected away and the app resumes via the return URL.
  */
-async function checkout(course, user) {
-    const { order, checkout: checkoutParams } = await createOrder(course.id)
+async function checkout(course, user, returnUrl) {
+    const { order, checkout: checkoutParams } = await createOrder(course.id, returnUrl)
     const provider = checkoutParams.provider
     if (provider === 'razorpay') {
         return payWithRazorpay({ checkout: checkoutParams, orderId: order.id, course, user })
     }
     if (provider === 'cashfree') {
         return payWithCashfree({ checkout: checkoutParams, orderId: order.id })
+    }
+    if (provider === 'payu') {
+        return payWithPayU({ checkout: checkoutParams })
     }
     throw new Error(`Unsupported provider: ${provider}`)
 }

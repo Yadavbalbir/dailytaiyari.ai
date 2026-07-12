@@ -7,6 +7,8 @@ Flow (paid course, pay-to-enrol mode):
 """
 import logging
 
+from django.conf import settings
+from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import permissions, status
@@ -78,6 +80,10 @@ class CreateOrderView(APIView):
             currency=course.currency, is_test_mode=gateway.is_test_mode,
         )
         receipt = str(pending.id)
+        # Where redirect-style providers (PayU) send the learner afterwards, and
+        # the absolute callback URL PayU posts its signed result to.
+        return_url = request.data.get('return_url') or ''
+        callback_url = request.build_absolute_uri('/api/v1/payments/payu/callback/')
         try:
             result = client.create_order(
                 amount=course.price,
@@ -90,6 +96,8 @@ class CreateOrderView(APIView):
                     'email': user.email,
                     'phone': getattr(user, 'phone', '') or '',
                 },
+                return_url=return_url,
+                callback_url=callback_url,
             )
         except PaymentError as exc:
             logger.warning('Payment order creation failed: %s', exc)
@@ -155,6 +163,8 @@ class WebhookView(APIView):
             from .providers import RazorpayClient as _Cls
         elif provider == 'cashfree':
             from .providers import CashfreeClient as _Cls
+        elif provider == 'payu':
+            from .providers import PayUClient as _Cls
         else:
             return Response({'detail': 'Unknown provider.'}, status=404)
 
@@ -180,3 +190,61 @@ class WebhookView(APIView):
         if is_paid:
             mark_order_paid(order, provider_payment_id=payment_id)
         return Response({'detail': 'ok'}, status=200)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PayUCallbackView(APIView):
+    """PayU surl/furl target — a signed browser POST after the hosted checkout.
+
+    PayU redirects the learner's browser here (form POST). We verify the signed
+    payload, grant enrolment on success, then 302-redirect back into the app
+    (the ``return_url`` we passed as ``udf1``, which is inside PayU's hash and so
+    cannot be tampered with).
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def _handle(self, request):
+        params = {k: v for k, v in request.POST.items()} or dict(request.GET.items())
+        txnid = params.get('txnid')
+        fallback = params.get('udf1') or getattr(settings, 'FRONTEND_URL', '') or '/'
+
+        if not txnid:
+            return redirect(_with_status(fallback, 'failed'))
+
+        order = PaymentOrder.objects.filter(
+            provider='payu', provider_order_id=txnid
+        ).select_related('tenant').first()
+        if order is None:
+            return redirect(_with_status(fallback, 'failed'))
+
+        gateway = _active_gateway(order.tenant)
+        return_url = params.get('udf1') or fallback
+        if gateway is None:
+            return redirect(_with_status(return_url, 'failed'))
+
+        client = get_client(gateway)
+        try:
+            ok, payment_id = client.verify_return(params)
+        except PaymentError as exc:
+            logger.warning('PayU verification failed: %s', exc)
+            ok, payment_id = False, ''
+
+        if ok:
+            mark_order_paid(order, provider_payment_id=payment_id)
+            return redirect(_with_status(return_url, 'success'))
+        return redirect(_with_status(return_url, 'failed'))
+
+    def post(self, request):
+        return self._handle(request)
+
+    def get(self, request):
+        return self._handle(request)
+
+
+def _with_status(url, status_value):
+    """Append ``payment=<status>`` to a return URL, preserving existing query."""
+    if not url:
+        url = '/'
+    sep = '&' if '?' in url else '?'
+    return f'{url}{sep}payment={status_value}'

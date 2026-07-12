@@ -10,6 +10,7 @@ TENANT_EXEMPT_PATHS = [
     '/api/v1/platform/',
     '/api/v1/certificates/verify/',
     '/api/v1/payments/webhook/',
+    '/api/v1/payments/payu/callback/',
     '/api/docs/',
     '/api/redoc/',
     '/static/',
