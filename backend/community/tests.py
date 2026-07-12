@@ -17,6 +17,7 @@ class PostLikeXPTests(TestCase):
         self.liker, _ = StudentProfile.objects.get_or_create(user=self.liker_user)
         self.post = Post.objects.create(
             author=self.author,
+            tenant=self.tenant,
             post_type='question',
             title='A valid question title',
             content='Some sufficiently long content body.',
@@ -43,4 +44,42 @@ class PostLikeXPTests(TestCase):
         self._like(self.author_user)
         self.author.refresh_from_db()
         self.assertEqual(self.author.total_xp, 0)
+
+
+class PostTenantIsolationTests(TestCase):
+    """Posts must never leak across tenants."""
+
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(name='A', subdomain='a')
+        self.tenant_b = Tenant.objects.create(name='B', subdomain='b')
+
+        self.user_a = User.objects.create_user(email='a@x.com', tenant=self.tenant_a, password='x')
+        self.profile_a, _ = StudentProfile.objects.get_or_create(user=self.user_a)
+        self.user_b = User.objects.create_user(email='b@x.com', tenant=self.tenant_b, password='x')
+        self.profile_b, _ = StudentProfile.objects.get_or_create(user=self.user_b)
+
+        self.post_a = Post.objects.create(
+            author=self.profile_a, tenant=self.tenant_a, post_type='question',
+            title='Tenant A only post title', content='Content body for tenant A only.',
+        )
+        self.factory = APIRequestFactory()
+        self.list_view = PostViewSet.as_view({'get': 'list'})
+
+    def _list(self, user, tenant):
+        request = self.factory.get('/posts/')
+        force_authenticate(request, user=user)
+        request.tenant = tenant
+        return self.list_view(request)
+
+    def test_other_tenant_cannot_see_post(self):
+        response = self._list(self.user_b, self.tenant_b)
+        self.assertEqual(response.status_code, 200)
+        ids = [p['id'] for p in response.data.get('results', response.data)]
+        self.assertNotIn(str(self.post_a.id), ids)
+
+    def test_same_tenant_sees_own_post(self):
+        response = self._list(self.user_a, self.tenant_a)
+        self.assertEqual(response.status_code, 200)
+        ids = [p['id'] for p in response.data.get('results', response.data)]
+        self.assertIn(str(self.post_a.id), ids)
 

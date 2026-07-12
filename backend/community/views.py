@@ -70,9 +70,15 @@ class PostViewSet(TenantAwareViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        # Tenant isolation: never leak posts across tenants. If the request has
+        # no resolved tenant, return nothing rather than every post.
+        tenant = getattr(self.request, 'tenant', None)
+        if not tenant:
+            return Post.objects.none()
+
         is_staff = _is_staff_user(self.request.user)
 
-        queryset = Post.objects.all().select_related(
+        queryset = Post.objects.filter(tenant=tenant).select_related(
             'author__user', 'course', 'subject'
         ).prefetch_related('poll_options', 'quiz', 'event', 'courses')
 
@@ -217,7 +223,12 @@ class PostViewSet(TenantAwareViewSet):
         return Response({'status': 'active', 'id': str(post.id)})
     
     def perform_create(self, serializer):
-        post = serializer.save()
+        # Stamp the post with the current tenant so it stays isolated.
+        tenant = getattr(self.request, 'tenant', None)
+        if not tenant:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("A valid Tenant is required to create a post.")
+        post = serializer.save(tenant=tenant)
         
         # Award XP based on post type
         action_map = {
@@ -242,7 +253,7 @@ class PostViewSet(TenantAwareViewSet):
         
         like, created = Like.objects.get_or_create(
             user=user, post=post,
-            defaults={'is_active': True}
+            defaults={'is_active': True, 'tenant': post.tenant}
         )
         
         if created or not like.is_active:
@@ -361,7 +372,7 @@ class PostViewSet(TenantAwareViewSet):
             existing_vote.save()
         else:
             # New vote
-            PollVote.objects.create(user=user, option=option)
+            PollVote.objects.create(user=user, option=option, tenant=post.tenant)
             CommunityXPService.award_xp(
                 user,
                 'vote_poll',
@@ -384,7 +395,12 @@ class CommentViewSet(TenantAwareViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        queryset = Comment.objects.select_related('author__user', 'post')
+        # Tenant isolation: only comments belonging to the current tenant.
+        tenant = getattr(self.request, 'tenant', None)
+        if not tenant:
+            return Comment.objects.none()
+
+        queryset = Comment.objects.filter(tenant=tenant).select_related('author__user', 'post')
         
         post_id = self.request.query_params.get('post')
         if post_id:
@@ -414,7 +430,12 @@ class CommentViewSet(TenantAwareViewSet):
         return super().destroy(request, *args, **kwargs)
     
     def perform_create(self, serializer):
-        comment = serializer.save()
+        # Stamp the comment with the current tenant so it stays isolated.
+        tenant = getattr(self.request, 'tenant', None)
+        if not tenant:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("A valid Tenant is required to comment.")
+        comment = serializer.save(tenant=tenant)
         
         # Update post comment count
         Post.objects.filter(pk=comment.post_id).update(
@@ -441,7 +462,7 @@ class CommentViewSet(TenantAwareViewSet):
         
         like, created = Like.objects.get_or_create(
             user=user, comment=comment,
-            defaults={'is_active': True}
+            defaults={'is_active': True, 'tenant': comment.tenant}
         )
         
         if created or not like.is_active:
@@ -485,14 +506,15 @@ class CommunityStatsViewSet(viewsets.GenericViewSet):
     def my_stats(self, request):
         """Get current user's community stats."""
         stats, created = CommunityStats.objects.get_or_create(
-            user=request.user.profile
+            user=request.user.profile,
+            defaults={'tenant': getattr(request, 'tenant', None)}
         )
         serializer = CommunityStatsSerializer(stats)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def user_stats(self, request):
-        """Get another user's community stats."""
+        """Get another user's community stats (same tenant only)."""
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response(
@@ -500,7 +522,10 @@ class CommunityStatsViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        stats = get_object_or_404(CommunityStats, user_id=user_id)
+        tenant = getattr(request, 'tenant', None)
+        stats = get_object_or_404(
+            CommunityStats, user_id=user_id, user__user__tenant=tenant
+        )
         serializer = CommunityStatsSerializer(stats)
         return Response(serializer.data)
 
