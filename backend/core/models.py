@@ -95,13 +95,19 @@ class Tenant(models.Model):
         return {key: bool(stored.get(key, True)) for key in self.FEATURE_CHOICES}
 
     @property
+    def active_payment_gateway(self):
+        """The single gateway currently used for checkout, if any.
+
+        A tenant may store several providers' credentials but only one is
+        marked ``is_active`` at a time (enforced when saving from the admin).
+        """
+        return self.payment_gateways.filter(is_active=True).first()
+
+    @property
     def has_active_payment_gateway(self):
         """True when this tenant has a fully-configured, active payment gateway."""
-        try:
-            gateway = self.payment_gateway
-        except PaymentGateway.DoesNotExist:
-            return False
-        return bool(gateway and gateway.is_active and gateway.is_configured)
+        gateway = self.active_payment_gateway
+        return bool(gateway and gateway.is_configured)
 
     def enroll_mode_for(self, course):
         """Resolve how a student joins ``course`` given this tenant's flags.
@@ -139,8 +145,8 @@ class PaymentGateway(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tenant = models.OneToOneField(
-        Tenant, on_delete=models.CASCADE, related_name='payment_gateway'
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, related_name='payment_gateways'
     )
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
 
@@ -165,6 +171,12 @@ class PaymentGateway(models.Model):
     class Meta:
         verbose_name = 'Payment Gateway'
         verbose_name_plural = 'Payment Gateways'
+        constraints = [
+            # A tenant configures each provider at most once.
+            models.UniqueConstraint(
+                fields=['tenant', 'provider'], name='uniq_tenant_provider_gateway'
+            ),
+        ]
 
     def __str__(self):
         return f'{self.tenant.name} — {self.get_provider_display()}'

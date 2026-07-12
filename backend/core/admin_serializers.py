@@ -59,8 +59,9 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'request_enrollment_paid': (
                         'Self-enrolment for paid courses requires an active '
-                        'payment gateway. Configure Razorpay or Cashfree first, '
-                        'or keep request-based enrolment enabled.'
+                        'payment gateway. Configure and activate Razorpay, '
+                        'Cashfree or PayU first, or keep request-based '
+                        'enrolment enabled.'
                     )
                 })
         return attrs

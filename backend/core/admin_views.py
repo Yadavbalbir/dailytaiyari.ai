@@ -3,6 +3,7 @@
 Scoped to the current tenant resolved by ``TenantMiddleware`` from the
 ``X-Tenant-ID`` header, and restricted to users with the ``admin`` role.
 """
+from django.db import transaction
 from rest_framework import generics, permissions, parsers
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
@@ -33,11 +34,16 @@ class TenantSettingsView(generics.RetrieveUpdateAPIView):
 
 
 class PaymentGatewayView(generics.GenericAPIView):
-    """Manage the current tenant's payment gateway credentials.
+    """Manage the current tenant's payment gateways (one per provider).
 
-    * ``GET``    — current config (secret never returned; ``has_secret`` flag only).
-    * ``PUT``    — create or upsert the gateway for this tenant.
-    * ``DELETE`` — remove the stored gateway entirely.
+    A tenant can store credentials for several providers (Razorpay / Cashfree /
+    PayU) but exactly one is ``is_active`` at a time — that is the gateway used
+    for checkout. Secrets are write-only and never returned.
+
+    * ``GET``    — ``{ gateways: [...], active_provider }`` for all stored providers.
+    * ``PUT``    — create/update the gateway for ``provider`` in the body. Setting
+      ``is_active`` makes it the sole active gateway (others are deactivated).
+    * ``DELETE`` — remove the gateway for ``provider`` (query param or body).
     """
     serializer_class = PaymentGatewaySerializer
     permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
@@ -48,27 +54,45 @@ class PaymentGatewayView(generics.GenericAPIView):
             raise NotFound('No tenant is associated with this request.')
         return tenant
 
-    def _get_gateway(self):
-        return PaymentGateway.objects.filter(tenant=self._tenant()).first()
+    def _gateways(self):
+        return PaymentGateway.objects.filter(tenant=self._tenant())
+
+    def _get_gateway(self, provider):
+        if not provider:
+            return None
+        return self._gateways().filter(provider=provider).first()
+
+    def _list_response(self):
+        gateways = self._gateways().order_by('provider')
+        data = self.get_serializer(gateways, many=True).data
+        active = next((g['provider'] for g in data if g.get('is_active')), None)
+        return Response({'gateways': data, 'active_provider': active})
 
     def get(self, request, *args, **kwargs):
-        gateway = self._get_gateway()
-        if gateway is None:
-            return Response({'configured': False})
-        return Response(self.get_serializer(gateway).data)
+        return self._list_response()
 
     def put(self, request, *args, **kwargs):
         tenant = self._tenant()
-        gateway = self._get_gateway()
+        provider = request.data.get('provider')
+        if not provider:
+            return Response({'provider': ['This field is required.']}, status=400)
+        gateway = self._get_gateway(provider)
         serializer = self.get_serializer(
             gateway, data=request.data, partial=gateway is not None
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save(tenant=tenant)
-        return Response(serializer.data)
+        with transaction.atomic():
+            instance = serializer.save(tenant=tenant)
+            # Only one gateway may be active per tenant.
+            if instance.is_active:
+                PaymentGateway.objects.filter(tenant=tenant).exclude(
+                    pk=instance.pk
+                ).update(is_active=False)
+        return self._list_response()
 
     def delete(self, request, *args, **kwargs):
-        gateway = self._get_gateway()
+        provider = request.query_params.get('provider') or request.data.get('provider')
+        gateway = self._get_gateway(provider)
         if gateway is not None:
             gateway.delete()
-        return Response({'configured': False})
+        return self._list_response()

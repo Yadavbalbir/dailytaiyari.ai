@@ -1838,12 +1838,18 @@ const PaymentSettings = ({ settings }) => {
     const queryClient = useQueryClient()
     const fetchTenantConfig = useTenantStore((s) => s.fetchTenantConfig)
 
-    const { data: gateway, isLoading } = useQuery({
+    const { data: gatewayData, isLoading } = useQuery({
         queryKey: ['tenantPaymentGateway'],
         queryFn: () => tenantAdminService.getPaymentGateway(),
     })
 
-    const configured = Boolean(gateway && gateway.configured !== false && gateway.provider)
+    // One stored config per provider; exactly one is active (the live gateway).
+    const gateways = gatewayData?.gateways || []
+    const activeProvider = gatewayData?.active_provider || null
+    const byProvider = useMemo(
+        () => Object.fromEntries(gateways.map((g) => [g.provider, g])),
+        [gateways],
+    )
 
     const [provider, setProvider] = useState('razorpay')
     const [keyId, setKeyId] = useState('')
@@ -1852,20 +1858,32 @@ const PaymentSettings = ({ settings }) => {
     const [isActive, setIsActive] = useState(false)
     const [isTestMode, setIsTestMode] = useState(true)
 
+    // On first load, focus the live gateway's tab (falling back to Razorpay).
+    const [pickedInitial, setPickedInitial] = useState(false)
     useEffect(() => {
-        if (configured) {
-            setProvider(gateway.provider || 'razorpay')
-            setKeyId(gateway.key_id || '')
-            setIsActive(Boolean(gateway.is_active))
-            setIsTestMode(Boolean(gateway.is_test_mode))
-            setKeySecret('')
-            setWebhookSecret('')
+        if (!pickedInitial && gatewayData) {
+            setProvider(activeProvider || gateways[0]?.provider || 'razorpay')
+            setPickedInitial(true)
         }
-    }, [gateway, configured])
+    }, [gatewayData, activeProvider, gateways, pickedInitial])
 
-    const hasStoredSecret = Boolean(gateway?.has_secret)
-    const hasStoredWebhookSecret = Boolean(gateway?.has_webhook_secret)
+    // Load the selected provider's stored config into the form.
+    const current = byProvider[provider]
+    useEffect(() => {
+        const g = byProvider[provider]
+        setKeyId(g?.key_id || '')
+        setIsActive(Boolean(g?.is_active))
+        setIsTestMode(g ? Boolean(g.is_test_mode) : true)
+        setKeySecret('')
+        setWebhookSecret('')
+    }, [provider, byProvider])
+
+    const isConfigured = Boolean(current)
+    const hasStoredSecret = Boolean(current?.has_secret)
+    const hasStoredWebhookSecret = Boolean(current?.has_webhook_secret)
     const providerMeta = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0]
+    const activeMeta = activeProvider ? PROVIDERS.find((p) => p.id === activeProvider) : null
+    const activeIsTest = activeProvider ? Boolean(byProvider[activeProvider]?.is_test_mode) : false
 
     // URL the admin registers in their provider dashboard. PayU uses a signed
     // browser+S2S callback (surl/furl); the others use a JSON webhook endpoint.
@@ -1934,15 +1952,15 @@ const PaymentSettings = ({ settings }) => {
     })
 
     const deleteMutation = useMutation({
-        mutationFn: () => tenantAdminService.deletePaymentGateway(),
-        onSuccess: () => {
-            queryClient.setQueryData(['tenantPaymentGateway'], { configured: false })
+        mutationFn: (prov) => tenantAdminService.deletePaymentGateway(prov),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantPaymentGateway'], data)
             queryClient.invalidateQueries({ queryKey: ['tenantSettings'] })
             fetchTenantConfig()
-            setKeyId(''); setKeySecret(''); setIsActive(false); setIsTestMode(true)
-            toast.success('Payment gateway removed')
+            setKeyId(''); setKeySecret(''); setWebhookSecret(''); setIsActive(false); setIsTestMode(true)
+            toast.success('Credentials cleared')
         },
-        onError: () => toast.error('Failed to remove payment gateway'),
+        onError: () => toast.error('Failed to clear credentials'),
     })
 
     const save = () => {
@@ -2029,34 +2047,62 @@ const PaymentSettings = ({ settings }) => {
 
             {/* Payment gateway credentials */}
             <div className="card p-6 space-y-5">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <CreditCard className="w-5 h-5 text-primary-500" />
-                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Payment Gateway</h3>
-                    {configured && gateway?.is_active && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            <ShieldCheck className="w-3.5 h-3.5" /> Active
-                        </span>
-                    )}
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Payment Gateways</h3>
                 </div>
+
+                {/* Live-gateway status: which provider is used for checkout right now. */}
+                {activeProvider ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-sm text-emerald-800 dark:text-emerald-300">
+                            <span className="font-semibold">{activeMeta?.label || activeProvider}</span> is live and used for checkout
+                            <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold ${activeIsTest ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                                {activeIsTest ? 'Test / sandbox' : 'Live'}
+                            </span>
+                        </span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900/40 px-4 py-3">
+                        <ShieldCheck className="w-4 h-4 text-surface-400 shrink-0" />
+                        <span className="text-sm text-surface-500">
+                            No gateway is live yet. Configure a provider below and tick “Active” to start collecting payments.
+                        </span>
+                    </div>
+                )}
+
                 <p className="text-sm text-surface-500">
-                    Connect your own payment provider to collect course fees. Credentials are encrypted at
-                    rest and never shown again after saving. Once active, paid courses can enrol students
-                    straight after a successful payment.
+                    Store credentials for any of the providers below — Razorpay, Cashfree or PayU. Only the
+                    one you mark <span className="font-medium">Active</span> is used for checkout; activating a
+                    provider automatically switches the others off. Credentials are encrypted at rest and never
+                    shown again after saving.
                 </p>
 
-                {/* Provider picker */}
+                {/* Provider picker — badge shows which providers are saved / live. */}
                 <div className="flex flex-wrap gap-3">
                     {PROVIDERS.map((p) => {
                         const selected = provider === p.id
+                        const stored = byProvider[p.id]
+                        const isLive = activeProvider === p.id
                         return (
                             <button
                                 key={p.id}
                                 onClick={() => { setProvider(p.id); setKeySecret(''); setWebhookSecret('') }}
-                                className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${selected
+                                className={`relative px-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${selected
                                     ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
                                     : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-surface-300'}`}
                             >
                                 {p.label}
+                                {isLive ? (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                        LIVE
+                                    </span>
+                                ) : stored ? (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400">
+                                        SAVED
+                                    </span>
+                                ) : null}
                             </button>
                         )
                     })}
@@ -2142,7 +2188,7 @@ const PaymentSettings = ({ settings }) => {
                     </label>
                     <label className="inline-flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-surface-300 text-primary-500 focus:ring-primary-500" />
-                        <span className="text-sm text-surface-700 dark:text-surface-300">Active (use this gateway for checkout)</span>
+                        <span className="text-sm text-surface-700 dark:text-surface-300">Active — make {providerMeta.label} the live gateway (switches others off)</span>
                     </label>
                 </div>
 
@@ -2153,16 +2199,16 @@ const PaymentSettings = ({ settings }) => {
                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold disabled:opacity-60"
                     >
                         {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {configured ? 'Update credentials' : 'Save credentials'}
+                        {isConfigured ? `Update ${providerMeta.label}` : `Save ${providerMeta.label}`}
                     </button>
-                    {configured && (
+                    {isConfigured && (
                         <button
-                            onClick={() => { if (window.confirm('Remove the stored payment gateway credentials?')) deleteMutation.mutate() }}
+                            onClick={() => { if (window.confirm(`Clear the stored ${providerMeta.label} credentials?`)) deleteMutation.mutate(provider) }}
                             disabled={deleteMutation.isPending}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 text-sm font-semibold disabled:opacity-60"
                         >
                             {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            Remove
+                            Clear {providerMeta.label} credentials
                         </button>
                     )}
                 </div>

@@ -84,11 +84,8 @@ class TenantDetailView(APIView):
 
 def _public_payment_gateway(tenant):
     """Safe, secret-free payment gateway summary for the public tenant config."""
-    try:
-        gateway = tenant.payment_gateway
-    except Exception:  # noqa: BLE001 - reverse OneToOne may not exist
-        return None
-    if not gateway or not gateway.is_active or not gateway.is_configured:
+    gateway = tenant.active_payment_gateway
+    if not gateway or not gateway.is_configured:
         return None
     return {
         "provider": gateway.provider,
