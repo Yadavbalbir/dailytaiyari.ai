@@ -1,7 +1,10 @@
 """Admin serializers for the job builder and applicant pipeline review."""
 from rest_framework import serializers
 
+from exams.models import Course
+
 from .models import Job, JobApplication, ApplicationEvent
+from .serializers import JobCourseSerializer
 
 
 class AdminJobSerializer(serializers.ModelSerializer):
@@ -12,6 +15,11 @@ class AdminJobSerializer(serializers.ModelSerializer):
     is_external = serializers.BooleanField(read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
     created_by_name = serializers.SerializerMethodField()
+    related_courses = JobCourseSerializer(many=True, read_only=True)
+    related_course_ids = serializers.PrimaryKeyRelatedField(
+        many=True, write_only=True, required=False, source='related_courses',
+        queryset=Course.objects.all(),
+    )
 
     class Meta:
         model = Job
@@ -23,7 +31,8 @@ class AdminJobSerializer(serializers.ModelSerializer):
             'description', 'requirements', 'external_url', 'openings',
             'deadline', 'status', 'is_open', 'views_count',
             'created_by', 'created_by_name', 'applications_count',
-            'stage_counts', 'reports_count', 'created_at', 'updated_at',
+            'stage_counts', 'reports_count', 'related_courses',
+            'related_course_ids', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'views_count', 'created_by', 'created_at', 'updated_at']
 
@@ -34,6 +43,15 @@ class AdminJobSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'external_url': 'An external posting requires a link to apply.'}
             )
+        # Recommended courses must belong to the same tenant as the job.
+        tenant = getattr(self.context.get('request'), 'tenant', None)
+        courses = attrs.get('related_courses')
+        if tenant and courses:
+            bad = [c for c in courses if c.tenant_id != tenant.id]
+            if bad:
+                raise serializers.ValidationError(
+                    {'related_course_ids': 'Some courses are not in this tenant.'}
+                )
         return attrs
 
     def get_applications_count(self, obj):

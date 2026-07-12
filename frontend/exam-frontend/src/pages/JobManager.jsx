@@ -8,6 +8,7 @@ import {
   ChevronRight, X, Building2, MapPin, Flag, RotateCcw,
 } from 'lucide-react'
 import { jobAdminService } from '../services/jobService'
+import { courseService } from '../services/courseService'
 import { EMPLOYMENT_TYPES, WORK_MODES, CATEGORIES, categoryMeta } from '../components/jobs/jobShared'
 import RichMarkdownEditor from '../components/common/RichMarkdownEditor'
 import Loading from '../components/common/Loading'
@@ -24,7 +25,7 @@ const EMPTY = {
   work_mode: 'onsite', employment_type: 'full_time',
   experience_min: '', experience_max: '', salary_min: '', salary_max: '',
   salary_currency: 'INR', salary_period: 'year', description: '', requirements: '',
-  external_url: '', openings: 1, deadline: '', status: 'draft',
+  external_url: '', openings: 1, deadline: '', status: 'draft', related_course_ids: [],
 }
 
 const Field = ({ label, children, required }) => (
@@ -37,10 +38,27 @@ const Field = ({ label, children, required }) => (
 )
 
 const JobFormModal = ({ initial, onClose, onSaved }) => {
-  const [form, setForm] = useState(() => ({ ...EMPTY, ...(initial || {}) }))
+  const [form, setForm] = useState(() => ({
+    ...EMPTY,
+    ...(initial || {}),
+    related_course_ids: (initial?.related_courses || []).map((c) => c.id),
+  }))
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }))
   const setInput = (k) => (e) => set(k)(e.target.value)
   const isEdit = !!initial?.id
+
+  const { data: coursesRaw } = useQuery({
+    queryKey: ['admin-courses-for-jobs'],
+    queryFn: () => courseService.getCourses(),
+  })
+  const courses = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.results || [])
+  const toggleCourse = (id) =>
+    setForm((s) => ({
+      ...s,
+      related_course_ids: s.related_course_ids.includes(id)
+        ? s.related_course_ids.filter((x) => x !== id)
+        : [...s.related_course_ids, id],
+    }))
 
   const save = useMutation({
     mutationFn: () => {
@@ -52,7 +70,9 @@ const JobFormModal = ({ initial, onClose, onSaved }) => {
         salary_max: form.salary_max === '' ? null : Number(form.salary_max),
         openings: Number(form.openings) || 1,
         deadline: form.deadline || null,
+        related_course_ids: form.related_course_ids,
       }
+      delete payload.related_courses
       return isEdit ? jobAdminService.updateJob(initial.id, payload) : jobAdminService.createJob(payload)
     },
     onSuccess: () => { toast.success(isEdit ? 'Job updated.' : 'Job created.'); onSaved() },
@@ -143,6 +163,32 @@ const JobFormModal = ({ initial, onClose, onSaved }) => {
           </Field>
           <Field label="Requirements">
             <RichMarkdownEditor value={form.requirements} onChange={set('requirements')} rows={4} />
+          </Field>
+
+          <Field label="Recommended courses">
+            <p className="text-xs text-surface-500 -mt-1 mb-2">
+              Suggest courses that help candidates upskill for this role. Shown as tiles on the job page.
+            </p>
+            {courses.length === 0 ? (
+              <p className="text-sm text-surface-400">No courses available in this tenant yet.</p>
+            ) : (
+              <div className="max-h-44 overflow-y-auto rounded-xl border border-surface-200 dark:border-surface-700 divide-y divide-surface-100 dark:divide-surface-800">
+                {courses.map((c) => {
+                  const checked = form.related_course_ids.includes(c.id)
+                  return (
+                    <label key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800/50">
+                      <input type="checkbox" checked={checked} onChange={() => toggleCourse(c.id)} className="rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color || '#3B82F6' }} />
+                      <span className="flex-1 min-w-0 truncate">{c.name}</span>
+                      <span className="text-xs text-surface-400 shrink-0">{c.pricing_type === 'paid' ? `${c.currency || 'INR'} ${c.price}` : 'Free'}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            {form.related_course_ids.length > 0 && (
+              <p className="text-xs text-surface-500 mt-1.5">{form.related_course_ids.length} course{form.related_course_ids.length === 1 ? '' : 's'} selected</p>
+            )}
           </Field>
         </div>
 

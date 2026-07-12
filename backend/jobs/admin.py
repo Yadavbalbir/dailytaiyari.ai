@@ -25,6 +25,7 @@ class JobAdmin(admin.ModelAdmin):
     list_filter = ('category', 'job_type', 'status', 'employment_type', 'work_mode', 'tenant')
     search_fields = ('title', 'department', 'location')
     inlines = [JobApplicationInline, JobReportInline]
+    filter_horizontal = ('related_courses',)
 
 
 class ApplicationEventInline(admin.TabularInline):

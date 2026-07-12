@@ -93,6 +93,12 @@ class Job(TimeStampedModel):
         related_name='created_jobs',
     )
 
+    # Courses an admin recommends to help a student upskill for this opening.
+    # Surfaced as course tiles on the job/internship detail page.
+    related_courses = models.ManyToManyField(
+        'exams.Course', related_name='related_jobs', blank=True,
+    )
+
     views_count = models.PositiveIntegerField(default=0)
 
     class Meta:

@@ -1,7 +1,24 @@
 """Student-facing serializers for the Job Portal."""
 from rest_framework import serializers
 
+from exams.models import Course
+
 from .models import Job, JobApplication
+
+
+class JobCourseSerializer(serializers.ModelSerializer):
+    """Compact course payload for the 'upskill for this role' tiles."""
+    is_free = serializers.ReadOnlyField()
+    discount_percent = serializers.ReadOnlyField()
+    course_type_display = serializers.CharField(source='get_course_type_display', read_only=True)
+
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'name', 'code', 'subtitle', 'course_type', 'course_type_display',
+            'color', 'icon', 'thumbnail', 'status', 'pricing_type', 'price',
+            'original_price', 'currency', 'is_free', 'discount_percent',
+        ]
 
 
 class MyJobApplicationSerializer(serializers.ModelSerializer):
@@ -64,8 +81,10 @@ class JobListSerializer(serializers.ModelSerializer):
 
 
 class JobDetailSerializer(JobListSerializer):
+    related_courses = JobCourseSerializer(many=True, read_only=True)
+
     class Meta(JobListSerializer.Meta):
-        fields = JobListSerializer.Meta.fields + ['description', 'requirements']
+        fields = JobListSerializer.Meta.fields + ['description', 'requirements', 'related_courses']
 
 
 class MyApplicationWithJobSerializer(MyJobApplicationSerializer):

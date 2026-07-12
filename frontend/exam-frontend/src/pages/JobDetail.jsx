@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, Briefcase, MapPin, Building2, ExternalLink, Clock, Upload,
   Loader2, CheckCircle2, FileText, Send, XCircle, Flag, AlertTriangle,
+  Sparkles, ArrowRight,
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
 import { useAuthStore } from '../context/authStore'
@@ -17,6 +18,46 @@ const Meta = ({ icon: Icon, children }) => children ? (
     <Icon className="w-4 h-4 text-surface-400" /> {children}
   </span>
 ) : null
+
+const coursePrice = (c) => {
+  if (c.is_free || c.pricing_type !== 'paid') return { label: 'Free', original: null }
+  const cur = c.currency || 'INR'
+  const fmt = (n) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Number(n))
+  return {
+    label: `${cur} ${fmt(c.price)}`,
+    original: c.original_price && Number(c.original_price) > Number(c.price) ? `${cur} ${fmt(c.original_price)}` : null,
+    discount: c.discount_percent ? Math.round(c.discount_percent) : 0,
+  }
+}
+
+const CourseTile = ({ course, onOpen }) => {
+  const price = coursePrice(course)
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(course)}
+      className="text-left rounded-xl border border-surface-200 dark:border-surface-700 p-3 flex items-center gap-3 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all group bg-white dark:bg-surface-900"
+    >
+      {course.thumbnail || course.icon ? (
+        <img src={course.thumbnail || course.icon} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+      ) : (
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: course.color || '#3B82F6' }}>
+          {(course.name || '?').slice(0, 1).toUpperCase()}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{course.name}</p>
+        <p className="text-xs text-surface-500 truncate">{course.subtitle || course.course_type_display || 'Course'}</p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className="text-xs font-semibold text-surface-800 dark:text-surface-200">{price.label}</span>
+          {price.original && <span className="text-[11px] text-surface-400 line-through">{price.original}</span>}
+          {price.discount > 0 && <span className="text-[11px] font-semibold text-success-600 dark:text-success-400">{price.discount}% off</span>}
+        </div>
+      </div>
+      <ArrowRight className="w-4 h-4 text-surface-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+    </button>
+  )
+}
 
 const JobDetail = () => {
   const { jobId } = useParams()
@@ -215,6 +256,26 @@ const JobDetail = () => {
         <div className="card p-6">
           <h2 className="font-semibold text-lg mb-3">Requirements</h2>
           <JobContent content={job.requirements} />
+        </div>
+      )}
+
+      {/* Upskill — recommended courses */}
+      {job.related_courses?.length > 0 && (
+        <div className="card p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg">Boost your chances for this role</h2>
+              <p className="text-sm text-surface-500">Recommended courses to help you build the skills this {job.category === 'internship' ? 'internship' : 'role'} looks for.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {job.related_courses.map((c) => (
+              <CourseTile key={c.id} course={c} onOpen={(course) => navigate(`/courses/${course.id}`)} />
+            ))}
+          </div>
         </div>
       )}
 
