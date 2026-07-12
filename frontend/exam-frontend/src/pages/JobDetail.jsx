@@ -36,7 +36,7 @@ const CourseTile = ({ course, onOpen }) => {
     <button
       type="button"
       onClick={() => onOpen(course)}
-      className="text-left rounded-xl border border-surface-200 dark:border-surface-700 p-3 flex items-center gap-3 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all group bg-white dark:bg-surface-900"
+      className="text-left rounded-xl border border-surface-200 dark:border-surface-700 p-3 flex items-start gap-3 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all group bg-white dark:bg-surface-900"
     >
       {course.thumbnail || course.icon ? (
         <img src={course.thumbnail || course.icon} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
@@ -46,9 +46,9 @@ const CourseTile = ({ course, onOpen }) => {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">{course.name}</p>
-        <p className="text-xs text-surface-500 truncate">{course.subtitle || course.course_type_display || 'Course'}</p>
-        <div className="flex items-center gap-1.5 mt-1">
+        <p className="font-medium text-sm leading-snug line-clamp-2">{course.name}</p>
+        <p className="text-xs text-surface-500 leading-snug line-clamp-2 mt-0.5">{course.subtitle || course.course_type_display || 'Course'}</p>
+        <div className="flex items-center flex-wrap gap-1.5 mt-1.5">
           <span className="text-xs font-semibold text-surface-800 dark:text-surface-200">{price.label}</span>
           {price.original && <span className="text-[11px] text-surface-400 line-through">{price.original}</span>}
           {price.discount > 0 && <span className="text-[11px] font-semibold text-success-600 dark:text-success-400">{price.discount}% off</span>}
