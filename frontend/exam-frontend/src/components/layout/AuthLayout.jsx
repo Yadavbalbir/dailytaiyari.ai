@@ -31,15 +31,15 @@ const AuthLayout = () => {
                 <img
                   src={tenant.logo}
                   alt={`${tenantName} Logo`}
-                  className="w-14 h-14 rounded-2xl object-contain bg-white/20 backdrop-blur-sm p-1"
+                  className="w-14 h-14 shrink-0 rounded-2xl object-contain bg-white/20 backdrop-blur-sm p-1"
                 />
               ) : (
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <div className="w-14 h-14 shrink-0 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                   <span className="text-2xl font-bold">{tenantInitials}</span>
                 </div>
               )}
-              <div>
-                <h1 className="text-2xl font-display font-bold">{tenantName}</h1>
+              <div className="min-w-0">
+                <h1 title={tenantName} className="text-2xl font-display font-bold leading-tight break-words line-clamp-2">{tenantName}</h1>
                 <p className="text-white/70 text-sm">{tenant?.tagline || 'Ace Your Exams'}</p>
               </div>
             </div>

@@ -61,17 +61,17 @@ const Register = () => {
           <img
             src={tenant.logo}
             alt={`${tenant.name} Logo`}
-            className="w-12 h-12 rounded-xl object-contain bg-white dark:bg-surface-800 p-1"
+            className="w-12 h-12 shrink-0 rounded-xl object-contain bg-white dark:bg-surface-800 p-1"
           />
         ) : (
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
+          <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center">
             <span className="text-white text-xl font-bold">
               {tenant?.name ? tenant.name.substring(0, 2).toLowerCase() : 'dt'}
             </span>
           </div>
         )}
-        <div>
-          <h1 className="font-display font-bold text-xl gradient-text">
+        <div className="min-w-0">
+          <h1 title={tenant?.name || 'DailyTaiyari'} className="font-display font-bold text-xl gradient-text leading-tight break-words line-clamp-2">
             {tenant?.name || 'DailyTaiyari'}
           </h1>
           <p className="text-xs text-surface-500">{tenant?.tagline || 'Ace Your Exams'}</p>
