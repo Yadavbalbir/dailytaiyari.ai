@@ -10,11 +10,11 @@ import { useAuthStore } from '../../context/authStore'
 
 const MainLayout = () => {
   const { sidebarOpen, mobileMenuOpen } = useAppStore()
-  const { fetchProfile } = useAuthStore()
+  const { fetchProfile, isAuthenticated } = useAuthStore()
 
   useEffect(() => {
-    fetchProfile()
-  }, [])
+    if (isAuthenticated) fetchProfile()
+  }, [isAuthenticated])
 
   return (
     <div className="min-h-screen bg-surface-50 dark:bg-surface-950">

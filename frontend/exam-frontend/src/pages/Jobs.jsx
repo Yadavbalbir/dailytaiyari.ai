@@ -7,6 +7,7 @@ import {
   ArrowRight, ClipboardList, Search, SlidersHorizontal, X,
 } from 'lucide-react'
 import { jobService } from '../services/jobService'
+import { useAuthStore } from '../context/authStore'
 import {
   stageMeta, formatSalary, formatExperience, categoryMeta,
   CATEGORIES, WORK_MODES, EMPLOYMENT_TYPES,
@@ -127,6 +128,7 @@ const EMPTY_FILTERS = { category: [], job_type: [], work_mode: [], employment_ty
 
 const Jobs = () => {
   const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [tab, setTab] = useState('open')
   const [q, setQ] = useState('')
   const [filters, setFilters] = useState(EMPTY_FILTERS)
@@ -139,7 +141,7 @@ const Jobs = () => {
   const { data: mine = [], isLoading: mineLoading } = useQuery({
     queryKey: ['jobs', 'mine'],
     queryFn: () => jobService.myApplications(),
-    enabled: tab === 'mine',
+    enabled: tab === 'mine' && isAuthenticated,
   })
 
   const toggle = (key) => (value) =>
@@ -186,7 +188,13 @@ const Jobs = () => {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              if (t.id === 'mine' && !isAuthenticated) {
+                navigate('/login', { state: { from: '/jobs' } })
+                return
+              }
+              setTab(t.id)
+            }}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t.id
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400'

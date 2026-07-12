@@ -92,7 +92,7 @@ const CourseDetail = () => {
   const { courseId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user, profile } = useAuthStore()
+  const { user, profile, isAuthenticated } = useAuthStore()
   const role = user?.role || profile?.user?.role
   const isAdmin = role === 'admin'
 
@@ -116,6 +116,7 @@ const CourseDetail = () => {
   const { data: studyData = { courses: [], pending: [] } } = useQuery({
     queryKey: ['studyCourses'],
     queryFn: () => courseService.getStudyCourses(),
+    enabled: isAuthenticated,
   })
 
   const status = useMemo(() => {
@@ -125,6 +126,10 @@ const CourseDetail = () => {
   }, [studyData, courseId])
 
   const requestEnroll = async () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: `/courses/${courseId}` } })
+      return
+    }
     setRequesting(true)
     try {
       await courseService.requestEnrollment(courseId)
@@ -186,7 +191,13 @@ const CourseDetail = () => {
     return (
       <button onClick={requestEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
         <PlusCircle size={18} />
-        {requesting ? 'Sending…' : isFree ? 'Request enrollment · Free' : 'Request enrollment'}
+        {!isAuthenticated
+          ? 'Log in to enroll'
+          : requesting
+          ? 'Sending…'
+          : isFree
+          ? 'Request enrollment · Free'
+          : 'Request enrollment'}
       </button>
     )
   }
