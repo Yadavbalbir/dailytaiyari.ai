@@ -59,6 +59,10 @@ import {
     Wallet,
     Calendar,
     ShoppingCart,
+    UserPlus,
+    ArrowUpRight,
+    ArrowDownRight,
+    Minus,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -117,7 +121,31 @@ const roleBadgeClass = (role) =>
 /* ---------------------------------------------------------------------------
  * StatCard
  * ------------------------------------------------------------------------- */
-const StatCard = ({ title, value, icon: Icon, color, description }) => (
+const TrendBadge = ({ change }) => {
+    // change === null → growth from a zero baseline (no meaningful %)
+    if (change === null || change === undefined) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-surface-100 dark:bg-surface-800 text-surface-500">
+                New
+            </span>
+        )
+    }
+    const isUp = change > 0
+    const isDown = change < 0
+    const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus
+    const tone = isUp
+        ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+        : isDown
+            ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
+            : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${tone}`}>
+            <Icon className="w-3 h-3" />{Math.abs(change)}%
+        </span>
+    )
+}
+
+const StatCard = ({ title, value, icon: Icon, color, description, change }) => (
     <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -127,7 +155,10 @@ const StatCard = ({ title, value, icon: Icon, color, description }) => (
             <div className="min-w-0">
                 <p className="text-sm font-medium text-surface-500 mb-1 truncate">{title}</p>
                 <h3 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">{value}</h3>
-                {description && <p className="mt-2 text-xs sm:text-sm text-surface-500">{description}</p>}
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    {change !== undefined && <TrendBadge change={change} />}
+                    {description && <p className="text-xs sm:text-sm text-surface-500">{description}</p>}
+                </div>
             </div>
             <div className={`p-3 rounded-xl shrink-0 ${color}`}>
                 <Icon className="w-6 h-6 text-white" />
@@ -1727,13 +1758,72 @@ const SalesDashboard = () => {
 /* ---------------------------------------------------------------------------
  * Overview
  * ------------------------------------------------------------------------- */
-const Overview = ({ stats }) => (
+const RANGE_OPTIONS = [
+    { value: 7, label: '7 days' },
+    { value: 30, label: '30 days' },
+    { value: 90, label: '90 days' },
+]
+
+const Overview = ({ stats, range, onRangeChange }) => {
+    const growth = stats?.growth || {}
+    const rangeLabel = RANGE_OPTIONS.find((o) => o.value === range)?.label || `${range} days`
+    return (
     <div className="space-y-6 sm:space-y-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <StatCard title="Total Students" value={stats?.total_students || 0} icon={Users} color="bg-blue-500" description="Registered locally" />
             <StatCard title="Active Today" value={stats?.active_today || 0} icon={Zap} color="bg-amber-500" description="Student engagement" />
             <StatCard title="Avg. Accuracy" value={`${stats?.avg_accuracy || 0}%`} icon={CheckCircle2} color="bg-emerald-500" description="Target score performance" />
             <StatCard title="Total XP Distributed" value={stats?.total_xp?.toLocaleString() || 0} icon={TrendingUp} color="bg-purple-500" description="Collective progress" />
+        </div>
+
+        {/* Growth section --------------------------------------------------- */}
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Growth</h3>
+                    <p className="text-sm text-surface-500">Compared to the previous {rangeLabel}</p>
+                </div>
+                <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-100 dark:bg-surface-800">
+                    {RANGE_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => onRangeChange(opt.value)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                                range === opt.value
+                                    ? 'bg-white dark:bg-surface-700 text-primary-600 dark:text-primary-400 shadow-sm'
+                                    : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-200'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <StatCard
+                    title="New Signups"
+                    value={growth.new_signups || 0}
+                    icon={UserPlus}
+                    color="bg-indigo-500"
+                    change={growth.signup_change_pct}
+                    description={`${growth.prev_new_signups || 0} in prior period`}
+                />
+                <StatCard
+                    title={`Active (${rangeLabel})`}
+                    value={growth.active_in_period || 0}
+                    icon={Zap}
+                    color="bg-amber-500"
+                    change={growth.active_change_pct}
+                    description={`${growth.prev_active_in_period || 0} in prior period`}
+                />
+                <StatCard
+                    title="Total Students"
+                    value={stats?.total_students || 0}
+                    icon={Users}
+                    color="bg-blue-500"
+                    description={`Up from ${growth.total_students_start ?? 0} at period start`}
+                />
+            </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
@@ -1762,7 +1852,7 @@ const Overview = ({ stats }) => (
 
             <div className="card p-5 sm:p-6">
                 <h3 className="text-lg font-bold mb-6 flex items-center justify-between">
-                    <span>30-Day Student Activity</span>
+                    <span>{rangeLabel} Student Activity</span>
                     <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-surface-400 font-bold">
                         <div className="w-2 h-2 rounded-full bg-primary-500"></div> Active Users
                     </div>
@@ -1800,7 +1890,8 @@ const Overview = ({ stats }) => (
             </div>
         </div>
     </div>
-)
+    )
+}
 
 /* ---------------------------------------------------------------------------
  * TenantSettings — branding (logo) + feature toggles
@@ -2587,10 +2678,13 @@ const AdminDashboard = () => {
 
     const activeMeta = TABS.find((t) => t.id === activeTab) || TABS[0]
 
+    const [growthRange, setGrowthRange] = useState(30)
+
     const { data: stats, isLoading, error, isFetching } = useQuery({
-        queryKey: ['tenantAdminStats'],
-        queryFn: () => analyticsService.getTenantAdminStats(),
+        queryKey: ['tenantAdminStats', growthRange],
+        queryFn: () => analyticsService.getTenantAdminStats(growthRange),
         refetchInterval: 60000,
+        keepPreviousData: true,
     })
 
     useEffect(() => { window.scrollTo(0, 0) }, [activeTab])
@@ -2638,7 +2732,7 @@ const AdminDashboard = () => {
 
             <AnimatePresence mode="wait">
                 <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-                    {activeTab === 'overview' && <Overview stats={stats} />}
+                    {activeTab === 'overview' && <Overview stats={stats} range={growthRange} onRangeChange={setGrowthRange} />}
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'sales' && <SalesDashboard />}

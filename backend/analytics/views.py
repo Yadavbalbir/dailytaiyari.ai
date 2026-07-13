@@ -469,7 +469,12 @@ class TenantAdminStatsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        stats = AnalyticsService.get_tenant_admin_stats(request.tenant)
+        try:
+            period_days = int(request.query_params.get('days', 30))
+        except (TypeError, ValueError):
+            period_days = 30
+
+        stats = AnalyticsService.get_tenant_admin_stats(request.tenant, period_days=period_days)
         return Response(stats)
 
 
