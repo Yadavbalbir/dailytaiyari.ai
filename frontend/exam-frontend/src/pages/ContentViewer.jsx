@@ -213,10 +213,10 @@ const ContentViewer = () => {
       )}
 
       {/* Actions Footer */}
-      <div className="card p-4 sticky bottom-4 flex items-center justify-between bg-white/95 dark:bg-surface-900/95 backdrop-blur-sm">
+      <div className="card p-4 sticky bottom-20 lg:bottom-4 z-30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/95 dark:bg-surface-900/95 backdrop-blur-sm">
         <button
           onClick={() => navigate(-1)}
-          className="btn-secondary flex items-center gap-2"
+          className="btn-secondary flex items-center justify-center gap-2"
         >
           <ChevronLeft size={18} /> Back
         </button>
@@ -224,7 +224,7 @@ const ContentViewer = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/doubt-solver')}
-            className="btn-secondary flex items-center gap-2"
+            className="btn-secondary flex flex-1 sm:flex-none items-center justify-center gap-2 whitespace-nowrap"
           >
             <Bot size={18} /> Ask Doubt
           </button>
@@ -232,7 +232,7 @@ const ContentViewer = () => {
             <button
               onClick={() => markCompleteMutation.mutate()}
               disabled={markCompleteMutation.isPending}
-              className="btn-primary flex items-center gap-2"
+              className="btn-primary flex flex-1 sm:flex-none items-center justify-center gap-2 whitespace-nowrap"
             >
               {markCompleteMutation.isPending ? 'Saving...' : (
                 <>
@@ -242,7 +242,7 @@ const ContentViewer = () => {
               )}
             </button>
           ) : (
-            <span className="flex items-center gap-2 text-success-600 font-medium px-4 py-2">
+            <span className="flex flex-1 sm:flex-none items-center justify-center gap-2 text-success-600 font-medium px-4 py-2 whitespace-nowrap">
               <CheckCircle2 size={18} />
               {content?.content_type === 'video' ? 'Watched' : 'Read'}
             </span>
