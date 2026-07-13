@@ -177,6 +177,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     
     def to_internal_value(self, data):
+        # Copy immutable QueryDicts (multipart/form-data) so we can normalize values
+        if hasattr(data, '_mutable'):
+            data = data.copy()
         # Convert empty strings to None for nullable fields
         if 'date_of_birth' in data and data['date_of_birth'] == '':
             data['date_of_birth'] = None
