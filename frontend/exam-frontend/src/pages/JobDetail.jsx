@@ -66,6 +66,7 @@ const JobDetail = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [showApply, setShowApply] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const [showExternalConfirm, setShowExternalConfirm] = useState(false)
   const [reportForm, setReportForm] = useState({ reason: 'closed', note: '' })
   const [form, setForm] = useState({ cover_letter: '', phone: '', portfolio_url: '', linkedin_url: '' })
   const [resume, setResume] = useState(null)
@@ -100,11 +101,15 @@ const JobDetail = () => {
     onError: (e) => toast.error(e?.response?.data?.error || 'Could not submit application.'),
   })
 
+  const openExternal = () => {
+    if (job?.external_url) window.open(job.external_url, '_blank', 'noopener')
+  }
+
   const externalMutation = useMutation({
     mutationFn: () => jobService.applyExternal(jobId),
     onSuccess: (data) => {
-      toast.success(data?.message || "You'll complete your application on the external site.")
-      if (data?.external_url) window.open(data.external_url, '_blank', 'noopener')
+      toast.success(data?.message || 'Marked as applied externally. Track it under My Applications.')
+      setShowExternalConfirm(false)
       invalidate()
     },
     onError: (e) => toast.error(e?.response?.data?.error || 'Something went wrong.'),
@@ -232,14 +237,29 @@ const JobDetail = () => {
           ) : closed ? (
             <p className="text-sm text-surface-500">This position is no longer accepting applications.</p>
           ) : job.is_external ? (
-            <button
-              onClick={requireAuth(() => externalMutation.mutate())}
-              disabled={externalMutation.isPending}
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              {externalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-              {isAuthenticated ? 'Apply on external site' : 'Log in to apply'}
-            </button>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={requireAuth(openExternal)}
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  {isAuthenticated ? 'Apply on external site' : 'Log in to apply'}
+                </button>
+                {isAuthenticated && (
+                  <button
+                    onClick={() => setShowExternalConfirm(true)}
+                    className="btn-secondary inline-flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> I've applied
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-surface-500">
+                Applying happens on the external site. Once you've submitted your application there,
+                tap <span className="font-medium">"I've applied"</span> to track it under My Applications.
+              </p>
+            </div>
           ) : (
             <button onClick={requireAuth(() => setShowApply(true))} className="btn-primary inline-flex items-center gap-2">
               <Send className="w-4 h-4" /> {isAuthenticated ? 'Apply now' : 'Log in to apply'}
@@ -366,6 +386,42 @@ const JobDetail = () => {
               >
                 {reportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
                 Submit report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm "applied externally" modal */}
+      {showExternalConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowExternalConfirm(false)}>
+          <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle2 className="w-5 h-5 text-success-500" />
+              <h2 className="text-xl font-display font-bold">Mark as applied externally?</h2>
+            </div>
+            <p className="text-sm text-surface-500 mb-4">
+              Only confirm this if you've actually submitted your application on the external site for{' '}
+              <span className="font-medium text-surface-700 dark:text-surface-300">{job.title}</span>.
+              We'll add it to My Applications so you can keep track of it.
+            </p>
+            {job.external_url && (
+              <button
+                onClick={openExternal}
+                className="text-sm text-primary-600 dark:text-primary-400 hover:underline inline-flex items-center gap-1.5 mb-5"
+              >
+                <ExternalLink className="w-4 h-4" /> Reopen the external application
+              </button>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={() => setShowExternalConfirm(false)} className="btn-secondary">Not yet</button>
+              <button
+                onClick={() => externalMutation.mutate()}
+                disabled={externalMutation.isPending}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                {externalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Yes, I've applied
               </button>
             </div>
           </div>
