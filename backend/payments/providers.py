@@ -140,6 +140,29 @@ class RazorpayClient:
                 return True, pay.get('id', '')
         return False, ''
 
+    def refund(self, order, amount=None):
+        """Refund a captured payment. Returns ``(refund_id, raw_response)``.
+
+        ``amount`` is a Decimal in major units; ``None`` refunds the full amount.
+        """
+        payment_id = order.provider_payment_id
+        if not payment_id:
+            raise PaymentError('Razorpay payment id is missing; cannot refund.')
+        payload = {}
+        if amount is not None:
+            payload['amount'] = int(round(float(amount) * 100))
+        try:
+            resp = requests.post(
+                f'{self.BASE}/payments/{payment_id}/refund',
+                json=payload, auth=self._auth(), timeout=TIMEOUT,
+            )
+        except requests.RequestException as exc:
+            raise PaymentError(f'Razorpay refund failed: {exc}') from exc
+        if resp.status_code >= 300:
+            raise PaymentError(f'Razorpay refund error: {resp.text}')
+        data = resp.json()
+        return data.get('id', ''), data
+
 
 # ---------------------------------------------------------------------------
 # Cashfree
@@ -252,6 +275,30 @@ class CashfreeClient:
         if data.get('order_status') == 'PAID':
             return True, ''
         return False, ''
+
+    def refund(self, order, amount=None):
+        """Refund a Cashfree order. Returns ``(refund_id, raw_response)``."""
+        order_id = order.provider_order_id
+        if not order_id:
+            raise PaymentError('Cashfree order id is missing; cannot refund.')
+        refund_id = f'rfnd_{str(order.id).replace("-", "")[:20]}'
+        amount_val = float(round(float(amount if amount is not None else order.amount), 2))
+        payload = {
+            'refund_amount': amount_val,
+            'refund_id': refund_id,
+            'refund_note': (order.refund_reason or 'Admin refund')[:200],
+        }
+        try:
+            resp = requests.post(
+                f'{self.base}/orders/{order_id}/refunds',
+                json=payload, headers=self._headers(), timeout=TIMEOUT,
+            )
+        except requests.RequestException as exc:
+            raise PaymentError(f'Cashfree refund failed: {exc}') from exc
+        if resp.status_code >= 300:
+            raise PaymentError(f'Cashfree refund error: {resp.text}')
+        data = resp.json()
+        return str(data.get('cf_refund_id', refund_id) or refund_id), data
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +475,41 @@ class PayUClient:
         if (details.get('status') or '').lower() == 'success':
             return True, str(details.get('mihpayid', '') or '')
         return False, ''
+
+    def refund(self, order, amount=None):
+        """Refund a PayU transaction via ``cancel_refund_transaction``.
+
+        Returns ``(refund_request_id, raw_response)``. Uses the stored
+        ``mihpayid`` (provider payment id) and a unique refund token.
+        """
+        mihpayid = order.provider_payment_id
+        if not mihpayid:
+            raise PaymentError('PayU payment id (mihpayid) is missing; cannot refund.')
+        command = 'cancel_refund_transaction'
+        token = str(order.id).replace('-', '')[:25]
+        amount_str = f'{float(amount if amount is not None else order.amount):.2f}'
+        hash_str = '|'.join([self.key, command, mihpayid, self.salt])
+        data = {
+            'key': self.key,
+            'command': command,
+            'var1': mihpayid,
+            'var2': token,
+            'var3': amount_str,
+            'hash': self._sha512(hash_str),
+        }
+        try:
+            resp = requests.post(self.verify_url, data=data, timeout=TIMEOUT)
+        except requests.RequestException as exc:
+            raise PaymentError(f'PayU refund failed: {exc}') from exc
+        if resp.status_code >= 300:
+            raise PaymentError(f'PayU refund error: {resp.text}')
+        try:
+            body = resp.json()
+        except ValueError as exc:
+            raise PaymentError('PayU returned a non-JSON refund response') from exc
+        if str(body.get('status')) not in ('1', 'success', 'True'):
+            raise PaymentError(f'PayU refund rejected: {body.get("msg") or body}')
+        return str(body.get('request_id', token) or token), body
 
 
 def get_client(gateway):

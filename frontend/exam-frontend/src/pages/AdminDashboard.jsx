@@ -52,6 +52,13 @@ import {
     KeyRound,
     Trash2,
     ShieldCheck,
+    IndianRupee,
+    Receipt,
+    Undo2,
+    Ban,
+    Wallet,
+    Calendar,
+    ShoppingCart,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -1375,6 +1382,352 @@ const EnrollmentRequests = () => {
 }
 
 /* ---------------------------------------------------------------------------
+ * SalesDashboard — orders, revenue summary, refunds & access control
+ * ------------------------------------------------------------------------- */
+const ORDER_STATUS_META = {
+    paid: { label: 'Paid', cls: 'bg-green-100 dark:bg-green-900/30 text-green-600' },
+    refunded: { label: 'Refunded', cls: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' },
+    failed: { label: 'Failed', cls: 'bg-red-100 dark:bg-red-900/30 text-red-600' },
+    created: { label: 'Pending', cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' },
+    cancelled: { label: 'Cancelled', cls: 'bg-surface-200 dark:bg-surface-700 text-surface-500' },
+}
+const PROVIDER_LABEL = { razorpay: 'Razorpay', cashfree: 'Cashfree', payu: 'PayU' }
+const RANGE_PRESETS = [
+    { id: 'all', label: 'All time' },
+    { id: 'week', label: 'Last 7 days' },
+    { id: 'month', label: 'Last 30 days' },
+    { id: 'custom', label: 'Custom' },
+]
+
+const toISODate = (d) => {
+    const tz = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    return tz.toISOString().slice(0, 10)
+}
+const rangeToDates = (range, from, to) => {
+    if (range === 'custom') {
+        const out = {}
+        if (from) out.date_from = from
+        if (to) out.date_to = to
+        return out
+    }
+    if (range === 'week' || range === 'month') {
+        const now = new Date()
+        const start = new Date()
+        start.setDate(now.getDate() - (range === 'week' ? 6 : 29))
+        return { date_from: toISODate(start), date_to: toISODate(now) }
+    }
+    return {}
+}
+const fmtMoney = (amount, currency = 'INR') => {
+    const n = Number(amount || 0)
+    try {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency', currency: currency || 'INR', maximumFractionDigits: 2,
+        }).format(n)
+    } catch {
+        return `₹${n.toLocaleString('en-IN')}`
+    }
+}
+const fmtDateTime = (s) => {
+    if (!s) return '—'
+    const d = new Date(s)
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+        ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const SalesSummaryCard = ({ icon: Icon, label, value, sub, color }) => (
+    <div className="card p-5 flex items-start gap-4">
+        <div className={`p-3 rounded-xl ${color}`}><Icon className="w-5 h-5 text-white" /></div>
+        <div className="min-w-0">
+            <p className="text-sm text-surface-500">{label}</p>
+            <p className="text-xl sm:text-2xl font-bold text-surface-900 dark:text-white truncate">{value}</p>
+            {sub && <p className="text-xs text-surface-400 mt-0.5">{sub}</p>}
+        </div>
+    </div>
+)
+
+const SalesDashboard = () => {
+    const queryClient = useQueryClient()
+    const [range, setRange] = useState('all')
+    const [customFrom, setCustomFrom] = useState('')
+    const [customTo, setCustomTo] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [providerFilter, setProviderFilter] = useState('all')
+    const [courseFilter, setCourseFilter] = useState('all')
+    const [search, setSearch] = useState('')
+    const [busyId, setBusyId] = useState(null)
+
+    const params = useMemo(() => {
+        const p = { ...rangeToDates(range, customFrom, customTo) }
+        if (statusFilter !== 'all') p.status = statusFilter
+        if (providerFilter !== 'all') p.provider = providerFilter
+        if (courseFilter !== 'all') p.course = courseFilter
+        const s = search.trim()
+        if (s) p.search = s
+        return p
+    }, [range, customFrom, customTo, statusFilter, providerFilter, courseFilter, search])
+
+    const { data: ordersData, isLoading } = useQuery({
+        queryKey: ['salesOrders', params],
+        queryFn: () => tenantAdminService.getSalesOrders(params),
+        keepPreviousData: true,
+    })
+    const { data: summary } = useQuery({
+        queryKey: ['salesSummary', params],
+        queryFn: () => tenantAdminService.getSalesSummary(params),
+        keepPreviousData: true,
+    })
+    const { data: coursesRaw } = useQuery({
+        queryKey: ['salesCourseOptions'],
+        queryFn: () => courseService.getCourses(),
+        staleTime: 5 * 60 * 1000,
+    })
+
+    const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.results || [])
+    const totalCount = ordersData?.count ?? orders.length
+    const courseOptions = useMemo(() => {
+        const list = Array.isArray(coursesRaw) ? coursesRaw : (coursesRaw?.results || [])
+        return list.map((c) => ({ id: c.id, name: c.name || c.title || c.code }))
+    }, [coursesRaw])
+
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ['salesOrders'] }) &&
+        queryClient.invalidateQueries({ queryKey: ['salesSummary'] })
+    const invalidateAll = () => {
+        queryClient.invalidateQueries({ queryKey: ['salesOrders'] })
+        queryClient.invalidateQueries({ queryKey: ['salesSummary'] })
+    }
+
+    const doRefund = async (order) => {
+        if (!window.confirm(`Refund ${fmtMoney(order.amount, order.currency)} to ${order.student_email}? This calls ${PROVIDER_LABEL[order.provider] || order.provider} and revokes course access.`)) return
+        const reason = window.prompt('Refund reason (optional):', '') ?? ''
+        setBusyId(order.id)
+        try {
+            await tenantAdminService.refundOrder(order.id, { reason })
+            invalidateAll()
+            toast.success('Refund processed and access revoked')
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || 'Refund failed')
+        } finally { setBusyId(null) }
+    }
+    const doRevoke = async (order) => {
+        if (!window.confirm(`Revoke ${order.student_email}'s access to ${order.course_name}?`)) return
+        const reason = window.prompt('Reason (optional):', '') ?? ''
+        setBusyId(order.id)
+        try {
+            await tenantAdminService.revokeOrderAccess(order.id, reason)
+            invalidateAll()
+            toast.success('Course access revoked')
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || 'Failed to revoke access')
+        } finally { setBusyId(null) }
+    }
+    const doRestore = async (order) => {
+        setBusyId(order.id)
+        try {
+            await tenantAdminService.restoreOrderAccess(order.id)
+            invalidateAll()
+            toast.success('Course access restored')
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || 'Failed to restore access')
+        } finally { setBusyId(null) }
+    }
+
+    const clearFilters = () => {
+        setStatusFilter('all'); setProviderFilter('all'); setCourseFilter('all')
+        setSearch(''); setRange('all'); setCustomFrom(''); setCustomTo('')
+    }
+    const counts = summary?.counts || {}
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5 text-primary-500" /> Sales & Orders
+                </h2>
+                <div className="flex items-center gap-2">
+                    <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg">
+                        {RANGE_PRESETS.map((r) => (
+                            <button key={r.id} onClick={() => setRange(r.id)} className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${range === r.id ? 'bg-white dark:bg-surface-700 text-primary-600 shadow-sm' : 'text-surface-500'}`}>
+                                {r.label}
+                            </button>
+                        ))}
+                    </div>
+                    <button onClick={refresh} className="p-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-600 hover:text-surface-900" title="Refresh">
+                        <RefreshCw className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+
+            {range === 'custom' && (
+                <div className="flex flex-wrap items-end gap-3 card p-4">
+                    <div>
+                        <label className="block text-xs text-surface-500 mb-1">From</label>
+                        <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="px-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-surface-500 mb-1">To</label>
+                        <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="px-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm" />
+                    </div>
+                    <Calendar className="w-4 h-4 text-surface-400 mb-3" />
+                </div>
+            )}
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <SalesSummaryCard icon={IndianRupee} color="bg-emerald-500" label="Total sales" value={fmtMoney(summary?.total_sales, summary?.currency)} sub={`${counts.paid || 0} paid orders`} />
+                <SalesSummaryCard icon={Receipt} color="bg-blue-500" label="Total orders" value={counts.total_orders ?? totalCount ?? 0} sub={`${counts.failed || 0} failed · ${counts.created || 0} pending`} />
+                <SalesSummaryCard icon={Undo2} color="bg-purple-500" label="Refunded" value={fmtMoney(summary?.refunded_total, summary?.currency)} sub={`${counts.refunded || 0} refunds`} />
+                <SalesSummaryCard icon={Wallet} color="bg-primary-500" label="Net revenue" value={fmtMoney(summary?.total_sales, summary?.currency)} sub="After refunds" />
+            </div>
+
+            {/* Per-course sales breakdown */}
+            {summary?.by_course?.length > 0 && (
+                <div className="card p-5">
+                    <h3 className="text-sm font-bold text-surface-700 dark:text-surface-200 mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-primary-500" /> Sales by course
+                    </h3>
+                    <div className="space-y-3">
+                        {summary.by_course.map((c) => {
+                            const max = summary.by_course[0]?.amount || 1
+                            const pct = Math.max(4, Math.round((Number(c.amount) / Number(max)) * 100))
+                            return (
+                                <div key={c.course_id}>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="font-medium text-surface-700 dark:text-surface-200 truncate pr-2">{c.course_name} <span className="text-xs text-surface-400">{c.course_code}</span></span>
+                                        <span className="text-surface-500 whitespace-nowrap">{fmtMoney(c.amount, summary.currency)} · {c.count}</span>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
+                                        <div className="h-full rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative sm:col-span-2 lg:col-span-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search student / order id" className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500" />
+                </div>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="all">All statuses</option>
+                    <option value="paid">Paid</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="failed">Failed</option>
+                    <option value="created">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} className="px-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="all">All providers</option>
+                    <option value="razorpay">Razorpay</option>
+                    <option value="cashfree">Cashfree</option>
+                    <option value="payu">PayU</option>
+                </select>
+                <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} className="px-3 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border-none text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="all">All courses</option>
+                    {courseOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            </div>
+
+            {/* Orders table */}
+            {isLoading ? (
+                <p className="text-surface-500">Loading orders…</p>
+            ) : orders.length === 0 ? (
+                <div className="card p-10 text-center text-surface-500">
+                    <Receipt className="w-10 h-10 mx-auto mb-3 text-surface-300" />
+                    No orders match your filters.
+                    <div className="mt-3"><button onClick={clearFilters} className="text-sm text-primary-600 hover:underline">Clear filters</button></div>
+                </div>
+            ) : (
+                <div className="card overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-surface-50 dark:bg-surface-800 text-xs uppercase text-surface-500">
+                                <tr>
+                                    <th className="px-4 py-3">Order</th>
+                                    <th className="px-4 py-3">Student</th>
+                                    <th className="px-4 py-3">Course</th>
+                                    <th className="px-4 py-3 text-right">Amount</th>
+                                    <th className="px-4 py-3">Provider</th>
+                                    <th className="px-4 py-3">Status</th>
+                                    <th className="px-4 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-surface-100 dark:divide-surface-700">
+                                {orders.map((o) => {
+                                    const meta = ORDER_STATUS_META[o.status] || ORDER_STATUS_META.created
+                                    const accessActive = o.enrollment_active
+                                    return (
+                                        <tr key={o.id} className="align-top">
+                                            <td className="px-4 py-3">
+                                                <p className="text-xs font-mono text-surface-500">{o.provider_order_id || String(o.id).slice(0, 8)}</p>
+                                                <p className="text-xs text-surface-400">{fmtDateTime(o.created_at)}</p>
+                                                {o.is_test_mode && <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-600">TEST</span>}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <p className="font-medium">{o.student_name || '—'}</p>
+                                                <p className="text-xs text-surface-500">{o.student_email}</p>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">{o.course_name} <span className="text-xs text-surface-400">{o.course_code}</span></td>
+                                            <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
+                                                {fmtMoney(o.amount, o.currency)}
+                                                {o.status === 'refunded' && o.refund_amount != null && (
+                                                    <p className="text-[11px] font-normal text-purple-500">-{fmtMoney(o.refund_amount, o.currency)} refunded</p>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm">{PROVIDER_LABEL[o.provider] || o.provider}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${meta.cls}`}>{meta.label}</span>
+                                                {o.enrollment_status && (
+                                                    <p className={`mt-1 text-[11px] ${accessActive ? 'text-green-600' : 'text-surface-400'}`}>
+                                                        {accessActive ? 'Access active' : 'No access'}
+                                                    </p>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-2 flex-wrap">
+                                                    {o.status === 'paid' && (
+                                                        <button onClick={() => doRefund(o)} disabled={busyId === o.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-500 text-white text-xs font-semibold hover:bg-purple-600 disabled:opacity-50">
+                                                            <Undo2 size={13} /> Refund
+                                                        </button>
+                                                    )}
+                                                    {accessActive && (
+                                                        <button onClick={() => doRevoke(o)} disabled={busyId === o.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-50">
+                                                            <Ban size={13} /> Revoke
+                                                        </button>
+                                                    )}
+                                                    {o.enrollment_status && accessActive === false && (
+                                                        <button onClick={() => doRestore(o)} disabled={busyId === o.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-200 dark:bg-surface-700 text-surface-700 dark:text-surface-200 text-xs font-semibold hover:bg-surface-300 disabled:opacity-50">
+                                                            <RotateCcw size={13} /> Restore
+                                                        </button>
+                                                    )}
+                                                    {o.status !== 'paid' && !o.enrollment_status && (
+                                                        <span className="text-xs text-surface-400">—</span>
+                                                    )}
+                                                </div>
+                                                {o.status === 'refunded' && o.refund_reason && (
+                                                    <p className="text-[11px] text-surface-400 mt-1 text-right max-w-[180px] ml-auto truncate" title={o.refund_reason}>{o.refund_reason}</p>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="px-4 py-3 text-xs text-surface-500 border-t border-surface-100 dark:border-surface-800">
+                        Showing {orders.length} of {totalCount} orders
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/* ---------------------------------------------------------------------------
  * Overview
  * ------------------------------------------------------------------------- */
 const Overview = ({ stats }) => (
@@ -2224,6 +2577,7 @@ const TABS = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'students', label: 'Student Records', icon: Users },
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
+    { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
     { id: 'content', label: 'Content Builder', icon: Library },
     { id: 'settings', label: 'Settings', icon: SlidersIcon },
@@ -2290,6 +2644,7 @@ const AdminDashboard = () => {
                     {activeTab === 'overview' && <Overview stats={stats} />}
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
+                    {activeTab === 'sales' && <SalesDashboard />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
                     {activeTab === 'settings' && <TenantSettings />}

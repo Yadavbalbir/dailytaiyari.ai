@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Shield,
   Briefcase,
+  ShoppingCart,
 } from 'lucide-react'
 
 // Admin navigation sections. `tab` items drive the in-page section shown by
@@ -21,6 +22,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'overview', label: 'Overview', icon: TrendingUp },
   { tab: 'students', label: 'Student Records', icon: Users },
   { tab: 'enrollments', label: 'Enrollments', icon: GraduationCap },
+  { tab: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
   { tab: 'performance', label: 'Reports', icon: BarChart3 },
   { tab: 'content', label: 'Content Builder', icon: Library },
   { path: '/admin/mock-tests', label: 'Mock Tests', icon: ClipboardList },

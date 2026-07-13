@@ -101,6 +101,36 @@ export const tenantAdminService = {
         return response.data
     },
 
+    // Sales dashboard — payment orders, summary aggregates, refunds & access.
+    getSalesOrders: async (params = {}) => {
+        const response = await api.get('/payments/admin/sales/orders/', {
+            params: { page_size: 100, ...params },
+        })
+        return response.data
+    },
+
+    getSalesSummary: async (params = {}) => {
+        const response = await api.get('/payments/admin/sales/summary/', { params })
+        return response.data
+    },
+
+    refundOrder: async (id, { reason = '', amount } = {}) => {
+        const payload = { reason }
+        if (amount !== undefined && amount !== null && amount !== '') payload.amount = amount
+        const response = await api.post(`/payments/admin/sales/orders/${id}/refund/`, payload)
+        return response.data
+    },
+
+    revokeOrderAccess: async (id, reason = '') => {
+        const response = await api.post(`/payments/admin/sales/orders/${id}/revoke/`, { reason })
+        return response.data
+    },
+
+    restoreOrderAccess: async (id) => {
+        const response = await api.post(`/payments/admin/sales/orders/${id}/revoke/`, { restore: true })
+        return response.data
+    },
+
     updateLogo: async (file) => {
         const formData = new FormData()
         formData.append('logo', file)

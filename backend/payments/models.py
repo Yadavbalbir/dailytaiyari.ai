@@ -15,11 +15,13 @@ class PaymentOrder(models.Model):
     STATUS_PAID = 'paid'
     STATUS_FAILED = 'failed'
     STATUS_CANCELLED = 'cancelled'
+    STATUS_REFUNDED = 'refunded'
     STATUS_CHOICES = [
         (STATUS_CREATED, 'Created'),
         (STATUS_PAID, 'Paid'),
         (STATUS_FAILED, 'Failed'),
         (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_REFUNDED, 'Refunded'),
     ]
 
     PROVIDER_CHOICES = [
@@ -56,6 +58,18 @@ class PaymentOrder(models.Model):
     )
     is_test_mode = models.BooleanField(default=True)
 
+    # --- Refund tracking (set when an admin refunds a paid order) ---
+    provider_refund_id = models.CharField(max_length=255, blank=True, default='')
+    refund_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    refund_reason = models.CharField(max_length=255, blank=True, default='')
+    refunded_at = models.DateTimeField(null=True, blank=True)
+    refunded_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='refunded_payment_orders'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -74,3 +88,7 @@ class PaymentOrder(models.Model):
     @property
     def is_paid(self):
         return self.status == self.STATUS_PAID
+
+    @property
+    def is_refunded(self):
+        return self.status == self.STATUS_REFUNDED
