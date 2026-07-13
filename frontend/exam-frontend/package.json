@@ -5,7 +5,7 @@
   "description": "DailyTaiyari - India's Premier Exam Preparation Platform",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/inject-meta.mjs",
     "preview": "vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
