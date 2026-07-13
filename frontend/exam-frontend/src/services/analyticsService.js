@@ -109,8 +109,10 @@ export const analyticsService = {
   },
 
   // Tenant Admin Stats
-  getTenantAdminStats: async () => {
-    const response = await api.get('/analytics/tenant-admin-stats/')
+  getTenantAdminStats: async (days = 30) => {
+    const response = await api.get('/analytics/tenant-admin-stats/', {
+      params: { days },
+    })
     return response.data
   },
 

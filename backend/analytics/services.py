@@ -373,17 +373,73 @@ class AnalyticsService:
         return report
 
     @staticmethod
-    def get_tenant_admin_stats(tenant):
+    def get_tenant_admin_stats(tenant, period_days=30):
         """
         Get aggregated statistics for all students in a tenant.
+
+        ``period_days`` controls the growth window (e.g. 7, 30, 90) used for
+        new-signup counts, active-user counts and the activity trend chart.
+        Growth metrics compare the selected window against the immediately
+        preceding window of the same length.
         """
         from users.models import StudentProfile
         from django.db.models import Count, Avg, Sum
-        
+
+        # Sanitise the requested window.
+        try:
+            period_days = int(period_days)
+        except (TypeError, ValueError):
+            period_days = 30
+        period_days = max(1, min(period_days, 365))
+
+        now = timezone.now()
+        today = now.date()
+        window_start = now - timedelta(days=period_days)
+        prev_window_start = now - timedelta(days=period_days * 2)
+
+        def _pct_change(current, previous):
+            """Percent change vs previous period (None when no baseline)."""
+            if previous:
+                return round(((current - previous) / previous) * 100, 1)
+            if current:
+                return None  # growth from zero baseline is undefined
+            return 0.0
+
         # Base queryset for students in this tenant
         students = StudentProfile.objects.filter(user__tenant=tenant)
         total_students = students.count()
-        
+
+        # New signups within the selected window vs the previous window.
+        new_signups = students.filter(user__date_joined__gte=window_start).count()
+        prev_new_signups = students.filter(
+            user__date_joined__gte=prev_window_start,
+            user__date_joined__lt=window_start,
+        ).count()
+        signup_change_pct = _pct_change(new_signups, prev_new_signups)
+
+        # Active students within the selected window vs the previous window.
+        active_in_period = DailyActivity.objects.filter(
+            student__user__tenant=tenant,
+            date__gte=window_start.date(),
+        ).values('student').distinct().count()
+        prev_active_in_period = DailyActivity.objects.filter(
+            student__user__tenant=tenant,
+            date__gte=prev_window_start.date(),
+            date__lt=window_start.date(),
+        ).values('student').distinct().count()
+        active_change_pct = _pct_change(active_in_period, prev_active_in_period)
+
+        growth = {
+            'period_days': period_days,
+            'new_signups': new_signups,
+            'prev_new_signups': prev_new_signups,
+            'signup_change_pct': signup_change_pct,
+            'active_in_period': active_in_period,
+            'prev_active_in_period': prev_active_in_period,
+            'active_change_pct': active_change_pct,
+            'total_students_start': max(total_students - new_signups, 0),
+        }
+
         if total_students == 0:
             return {
                 'total_students': 0,
@@ -391,11 +447,11 @@ class AnalyticsService:
                 'avg_accuracy': 0,
                 'total_xp': 0,
                 'level_distribution': {},
-                'activity_trend': []
+                'activity_trend': [],
+                'growth': growth,
             }
 
         # Active today (activity in last 24h)
-        today = timezone.now().date()
         active_today = DailyActivity.objects.filter(
             student__user__tenant=tenant,
             date=today
@@ -415,11 +471,11 @@ class AnalyticsService:
         level_dist = students.values('current_level').annotate(count=Count('id')).order_by('current_level')
         level_distribution = {str(item['current_level']): item['count'] for item in level_dist}
 
-        # Activity trend (last 30 days)
-        thirty_days_ago = today - timedelta(days=30)
+        # Activity trend (over the selected window)
+        trend_start = window_start.date()
         trend_data = DailyActivity.objects.filter(
             student__user__tenant=tenant,
-            date__gte=thirty_days_ago
+            date__gte=trend_start
         ).values('date').annotate(
             active_users=Count('student', distinct=True),
             total_questions=Sum('questions_attempted'),
@@ -442,7 +498,8 @@ class AnalyticsService:
             'avg_accuracy': round(avg_accuracy, 2),
             'total_xp': total_xp,
             'level_distribution': level_distribution,
-            'activity_trend': activity_trend
+            'activity_trend': activity_trend,
+            'growth': growth,
         }
 
     @staticmethod
