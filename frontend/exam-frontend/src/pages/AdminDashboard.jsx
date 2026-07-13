@@ -1540,10 +1540,7 @@ const SalesDashboard = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                    <ShoppingCart className="w-5 h-5 text-primary-500" /> Sales & Orders
-                </h2>
+            <div className="flex flex-wrap items-center justify-end gap-3">
                 <div className="flex items-center gap-2">
                     <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg">
                         {RANGE_PRESETS.map((r) => (
