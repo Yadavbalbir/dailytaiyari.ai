@@ -829,7 +829,7 @@ const InstructorsModal = ({ course, onClose, onSaved }) => {
     const saveMutation = useMutation({
         mutationFn: () => svc.updateExam(course.id, { instructors: Array.from(selected) }),
         onSuccess: () => {
-            toast.success('Instructors updated')
+            toast.success('Faculty updated')
             onSaved?.()
             onClose()
         },
@@ -854,8 +854,8 @@ const InstructorsModal = ({ course, onClose, onSaved }) => {
             >
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
                     <div className="min-w-0">
-                        <h3 className="text-lg font-bold truncate">Assign instructors</h3>
-                        <p className="text-xs text-surface-500">Instructors can edit this course's content but can't manage instructors.</p>
+                        <h3 className="text-lg font-bold truncate">Assign faculty</h3>
+                        <p className="text-xs text-surface-500">Faculty can edit this course's content but can't manage faculty.</p>
                     </div>
                     <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
                 </div>
@@ -866,8 +866,8 @@ const InstructorsModal = ({ course, onClose, onSaved }) => {
                     ) : instructors.length === 0 ? (
                         <div className="text-center py-8 text-surface-500 text-sm">
                             <Users className="w-8 h-8 mx-auto mb-2 text-surface-300" />
-                            <p>No instructors yet.</p>
-                            <p className="text-xs mt-1">Set a user's role to "Instructor" in the admin dashboard first.</p>
+                            <p>No faculty yet.</p>
+                            <p className="text-xs mt-1">Set a user's role to "Faculty" in the admin dashboard first.</p>
                         </div>
                     ) : (
                         instructors.map((ins) => {
@@ -1106,7 +1106,7 @@ const CourseManager = () => {
                     )}
                     {course && isAdmin && (
                         <button onClick={() => setInstructorsOpen(true)} className="btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex">
-                            <Users className="w-3.5 h-3.5" /> Instructors
+                            <Users className="w-3.5 h-3.5" /> Faculty
                         </button>
                     )}
                     {course && (

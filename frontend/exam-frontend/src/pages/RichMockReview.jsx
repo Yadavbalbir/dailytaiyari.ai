@@ -163,7 +163,7 @@ function ReviewCard({ q, index }) {
 
       {q.feedback && (
         <div className="mt-2 text-sm rounded-lg bg-primary-50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-900/30 p-3">
-          <span className="font-medium text-primary-700 dark:text-primary-300">Instructor feedback: </span>{q.feedback}
+          <span className="font-medium text-primary-700 dark:text-primary-300">Faculty feedback: </span>{q.feedback}
         </div>
       )}
       {q.explanation && (

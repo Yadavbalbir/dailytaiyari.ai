@@ -19,7 +19,7 @@ export const faqs: Faq[] = [
   },
   {
     q: "Can we manage multiple batches and teachers?",
-    a: "Yes. Create multiple exams and batches, and give admins, instructors and students their own roles and access so your whole team works in one place.",
+    a: "Yes. Create multiple exams and batches, and give admins, faculty and students their own roles and access so your whole team works in one place.",
   },
   {
     q: "How do students and teachers track progress?",

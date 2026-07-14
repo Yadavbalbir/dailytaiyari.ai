@@ -107,7 +107,7 @@ const STUDY_TIME_OPTIONS = [
 
 const ROLE_OPTIONS = [
     { value: 'student', label: 'Student' },
-    { value: 'instructor', label: 'Instructor' },
+    { value: 'instructor', label: 'Faculty' },
     { value: 'admin', label: 'Admin' },
 ]
 
@@ -661,7 +661,7 @@ const StudentManagement = () => {
                         <select className="input py-2.5" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                             <option value="all">All Roles</option>
                             <option value="student">Student</option>
-                            <option value="instructor">Instructor</option>
+                            <option value="instructor">Faculty</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
