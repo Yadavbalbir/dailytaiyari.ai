@@ -1357,7 +1357,7 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
             base['message'] = (
                 'Your attempt is awaiting grading.'
                 if attempt.grading_status == 'pending_manual'
-                else 'Results will be released by your instructor.'
+                else 'Results will be released by your faculty.'
             )
             return Response(base)
 

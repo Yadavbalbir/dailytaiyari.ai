@@ -869,7 +869,7 @@ export default function ProductTour() {
             points={[
               "One-click enrollment approvals and student management",
               "Review submissions and moderate community posts",
-              "Role-based access for admins, instructors and staff",
+              "Role-based access for admins, faculty and staff",
             ]}
             preview={<ManagementPreview />}
           />
@@ -878,7 +878,7 @@ export default function ProductTour() {
         {/* trust strip */}
         <Reveal>
           <div className="mt-20 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-surface-500">
-            <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary-500" /> Course catalog with thumbnails &amp; named instructors</span>
+            <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary-500" /> Course catalog with thumbnails &amp; named faculty</span>
             <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-success-500" /> Secure, email-verified student onboarding</span>
             <span className="flex items-center gap-2"><Bookmark className="w-4 h-4 text-accent-500" /> Enroll on request with admin approval</span>
           </div>

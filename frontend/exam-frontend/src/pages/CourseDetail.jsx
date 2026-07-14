@@ -220,7 +220,7 @@ const CourseDetail = () => {
   const tabs = [
     { key: 'overview', label: 'Overview' },
     { key: 'curriculum', label: 'Curriculum' },
-    ...(instructors.length ? [{ key: 'instructors', label: 'Instructors' }] : []),
+    ...(instructors.length ? [{ key: 'instructors', label: 'Faculty' }] : []),
   ]
 
   const enrollMode = course.enroll_mode || 'request'
@@ -463,7 +463,7 @@ const CourseDetail = () => {
                   </span>
                   <div className="min-w-0">
                     <h3 className="font-semibold truncate">{ins.name}</h3>
-                    <p className="text-xs text-surface-400">Instructor</p>
+                    <p className="text-xs text-surface-400">Faculty</p>
                   </div>
                 </div>
               ))}

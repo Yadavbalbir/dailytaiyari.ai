@@ -14,7 +14,7 @@ const InstructorLine = ({ instructors = [] }) => {
   if (!instructors.length) return null
   const shown = instructors.slice(0, 2)
   const extra = instructors.slice(2)
-  const label = instructors.length > 1 ? 'Instructors' : 'Instructor'
+  const label = 'Faculty'
   return (
     <div className="flex items-center gap-1.5 mt-2 text-xs min-w-0">
       <span className="inline-flex items-center gap-1 shrink-0 text-primary-600 dark:text-primary-400 font-semibold uppercase tracking-wide text-[10px]">
@@ -161,7 +161,7 @@ const Courses = () => {
           </div>
           {manageable.length === 0 ? (
             <div className="card p-6 text-center text-surface-500">
-              <p>You haven't been assigned to any courses yet. Ask an admin to add you as an instructor.</p>
+              <p>You haven't been assigned to any courses yet. Ask an admin to add you as faculty.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

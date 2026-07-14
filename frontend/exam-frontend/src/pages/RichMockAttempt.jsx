@@ -279,7 +279,7 @@ export default function RichMockAttempt() {
               {a.xp_earned > 0 && <p className="text-amber-500 font-medium mt-2">+{a.xp_earned} XP</p>}
             </div>
           ) : (
-            <p className="text-surface-500 mb-6">Your responses were recorded. Results will be released by your instructor.</p>
+            <p className="text-surface-500 mb-6">Your responses were recorded. Results will be released by your faculty.</p>
           )}
           <div className="flex gap-3">
             <button onClick={() => navigate('/mock-test')} className="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium">Back to Mock Tests</button>
@@ -457,7 +457,7 @@ export default function RichMockAttempt() {
             <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
             <h3 className="text-lg font-bold mb-2">Stay on the test</h3>
             <p className="text-surface-500 text-sm mb-4">
-              Leaving the test window or fullscreen is recorded. Warning {violations} of 3. Repeated violations may be flagged to your instructor.
+              Leaving the test window or fullscreen is recorded. Warning {violations} of 3. Repeated violations may be flagged to your faculty.
             </p>
             <button onClick={() => { setShowWarn(false); if (mt?.fullscreen_required) enterFullscreen() }}
               className="w-full px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-medium">
