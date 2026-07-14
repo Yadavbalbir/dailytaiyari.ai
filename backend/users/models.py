@@ -37,6 +37,12 @@ class User(AbstractUser):
     """
     Custom User model with email as the primary identifier.
     """
+    # NOTE: the stored value 'instructor' is intentionally kept for backwards
+    # compatibility — it is what lives in the DB and is checked throughout the
+    # backend/frontend permission logic (e.g. `role == 'instructor'`) and the
+    # Course.instructors relation. Only the human-readable label is "Faculty".
+    # Do NOT rename the stored value without a data migration + coordinated
+    # frontend rollout, or auth/permissions will silently break.
     ROLE_CHOICES = [
         ('student', 'Student'),
         ('instructor', 'Faculty'),
