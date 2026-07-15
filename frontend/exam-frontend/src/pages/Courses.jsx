@@ -7,7 +7,7 @@ import { contentBuilderService } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
-import { GraduationCap, CheckCircle2, Clock, ArrowRight, Settings2, Search, X } from 'lucide-react'
+import { GraduationCap, CheckCircle2, Clock, ArrowRight, Settings2, Search, X, Award } from 'lucide-react'
 import { stripHtml } from '../utils/html'
 
 const InstructorLine = ({ instructors = [] }) => {
@@ -303,6 +303,15 @@ const Courses = () => {
                   <div className="mt-3">
                     <CoursePrice course={course} />
                   </div>
+
+                  {course.certificate_enabled && (
+                    <div className="mt-3">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-200/80 dark:ring-amber-800/60">
+                        <Award size={13} className="text-amber-500" />
+                        Certificate on completion
+                      </span>
+                    </div>
+                  )}
 
                   <div className="mt-auto pt-4">
                     {status === 'approved' ? (
