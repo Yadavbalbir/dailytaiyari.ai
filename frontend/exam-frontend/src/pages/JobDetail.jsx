@@ -240,24 +240,26 @@ const JobDetail = () => {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={requireAuth(openExternal)}
+                  onClick={openExternal}
                   className="btn-primary inline-flex items-center gap-2"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  {isAuthenticated ? 'Apply on external site' : 'Log in to apply'}
+                  <ExternalLink className="w-4 h-4" /> Apply on external site
                 </button>
-                {isAuthenticated && (
-                  <button
-                    onClick={() => setShowExternalConfirm(true)}
-                    className="btn-secondary inline-flex items-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> I've applied
-                  </button>
-                )}
+                <button
+                  onClick={requireAuth(() => setShowExternalConfirm(true))}
+                  className="btn-secondary inline-flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> I've applied
+                </button>
               </div>
               <p className="text-xs text-surface-500">
-                Applying happens on the external site. Once you've submitted your application there,
-                tap <span className="font-medium">"I've applied"</span> to track it under My Applications.
+                Applying happens on the external site — no account needed to open it. Once you've
+                submitted your application there,{' '}
+                {isAuthenticated ? (
+                  <>tap <span className="font-medium">"I've applied"</span> to track it under My Applications.</>
+                ) : (
+                  <>log in and tap <span className="font-medium">"I've applied"</span> to track it under My Applications.</>
+                )}
               </p>
             </div>
           ) : (
