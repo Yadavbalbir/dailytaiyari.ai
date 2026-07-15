@@ -15,7 +15,6 @@ import {
     EntityModal, ConfirmDialog, RowActions, QuestionModal, formatApiError, QTYPE_LABEL,
 } from '../components/admin/builderShared'
 import Loading from '../components/common/Loading'
-import ImageCropper from '../components/common/ImageCropper'
 
 /* Content-type icon + tint */
 const CONTENT_ICON = { video: Video, pdf: FileType, notes: FileText, revision: FileText, formula: Sparkles, interactive: Sparkles }
@@ -904,8 +903,6 @@ const InstructorsModal = ({ course, onClose, onSaved }) => {
 const ThumbnailModal = ({ course, onClose, onSaved }) => {
     const [preview, setPreview] = useState(course.thumbnail || null)
     const [file, setFile] = useState(null)
-    const [tempImage, setTempImage] = useState(null)
-    const [showCropper, setShowCropper] = useState(false)
 
     const saveMutation = useMutation({
         mutationFn: () => svc.updateCourseThumbnail(course.id, file),
@@ -921,18 +918,9 @@ const ThumbnailModal = ({ course, onClose, onSaved }) => {
         const f = e.target.files?.[0]
         if (!f) return
         if (!f.type.startsWith('image/')) { toast.error('Please choose an image file'); return }
-        const reader = new FileReader()
-        reader.onload = () => { setTempImage(reader.result); setShowCropper(true) }
-        reader.readAsDataURL(f)
+        setFile(f)
+        setPreview(URL.createObjectURL(f))
         e.target.value = ''
-    }
-
-    const onCropped = (blob) => {
-        const cropped = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' })
-        setFile(cropped)
-        setPreview(URL.createObjectURL(blob))
-        setShowCropper(false)
-        setTempImage(null)
     }
 
     return (
@@ -948,7 +936,7 @@ const ThumbnailModal = ({ course, onClose, onSaved }) => {
                 <div className="flex items-center justify-between p-5 border-b border-surface-200 dark:border-surface-800">
                     <div className="min-w-0">
                         <h3 className="text-lg font-bold truncate">Course thumbnail</h3>
-                        <p className="text-xs text-surface-500">Shown on course tiles. Recommended 16:9 — you can crop after choosing.</p>
+                        <p className="text-xs text-surface-500">Shown on course tiles. The full image is used exactly as uploaded — a 16:9 image looks best.</p>
                     </div>
                     <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
                 </div>
@@ -956,7 +944,7 @@ const ThumbnailModal = ({ course, onClose, onSaved }) => {
                 <div className="p-5 space-y-4">
                     <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
                         {preview ? (
-                            <img src={preview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                            <img src={preview} alt="Thumbnail preview" className="w-full h-full object-contain" />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-surface-400">
                                 <ImageIcon className="w-8 h-8 mb-2" />
@@ -982,17 +970,6 @@ const ThumbnailModal = ({ course, onClose, onSaved }) => {
                     </button>
                 </div>
             </motion.div>
-
-            {showCropper && (
-                <ImageCropper
-                    image={tempImage}
-                    aspect={16 / 9}
-                    cropShape="rect"
-                    title="Crop Course Thumbnail"
-                    onCropComplete={onCropped}
-                    onCancel={() => { setShowCropper(false); setTempImage(null) }}
-                />
-            )}
         </motion.div>
     )
 }
