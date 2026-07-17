@@ -387,7 +387,7 @@ class TenantStudentViewSet(TenantAwareViewSet):
 
     def get_queryset(self):
         tenant = self.request.tenant
-        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_course')
+        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_course').prefetch_related('enrollments')
 
         # Optional explicit filters (used by the admin dashboard).
         role = self.request.query_params.get('role')

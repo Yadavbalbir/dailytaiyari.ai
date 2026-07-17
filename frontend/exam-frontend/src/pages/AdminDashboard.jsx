@@ -566,7 +566,7 @@ const StudentManagement = () => {
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && !s.user.is_suspended) ||
                 (filterStatus === 'suspended' && s.user.is_suspended)
-            const matchesExam = filterExam === 'all' || String(s.primary_course) === String(filterExam)
+            const matchesExam = filterExam === 'all' || String(s.primary_course) === String(filterExam) || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterExam))
             return matchesSearch && matchesRole && matchesStatus && matchesExam
         })
 
@@ -864,7 +864,7 @@ const PerformanceReports = () => {
     // Roster filtered by the active course + status selectors.
     const filtered = useMemo(() => {
         return studentList.filter((s) => {
-            const matchesCourse = filterCourse === 'all' || String(s.primary_course) === String(filterCourse)
+            const matchesCourse = filterCourse === 'all' || String(s.primary_course) === String(filterCourse) || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterCourse))
             const matchesStatus =
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && !s.user.is_suspended) ||
