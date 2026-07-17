@@ -2667,7 +2667,7 @@ const TABS = [
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
     { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
-    { id: 'content', label: 'Content Builder', icon: Library },
+    { id: 'content', label: 'Course Builder', icon: Library },
     { id: 'settings', label: 'Settings', icon: SlidersIcon },
 ]
 
