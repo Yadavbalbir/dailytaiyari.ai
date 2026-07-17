@@ -9,6 +9,7 @@ import { courseService } from '../services/courseService'
 import { useTenantStore } from '../context/tenantStore'
 import { THEME_LIST, applyTheme, DEFAULT_THEME } from '../config/themes'
 import CourseBuilder from '../components/admin/CourseBuilder'
+import LandingBuilder from '../components/admin/LandingBuilder'
 import {
     Users,
     GraduationCap,
@@ -28,6 +29,7 @@ import {
     BookOpen,
     ExternalLink,
     Library,
+    LayoutTemplate,
     ChevronDown,
     Book,
     Layers,
@@ -2668,6 +2670,7 @@ const TABS = [
     { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
     { id: 'content', label: 'Course Builder', icon: Library },
+    { id: 'landing', label: 'Landing Page', icon: LayoutTemplate },
     { id: 'settings', label: 'Settings', icon: SlidersIcon },
 ]
 
@@ -2738,6 +2741,7 @@ const AdminDashboard = () => {
                     {activeTab === 'sales' && <SalesDashboard />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
+                    {activeTab === 'landing' && <LandingBuilder />}
                     {activeTab === 'settings' && <TenantSettings />}
                 </motion.div>
             </AnimatePresence>

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from './context/authStore'
 import { useTenantStore } from './context/tenantStore'
@@ -64,6 +64,8 @@ import MockTestGrading from './pages/MockTestGrading'
 import MockTestSubmissions from './pages/MockTestSubmissions'
 import MockTestSubmissionReview from './pages/MockTestSubmissionReview'
 import RichMockReview from './pages/RichMockReview'
+import LandingPage from './pages/LandingPage'
+import LegalPage from './pages/LegalPage'
 
 
 // Protected Route Component
@@ -95,11 +97,30 @@ const AppShell = () => {
   return <MainLayout />
 }
 
-// Root/catch-all redirect: send authenticated users to their dashboard and
-// anonymous visitors to the public course catalog.
+// Root route: anonymous visitors see the tenant's public landing page;
+// authenticated (onboarded) users are sent to their dashboard. Admins can
+// still preview the live landing via `/?preview=1`.
+const RootRoute = () => {
+  const { isAuthenticated, isOnboarded } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  const preview = searchParams.get('preview') === '1'
+  if (preview) {
+    return <LandingPage />
+  }
+  if (isAuthenticated && isOnboarded) {
+    return <Navigate to="/dashboard" replace />
+  }
+  if (isAuthenticated && !isOnboarded) {
+    return <Navigate to="/onboarding" replace />
+  }
+  return <LandingPage />
+}
+
+// Catch-all redirect: send authenticated users to their dashboard and
+// anonymous visitors to the public landing page.
 const RootRedirect = () => {
   const { isAuthenticated } = useAuthStore()
-  return <Navigate to={isAuthenticated ? '/dashboard' : '/courses'} replace />
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />
 }
 
 // Admin-only Route Component
@@ -282,8 +303,13 @@ function App() {
         </Route>
 
 
+        {/* Public standalone pages (no app shell, no login required) */}
+        <Route path="/" element={<RootRoute />} />
+        <Route path="/refund-policy" element={<LegalPage slug="refund-policy" />} />
+        <Route path="/privacy-policy" element={<LegalPage slug="privacy-policy" />} />
+        <Route path="/terms" element={<LegalPage slug="terms" />} />
+
         {/* Redirects */}
-        <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<RootRedirect />} />
       </Routes>
     </>

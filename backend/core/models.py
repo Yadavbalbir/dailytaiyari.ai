@@ -211,6 +211,91 @@ class PaymentGateway(models.Model):
         return bool(self.key_id and self.key_secret_encrypted)
 
 
+class LandingPage(models.Model):
+    """Per-tenant public landing page configuration.
+
+    One record per tenant. The page is section-based: ``sections`` is an ordered
+    list of ``{id, type, enabled, data}`` dicts the frontend renders through a
+    section registry. A tenant admin edits everything from the Home Page Builder.
+
+    A brand-new tenant has no record; the API serves platform defaults (see
+    :mod:`core.landing_defaults`) so the page is never empty, and the first save
+    from the admin persists a real record.
+    """
+
+    from .landing_defaults import TEMPLATE_CHOICES, DEFAULT_TEMPLATE
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.OneToOneField(
+        Tenant, on_delete=models.CASCADE, related_name='landing_page'
+    )
+
+    # Visual design/skin applied to the whole page.
+    template = models.CharField(
+        max_length=32,
+        choices=[(k, v) for k, v in TEMPLATE_CHOICES.items()],
+        default=DEFAULT_TEMPLATE,
+    )
+    # When False the public page falls back to the generic default layout so an
+    # unfinished draft is never exposed. Admin can preview regardless.
+    is_published = models.BooleanField(default=True)
+
+    # Ordered list of section dicts: {id, type, enabled, data}.
+    sections = models.JSONField(default=list, blank=True)
+    # Footer configuration dict (about, contacts, socials, columns, copyright).
+    footer = models.JSONField(default=dict, blank=True)
+
+    # Optional hero background / SEO extras kept simple for now.
+    meta = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Landing Page'
+        verbose_name_plural = 'Landing Pages'
+
+    def __str__(self):
+        return f'Landing page — {self.tenant.name}'
+
+
+class LegalDocument(models.Model):
+    """Per-tenant legal page (refund / privacy / terms).
+
+    The platform ships generic defaults (see :mod:`core.landing_defaults`) so
+    these pages are never empty; a tenant admin can override the title and rich
+    HTML content. Unique per (tenant, doc_type).
+    """
+
+    from .landing_defaults import LEGAL_DOC_TYPES
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, related_name='legal_documents'
+    )
+    doc_type = models.CharField(
+        max_length=20,
+        choices=[(k, v) for k, v in LEGAL_DOC_TYPES.items()],
+    )
+    title = models.CharField(max_length=255, blank=True, default='')
+    content = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Legal Document'
+        verbose_name_plural = 'Legal Documents'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'doc_type'], name='uniq_tenant_legal_doc'
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tenant.name} — {self.get_doc_type_display()}'
+
+
 class TimeStampedModel(models.Model):
     """
     Abstract base model with created and modified timestamps.
