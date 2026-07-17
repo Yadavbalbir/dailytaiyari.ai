@@ -24,7 +24,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'enrollments', label: 'Enrollments', icon: GraduationCap },
   { tab: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
   { tab: 'performance', label: 'Reports', icon: BarChart3 },
-  { tab: 'content', label: 'Content Builder', icon: Library },
+  { tab: 'content', label: 'Course Builder', icon: Library },
   { path: '/admin/mock-tests', label: 'Mock Tests', icon: ClipboardList },
   { path: '/admin/jobs', label: 'Jobs', icon: Briefcase },
   { tab: 'settings', label: 'Settings', icon: SlidersHorizontal },

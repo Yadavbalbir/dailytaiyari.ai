@@ -1008,7 +1008,7 @@ const ContentBuilder = () => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-xl font-bold text-surface-900 dark:text-white">Content Builder</h2>
+                    <h2 className="text-xl font-bold text-surface-900 dark:text-white">Course Builder</h2>
                     <p className="text-sm text-surface-500">Create and manage courses, subjects, chapters, topics, content &amp; quizzes</p>
                 </div>
                 <div className="flex items-center gap-2">
