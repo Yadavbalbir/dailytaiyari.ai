@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Menu, X, LogIn } from 'lucide-react'
+import { Menu, X, LogIn, LayoutDashboard } from 'lucide-react'
+import { useAuthStore } from '../../context/authStore'
 
 // Public landing navbar: tenant logo/name on the left, quick links + auth CTAs
 // on the right. Fixed & translucent; solidifies on scroll.
 const LandingNavbar = ({ t, brand = {}, go, sections = [] }) => {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const { isAuthenticated, isOnboarded } = useAuthStore()
+  const loggedIn = isAuthenticated && isOnboarded
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -18,7 +21,7 @@ const LandingNavbar = ({ t, brand = {}, go, sections = [] }) => {
   const links = [
     { label: 'Home', to: '#top' },
     ...(hasCourses ? [{ label: 'Courses', to: '/courses' }] : []),
-    { label: 'Login', to: '/login' },
+    ...(loggedIn ? [] : [{ label: 'Login', to: '/login' }]),
   ]
 
   const onLink = (to) => {
@@ -60,8 +63,8 @@ const LandingNavbar = ({ t, brand = {}, go, sections = [] }) => {
               {l.label}
             </button>
           ))}
-          <button onClick={() => go('/register')} className={`${t.btnPrimary} ml-2 !py-2 !px-5 text-sm`}>
-            Get Started
+          <button onClick={() => go(loggedIn ? '/dashboard' : '/register')} className={`${t.btnPrimary} ml-2 !py-2 !px-5 text-sm`}>
+            {loggedIn ? (<><LayoutDashboard size={16} /> Dashboard</>) : 'Get Started'}
           </button>
         </nav>
 
@@ -85,8 +88,8 @@ const LandingNavbar = ({ t, brand = {}, go, sections = [] }) => {
               {l.label}
             </button>
           ))}
-          <button onClick={() => { setOpen(false); go('/register') }} className={`${t.btnPrimary} w-full !py-2.5 mt-1`}>
-            <LogIn size={16} /> Get Started
+          <button onClick={() => { setOpen(false); go(loggedIn ? '/dashboard' : '/register') }} className={`${t.btnPrimary} w-full !py-2.5 mt-1`}>
+            {loggedIn ? (<><LayoutDashboard size={16} /> Dashboard</>) : (<><LogIn size={16} /> Get Started</>)}
           </button>
         </div>
       )}

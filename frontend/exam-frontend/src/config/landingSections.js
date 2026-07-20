@@ -41,7 +41,7 @@ export const SECTION_SCHEMAS = {
       { key: 'primary_cta_link', label: 'Primary button link', type: 'link' },
       { key: 'secondary_cta_label', label: 'Secondary button text', type: 'text' },
       { key: 'secondary_cta_link', label: 'Secondary button link', type: 'link' },
-      { key: 'image', label: 'Hero image URL', type: 'image' },
+      { key: 'image', label: 'Hero image', type: 'image' },
       { key: 'badges', label: 'Highlight badges', type: 'tags' },
     ],
     defaultData: {
@@ -142,7 +142,7 @@ export const SECTION_SCHEMAS = {
         item: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'achievement', label: 'Achievement', type: 'text' },
-          { key: 'photo', label: 'Photo URL', type: 'image' },
+          { key: 'photo', label: 'Photo', type: 'image' },
           { key: 'quote', label: 'Quote (optional)', type: 'textarea' },
         ],
       },
@@ -169,7 +169,7 @@ export const SECTION_SCHEMAS = {
         item: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'role', label: 'Role / Course', type: 'text' },
-          { key: 'photo', label: 'Photo URL', type: 'image' },
+          { key: 'photo', label: 'Photo', type: 'image' },
           { key: 'rating', label: 'Rating (1-5)', type: 'number' },
           { key: 'quote', label: 'Quote', type: 'textarea' },
         ],
@@ -191,7 +191,7 @@ export const SECTION_SCHEMAS = {
     fields: [
       { key: 'title', label: 'Title', type: 'text' },
       { key: 'body', label: 'Body', type: 'textarea' },
-      { key: 'image', label: 'Image URL', type: 'image' },
+      { key: 'image', label: 'Image', type: 'image' },
       { key: 'points', label: 'Key points', type: 'tags' },
     ],
     defaultData: {
@@ -236,7 +236,7 @@ export const SECTION_SCHEMAS = {
       {
         key: 'items', label: 'Images', type: 'list',
         item: [
-          { key: 'image', label: 'Image URL', type: 'image' },
+          { key: 'image', label: 'Image', type: 'image' },
           { key: 'caption', label: 'Caption', type: 'text' },
         ],
       },

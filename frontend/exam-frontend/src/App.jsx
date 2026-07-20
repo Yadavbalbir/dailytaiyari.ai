@@ -107,9 +107,9 @@ const RootRoute = () => {
   if (preview) {
     return <LandingPage />
   }
-  if (isAuthenticated && isOnboarded) {
-    return <Navigate to="/dashboard" replace />
-  }
+  // Authenticated users who haven't finished onboarding still need to complete
+  // it first; everyone else (anonymous or fully logged-in) sees the public
+  // landing page at "/".
   if (isAuthenticated && !isOnboarded) {
     return <Navigate to="/onboarding" replace />
   }

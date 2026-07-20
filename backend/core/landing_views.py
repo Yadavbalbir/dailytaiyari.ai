@@ -5,8 +5,14 @@ Public endpoints are ``AllowAny`` but still require the ``X-Tenant-ID`` header
 tenant before the view runs. This lets an anonymous visitor load a tenant's
 branded landing page and legal pages without logging in.
 """
+import base64
+import uuid
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from rest_framework import permissions, status
 from rest_framework.exceptions import NotFound
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -39,14 +45,29 @@ def _build_default_config(tenant):
     }
 
 
+def _abs_media_url(request, url):
+    """Return an absolute URL for a media file.
+
+    Cloud storage already yields absolute URLs; local dev yields a
+    MEDIA_URL-relative path, which we make absolute against the request host.
+    """
+    if not url:
+        return None
+    if not url.startswith(('http://', 'https://')):
+        if not url.startswith('/'):
+            url = '/' + url
+        url = request.build_absolute_uri(url)
+    return url
+
+
 def _tenant_brand(tenant, request):
     """Branding block bundled with the public landing config for convenience."""
     return {
         'id': str(tenant.id),
         'name': tenant.name,
         'tagline': tenant.tagline,
-        'logo': request.build_absolute_uri(tenant.logo.url) if tenant.logo else None,
-        'favicon': request.build_absolute_uri(tenant.favicon.url) if tenant.favicon else None,
+        'logo': _abs_media_url(request, tenant.logo.url) if tenant.logo else None,
+        'favicon': _abs_media_url(request, tenant.favicon.url) if tenant.favicon else None,
         'theme': tenant.theme or tenant.DEFAULT_THEME,
         'show_name': tenant.show_name,
     }
@@ -164,3 +185,60 @@ class LegalDocumentAdminView(APIView):
         data = LegalDocumentSerializer(doc).data
         data['is_default'] = False
         return Response(data)
+
+
+class LandingImageUploadView(APIView):
+    """Upload a single image for a landing section and get back its URL.
+
+    Tenant-admin only. Accepts either a multipart ``image`` file or a JSON body
+    with an ``image`` data URL, and returns ``{"url": "..."}`` (absolute, so it
+    resolves correctly when the public landing page is served from a different
+    origin than the API).
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+
+    def post(self, request):
+        _require_tenant(request)
+        upload = request.FILES.get('image')
+        if upload is None:
+            data = request.data.get('image')
+            if not isinstance(data, str) or not data.startswith('data:image'):
+                return Response(
+                    {'detail': 'No image provided.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                header, b64 = data.split(';base64,', 1)
+                ext = header.split('/')[-1].split('+')[0] or 'png'
+                if ext.lower() in ('jpg', 'jpeg'):
+                    ext = 'jpg'
+                upload = ContentFile(
+                    base64.b64decode(b64), name=f'{uuid.uuid4().hex}.{ext}'
+                )
+            except (ValueError, TypeError, base64.binascii.Error):
+                return Response(
+                    {'detail': 'Invalid base64 image data.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if upload.size and upload.size > self.MAX_BYTES:
+            return Response(
+                {'detail': 'Image is too large (max 5 MB).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        path = default_storage.save(
+            f'landing_images/{uuid.uuid4().hex}_{upload.name}', upload
+        )
+        url = default_storage.url(path)
+        # Cloud storage (S3/Azure) already returns an absolute URL; local dev
+        # returns a MEDIA_URL-relative path, so make it absolute against the host.
+        if not url.startswith(('http://', 'https://')):
+            if not url.startswith('/'):
+                url = '/' + url
+            url = request.build_absolute_uri(url)
+        return Response({'url': url}, status=status.HTTP_201_CREATED)

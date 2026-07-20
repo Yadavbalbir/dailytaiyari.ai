@@ -24,4 +24,14 @@ export const landingAdminService = {
     })
     return response.data
   },
+
+  // Upload an image for a section/footer and get back its absolute URL.
+  uploadImage: async (file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const response = await api.post('/tenant-admin/landing/upload-image/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data.url
+  },
 }

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import {
   Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Eye, EyeOff,
   GripVertical, Save, ExternalLink, X, Layout, FileText, Loader2,
+  Upload, Image as ImageIcon,
 } from 'lucide-react'
 import { landingAdminService } from '../../services/landingAdminService'
 import {
@@ -17,6 +18,92 @@ const inputCls =
 const labelCls = 'block text-xs font-semibold text-surface-500 dark:text-surface-400 mb-1'
 
 const sid = () => Math.random().toString(36).slice(2, 14)
+
+// Image field: upload a file (stored on the server) or paste a URL. Shows a
+// live thumbnail preview and a clear button.
+const ImageField = ({ value = '', onChange }) => {
+  const [uploading, setUploading] = useState(false)
+  const inputId = useMemo(() => `img-${Math.random().toString(36).slice(2, 9)}`, [])
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image is too large (max 5 MB).')
+      return
+    }
+    setUploading(true)
+    try {
+      const url = await landingAdminService.uploadImage(file)
+      onChange(url)
+      toast.success('Image uploaded')
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="shrink-0">
+        {value ? (
+          <div className="relative group">
+            <img
+              src={value}
+              alt="preview"
+              className="h-16 w-16 rounded-lg object-cover border border-surface-200 dark:border-surface-700 bg-surface-50"
+            />
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              title="Remove image"
+              className="absolute -top-1.5 -right-1.5 grid place-items-center h-5 w-5 rounded-full bg-red-600 text-white shadow"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <div className="h-16 w-16 grid place-items-center rounded-lg border border-dashed border-surface-300 dark:border-surface-600 text-surface-400">
+            <ImageIcon size={20} />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        <label
+          htmlFor={inputId}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+            uploading
+              ? 'bg-surface-200 text-surface-500 dark:bg-surface-700'
+              : 'bg-primary-600 text-white hover:bg-primary-700'
+          }`}
+        >
+          {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+          {uploading ? 'Uploading…' : value ? 'Replace' : 'Upload image'}
+        </label>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+          disabled={uploading}
+        />
+        <input
+          className={inputCls}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="…or paste an image URL"
+        />
+      </div>
+    </div>
+  )
+}
 
 // ── Field editors ───────────────────────────────────────────────────────────
 const TagEditor = ({ value = [], onChange }) => {
@@ -68,6 +155,9 @@ const Field = ({ field, value, onChange }) => {
   if (field.type === 'tags') {
     return <TagEditor value={value} onChange={onChange} />
   }
+  if (field.type === 'image') {
+    return <ImageField value={v} onChange={onChange} />
+  }
   if (field.choices) {
     return (
       <select className={inputCls} value={v} onChange={(e) => onChange(e.target.value)}>
@@ -112,7 +202,7 @@ const ListEditor = ({ field, value = [], onChange }) => {
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             {field.item.map((sub) => (
-              <div key={sub.key} className={sub.type === 'textarea' ? 'sm:col-span-2' : ''}>
+              <div key={sub.key} className={sub.type === 'textarea' || sub.type === 'image' ? 'sm:col-span-2' : ''}>
                 <label className={labelCls}>{sub.label}</label>
                 <Field field={sub} value={item[sub.key]} onChange={(val) => update(idx, sub.key, val)} />
               </div>
