@@ -7,6 +7,7 @@ import {
   Upload, Image as ImageIcon,
 } from 'lucide-react'
 import { landingAdminService } from '../../services/landingAdminService'
+import { tenantAdminService } from '../../services/tenantAdminService'
 import {
   SECTION_SCHEMAS, SECTION_ORDER, LANDING_TEMPLATES, getSectionMeta,
 } from '../../config/landingSections'
@@ -389,6 +390,70 @@ const LegalEditor = () => {
   )
 }
 
+// ── Brand display (logo + name) ──────────────────────────────────────────────
+// Controls whether the academy's text name is shown next to the logo across the
+// site. Bound to the tenant-wide `show_name` setting so it stays consistent
+// with the app sidebar, auth pages and the landing navbar/footer.
+const BrandDisplayCard = () => {
+  const qc = useQueryClient()
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn: tenantAdminService.getSettings,
+  })
+  const mutation = useMutation({
+    mutationFn: (showName) => tenantAdminService.updateShowName(showName),
+    onSuccess: (res) => {
+      qc.setQueryData(['tenant-settings'], res)
+      toast.success('Brand display updated')
+    },
+    onError: () => toast.error('Could not update brand display'),
+  })
+
+  const logoIncludesName = settings?.show_name === false
+
+  return (
+    <div className="rounded-xl border border-surface-200 dark:border-surface-700 p-4 bg-white dark:bg-surface-900">
+      <label className="text-sm font-semibold text-surface-700 dark:text-surface-200">Brand display</label>
+      {isLoading ? (
+        <div className="py-4 text-surface-400"><Loader2 size={16} className="animate-spin inline" /></div>
+      ) : (
+        <div className="mt-3 flex items-start gap-3">
+          <div className="shrink-0">
+            {settings?.logo ? (
+              <img src={settings.logo} alt="logo" className="h-12 w-auto max-w-[140px] object-contain rounded border border-surface-200 dark:border-surface-700 bg-surface-50 p-1" />
+            ) : (
+              <div className="h-12 w-12 grid place-items-center rounded border border-dashed border-surface-300 dark:border-surface-600 text-surface-400"><ImageIcon size={18} /></div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => mutation.mutate(logoIncludesName /* toggling ON name means show_name=true */)}
+                disabled={mutation.isPending}
+                className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors ${logoIncludesName ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'}`}
+              >
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${logoIncludesName ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+              <span className="text-sm">
+                <span className="font-medium text-surface-800 dark:text-surface-100">My logo already includes the academy name</span>
+                <span className="block text-xs text-surface-500 mt-0.5">
+                  When on, the text name is hidden and only the logo shows (in the navbar, footer &amp; app). When off, the name appears next to the logo.
+                </span>
+              </span>
+            </label>
+            {!settings?.logo && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                No logo uploaded yet — add one in the Branding tab to use logo-only display.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main builder ─────────────────────────────────────────────────────────────
 const LandingBuilder = () => {
   const qc = useQueryClient()
@@ -505,6 +570,8 @@ const LandingBuilder = () => {
               ))}
             </div>
           </div>
+
+          <BrandDisplayCard />
 
           {/* Sections list */}
           <div className="space-y-3">

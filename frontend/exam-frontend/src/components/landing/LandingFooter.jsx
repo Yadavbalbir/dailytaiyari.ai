@@ -33,7 +33,9 @@ const LandingFooter = ({ footer = {}, brand = {}, go }) => {
                   {(brand.name || '?').charAt(0)}
                 </span>
               )}
-              <span className="font-display font-bold text-lg text-white">{brand.name}</span>
+              {brand.show_name !== false && brand.name ? (
+                <span className="font-display font-bold text-lg text-white">{brand.name}</span>
+              ) : null}
             </div>
             {footer.about ? <p className="mt-4 text-sm leading-relaxed text-surface-400">{footer.about}</p> : null}
             {socials.length > 0 && (
