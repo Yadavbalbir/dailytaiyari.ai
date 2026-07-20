@@ -53,11 +53,23 @@ class CourseSerializer(serializers.ModelSerializer):
 
 
 class CourseListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for course listings."""
-    
+    """Lightweight serializer for course listings.
+
+    Includes the handful of display fields course cards need (thumbnail,
+    short description, type and pricing) so listings — including the public
+    landing page carousel — can render rich tiles without a detail fetch.
+    """
+    is_free = serializers.ReadOnlyField()
+    discount_percent = serializers.ReadOnlyField()
+
     class Meta:
         model = Course
-        fields = ['id', 'name', 'code', 'icon', 'color', 'status', 'is_featured']
+        fields = [
+            'id', 'name', 'code', 'icon', 'color', 'status', 'is_featured',
+            'thumbnail', 'subtitle', 'description', 'course_type',
+            'total_students', 'pricing_type', 'price', 'original_price',
+            'currency', 'is_free', 'discount_percent',
+        ]
 
 
 class TopicSerializer(serializers.ModelSerializer):
