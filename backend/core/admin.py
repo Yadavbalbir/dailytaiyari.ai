@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Tenant, DemoBooking, ContactMessage, JobApplication, PaymentGateway
+from .models import Tenant, DemoBooking, ContactMessage, JobApplication, PaymentGateway, LandingPage, LegalDocument
 
 
 @admin.register(Tenant)
@@ -50,3 +50,19 @@ class JobApplicationAdmin(admin.ModelAdmin):
                        'portfolio_url', 'cover_letter', 'source', 'created_at', 'updated_at')
     list_editable = ('status',)
     ordering = ('-created_at',)
+
+
+@admin.register(LandingPage)
+class LandingPageAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'template', 'is_published', 'updated_at')
+    list_filter = ('template', 'is_published')
+    search_fields = ('tenant__name',)
+    readonly_fields = ('id', 'created_at', 'updated_at')
+
+
+@admin.register(LegalDocument)
+class LegalDocumentAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'doc_type', 'title', 'updated_at')
+    list_filter = ('doc_type',)
+    search_fields = ('tenant__name', 'title')
+    readonly_fields = ('id', 'created_at', 'updated_at')
