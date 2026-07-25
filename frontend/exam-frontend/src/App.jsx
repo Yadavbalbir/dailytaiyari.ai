@@ -29,6 +29,7 @@ import StudyChapterTopics from './pages/StudyChapterTopics'
 import StudyTopicContent from './pages/StudyTopicContent'
 import TopicView from './pages/TopicView'
 import ContentViewer from './pages/ContentViewer'
+import Revision from './pages/Revision'
 import AssignmentView from './pages/AssignmentView'
 import Quiz from './pages/Quiz'
 import QuizAttempt from './pages/QuizAttempt'
@@ -248,6 +249,7 @@ function App() {
           <Route path="/study/chapter/:chapterId/topic/:topicId" element={<LoginGate><FeatureRoute feature="study"><StudyTopicContent /></FeatureRoute></LoginGate>} />
           <Route path="/topic/:topicId" element={<LoginGate><FeatureRoute feature="study"><TopicView /></FeatureRoute></LoginGate>} />
           <Route path="/content/:contentId" element={<LoginGate><FeatureRoute feature="study"><ContentViewer /></FeatureRoute></LoginGate>} />
+          <Route path="/revision" element={<LoginGate><FeatureRoute feature="study"><Revision /></FeatureRoute></LoginGate>} />
           <Route path="/assignment/:assignmentId" element={<LoginGate><AssignmentView /></LoginGate>} />
           <Route path="/coding/:problemId" element={<LoginGate><CodingProblem /></LoginGate>} />
           <Route path="/quiz" element={<LoginGate><FeatureRoute feature="quiz"><Quiz /></FeatureRoute></LoginGate>} />

@@ -133,7 +133,11 @@ class ContentProgressViewSet(TenantAwareViewSet):
     filterset_fields = ['content', 'is_completed', 'is_bookmarked']
 
     def get_queryset(self):
-        return ContentProgress.objects.filter(student=self.request.user.profile)
+        return ContentProgress.objects.filter(
+            student=self.request.user.profile
+        ).select_related(
+            'content', 'content__topic', 'content__subject'
+        ).order_by('-updated_at')
 
     def create(self, request, *args, **kwargs):
         content_id = request.data.get('content')

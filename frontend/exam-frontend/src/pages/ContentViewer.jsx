@@ -98,8 +98,13 @@ const ContentViewer = () => {
       }
       return contentService.toggleBookmark(progress.id)
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['contentProgress', contentId] })
+      queryClient.invalidateQueries({ queryKey: ['bookmarks'] })
+      toast.success(data?.is_bookmarked ? 'Saved to Revision' : 'Removed from Revision')
+    },
+    onError: () => {
+      toast.error('Could not update bookmark. Please try again.')
     },
   })
 
