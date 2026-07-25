@@ -77,9 +77,26 @@ class TenantDetailView(APIView):
                 "request_enrollment_free": tenant.request_enrollment_free,
                 "request_enrollment_paid": tenant.request_enrollment_paid,
                 "payment_gateway": _public_payment_gateway(tenant),
+                "promo_banner": _public_promo_banner(tenant),
             })
         except Tenant.DoesNotExist:
             return Response({"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+def _public_promo_banner(tenant):
+    """The current live promo banner for this tenant, or None."""
+    from marketing.models import PromoBanner
+    from marketing.serializers import PublicPromoBannerSerializer
+
+    banner = (
+        PromoBanner.objects.filter(tenant=tenant, is_active=True)
+        .select_related('coupon')
+        .order_by('-updated_at')
+        .first()
+    )
+    if banner is None or not banner.is_live():
+        return None
+    return PublicPromoBannerSerializer(banner).data
 
 
 def _public_payment_gateway(tenant):

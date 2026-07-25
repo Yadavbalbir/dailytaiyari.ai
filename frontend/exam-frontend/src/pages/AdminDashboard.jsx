@@ -10,6 +10,7 @@ import { useTenantStore } from '../context/tenantStore'
 import { THEME_LIST, applyTheme, DEFAULT_THEME } from '../config/themes'
 import CourseBuilder from '../components/admin/CourseBuilder'
 import LandingBuilder from '../components/admin/LandingBuilder'
+import MarketingPromotions from '../components/admin/MarketingPromotions'
 import {
     Users,
     GraduationCap,
@@ -61,6 +62,7 @@ import {
     Wallet,
     Calendar,
     ShoppingCart,
+    Megaphone,
     UserPlus,
     ArrowUpRight,
     ArrowDownRight,
@@ -2668,6 +2670,7 @@ const TABS = [
     { id: 'students', label: 'Student Records', icon: Users },
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
     { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
+    { id: 'marketing', label: 'Marketing & Promotions', icon: Megaphone },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
     { id: 'content', label: 'Course Builder', icon: Library },
     { id: 'landing', label: 'Landing Page', icon: LayoutTemplate },
@@ -2739,6 +2742,7 @@ const AdminDashboard = () => {
                     {activeTab === 'students' && <StudentManagement />}
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'sales' && <SalesDashboard />}
+                    {activeTab === 'marketing' && <MarketingPromotions />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
                     {activeTab === 'landing' && <LandingBuilder />}

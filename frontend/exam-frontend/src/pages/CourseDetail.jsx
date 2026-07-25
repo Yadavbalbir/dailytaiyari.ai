@@ -9,6 +9,7 @@ import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { courseService } from '../services/courseService'
 import { paymentService } from '../services/paymentService'
+import { marketingService } from '../services/marketingService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
@@ -102,6 +103,11 @@ const CourseDetail = () => {
   const [tab, setTab] = useState('overview')
   const [requesting, setRequesting] = useState(false)
   const [openSubjects, setOpenSubjects] = useState(() => new Set())
+  // Coupon state for paid-course checkout.
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null) // validated quote
+  const [couponError, setCouponError] = useState('')
+  const [validatingCoupon, setValidatingCoupon] = useState(false)
 
   const toggleSubject = (id) =>
     setOpenSubjects((prev) => {
@@ -172,6 +178,29 @@ const CourseDetail = () => {
     }
   }
 
+  const applyCoupon = async () => {
+    const code = couponCode.trim()
+    if (!code) return
+    setValidatingCoupon(true)
+    setCouponError('')
+    try {
+      const quote = await marketingService.validateCoupon(code, courseId)
+      setAppliedCoupon(quote)
+      toast.success(`Coupon ${quote.code} applied`)
+    } catch (err) {
+      setAppliedCoupon(null)
+      setCouponError(err?.response?.data?.detail || 'Coupon could not be applied')
+    } finally {
+      setValidatingCoupon(false)
+    }
+  }
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
+
   const payAndEnroll = async () => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: `/courses/${courseId}` } })
@@ -180,7 +209,9 @@ const CourseDetail = () => {
     setRequesting(true)
     try {
       const returnUrl = `${window.location.origin}/courses/${courseId}`
-      const result = await paymentService.checkout(course, user, returnUrl)
+      const result = await paymentService.checkout(
+        course, user, returnUrl, appliedCoupon?.code
+      )
       if (result?.enrolled) {
         toast.success('Payment successful — you are enrolled!')
         queryClient.invalidateQueries({ queryKey: ['studyCourses'] })
@@ -250,11 +281,59 @@ const CourseDetail = () => {
     }
     // Paid course in pay-to-enrol mode → open the payment checkout.
     if (enrollMode === 'payment') {
+      const payable = appliedCoupon ? appliedCoupon.final_amount : course.price
       return (
-        <button onClick={payAndEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
-          <CreditCard size={18} />
-          {requesting ? 'Processing…' : `Pay ${money(course.currency, course.price)} & enroll`}
-        </button>
+        <div className="space-y-3">
+          {/* Coupon input */}
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800/60">
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-700 dark:text-success-300">
+                <Tag size={14} /> {appliedCoupon.code} applied · you save{' '}
+                {money(appliedCoupon.currency, appliedCoupon.discount_amount)}
+              </span>
+              <button onClick={removeCoupon} className="text-xs font-medium text-surface-500 hover:text-error-500">
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                  placeholder="Have a coupon code?"
+                  className="input flex-1 uppercase !py-2.5"
+                />
+                <button
+                  onClick={applyCoupon}
+                  disabled={validatingCoupon || !couponCode.trim()}
+                  className="btn-secondary shrink-0 disabled:opacity-60"
+                >
+                  {validatingCoupon ? 'Checking…' : 'Apply'}
+                </button>
+              </div>
+              {couponError && <p className="text-xs text-error-500 mt-1">{couponError}</p>}
+            </div>
+          )}
+
+          {appliedCoupon && (
+            <div className="flex items-baseline justify-between text-sm px-1">
+              <span className="text-surface-500">Total</span>
+              <span className="flex items-baseline gap-2">
+                <span className="text-surface-400 line-through">{money(course.currency, appliedCoupon.original_amount)}</span>
+                <span className="text-lg font-display font-bold text-primary-600 dark:text-primary-400">
+                  {money(appliedCoupon.currency, payable)}
+                </span>
+              </span>
+            </div>
+          )}
+
+          <button onClick={payAndEnroll} disabled={requesting} className="btn-primary w-full disabled:opacity-70">
+            <CreditCard size={18} />
+            {requesting ? 'Processing…' : `Pay ${money(course.currency, payable)} & enroll`}
+          </button>
+        </div>
       )
     }
     // Free course with self-enrolment enabled → instant join.

@@ -11,6 +11,7 @@ class PaymentOrderSerializer(serializers.ModelSerializer):
         model = PaymentOrder
         fields = [
             'id', 'course', 'course_name', 'provider', 'provider_order_id',
-            'amount', 'currency', 'status', 'is_test_mode', 'created_at',
+            'amount', 'currency', 'status', 'is_test_mode',
+            'original_amount', 'discount_amount', 'created_at',
         ]
         read_only_fields = fields

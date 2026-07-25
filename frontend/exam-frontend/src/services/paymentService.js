@@ -34,12 +34,13 @@ function loadScript(src) {
     return loadedScripts[src]
 }
 
-async function createOrder(courseId, returnUrl) {
+async function createOrder(courseId, returnUrl, couponCode) {
     const { data } = await api.post('/payments/orders/', {
         course: courseId,
         return_url: returnUrl,
+        coupon_code: couponCode || '',
     })
-    return data // { order, checkout }
+    return data // { order, checkout, free?, enrolled? }
 }
 
 async function verifyOrder(orderId, payload = {}) {
@@ -135,8 +136,14 @@ function payWithPayU({ checkout }) {
  * ({ status: 'paid', enrolled: true }) or throws on cancel/failure. For PayU
  * the browser is redirected away and the app resumes via the return URL.
  */
-async function checkout(course, user, returnUrl) {
-    const { order, checkout: checkoutParams } = await createOrder(course.id, returnUrl)
+async function checkout(course, user, returnUrl, couponCode) {
+    const { order, checkout: checkoutParams, free, enrolled } = await createOrder(
+        course.id, returnUrl, couponCode
+    )
+    // A fully-discounted (100% off) course needs no gateway round-trip.
+    if (free || !checkoutParams) {
+        return { status: 'paid', enrolled: enrolled ?? true }
+    }
     const provider = checkoutParams.provider
     if (provider === 'razorpay') {
         return payWithRazorpay({ checkout: checkoutParams, orderId: order.id, course, user })

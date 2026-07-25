@@ -6,6 +6,7 @@ Flow (paid course, pay-to-enrol mode):
   3. ``POST /payments/webhook/<provider>/`` → authoritative confirmation (no auth/tenant)
 """
 import logging
+import uuid
 
 from django.conf import settings
 from django.shortcuts import redirect
@@ -66,14 +67,53 @@ class CreateOrderView(APIView):
         if gateway is None:
             return Response({'detail': 'No active payment gateway.'}, status=400)
 
+        # --- Optional coupon: validate server-side and compute the charge. ---
+        coupon = None
+        charge_amount = course.price
+        original_amount = course.price
+        discount_amount = 0
+        coupon_code = (request.data.get('coupon_code') or '').strip()
+        if coupon_code:
+            from marketing.services import validate_coupon, CouponError
+            try:
+                quote = validate_coupon(tenant, coupon_code, course, student)
+            except CouponError as exc:
+                return Response({'detail': exc.message}, status=400)
+            coupon = quote['coupon']
+            charge_amount = quote['final_amount']
+            original_amount = quote['original_amount']
+            discount_amount = quote['discount_amount']
+
+        # A fully-discounted course needs no gateway round-trip: grant access now.
+        if charge_amount <= 0:
+            free_order = PaymentOrder.objects.create(
+                tenant=tenant, student=student, course=course,
+                provider=gateway.provider, provider_order_id=f'coupon-{uuid.uuid4().hex[:16]}',
+                amount=0, currency=course.currency, is_test_mode=gateway.is_test_mode,
+                coupon=coupon, original_amount=original_amount,
+                discount_amount=discount_amount,
+            )
+            mark_order_paid(free_order)
+            return Response(
+                {
+                    'order': PaymentOrderSerializer(free_order).data,
+                    'checkout': None,
+                    'free': True,
+                    'enrolled': True,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
         client = get_client(gateway)
         user = request.user
         # Provider order ids must be unique; a fresh PaymentOrder id works as the
         # receipt/order_id for both providers.
         pending = PaymentOrder(
             tenant=tenant, student=student, course=course,
-            provider=gateway.provider, amount=course.price,
+            provider=gateway.provider, amount=charge_amount,
             currency=course.currency, is_test_mode=gateway.is_test_mode,
+            coupon=coupon, original_amount=original_amount,
+            discount_amount=discount_amount,
         )
         receipt = str(pending.id)
         # Where redirect-style providers (PayU) send the learner afterwards, and
@@ -82,7 +122,7 @@ class CreateOrderView(APIView):
         callback_url = request.build_absolute_uri('/api/v1/payments/payu/callback/')
         try:
             result = client.create_order(
-                amount=course.price,
+                amount=charge_amount,
                 currency=course.currency,
                 receipt=receipt,
                 notes={'note': f'Enrolment: {course.name}'[:200], 'course_id': str(course.id)},
