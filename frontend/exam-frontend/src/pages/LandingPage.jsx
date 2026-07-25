@@ -6,6 +6,7 @@ import { getTemplate } from '../components/landing/templateConfig'
 import LandingNavbar from '../components/landing/LandingNavbar'
 import LandingFooter from '../components/landing/LandingFooter'
 import SectionRenderer from '../components/landing/SectionRenderer'
+import PromoBanner from '../components/layout/PromoBanner'
 
 // Public, no-login landing page rendered at "/" for anonymous visitors. Fully
 // tenant-configurable: template, ordered sections and footer all come from the
@@ -64,6 +65,7 @@ const LandingPage = () => {
 
   return (
     <div id="top" className={`min-h-screen ${t.page}`}>
+      <PromoBanner />
       <LandingNavbar t={t} brand={data.brand || {}} go={go} sections={sections} />
       <main>
         {sections.map((section) => (

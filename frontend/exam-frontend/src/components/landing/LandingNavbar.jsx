@@ -35,7 +35,8 @@ const LandingNavbar = ({ t, brand = {}, go, sections = [] }) => {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all ${scrolled ? `${t.navBg} shadow-sm` : 'bg-transparent'}`}
+      style={{ top: scrolled ? 0 : 'var(--promo-banner-height, 0px)' }}
+      className={`fixed inset-x-0 z-50 transition-all ${scrolled ? `${t.navBg} shadow-sm` : 'bg-transparent'}`}
     >
       <div className={`${t.container} flex h-16 items-center justify-between`}>
         <button onClick={() => onLink('#top')} className="flex items-center gap-2.5 min-w-0">
