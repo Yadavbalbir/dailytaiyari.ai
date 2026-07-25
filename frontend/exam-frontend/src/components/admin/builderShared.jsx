@@ -212,6 +212,7 @@ export const SCHEMAS = {
             { name: 'total_marks', label: 'Total Marks', type: 'number' },
             { name: 'is_featured', label: 'Featured', type: 'checkbox' },
             { name: 'negative_marking', label: 'Negative Marking', type: 'checkbox' },
+            { name: 'sequential_chapter_unlock', label: 'Lock chapters until previous ones are completed', type: 'checkbox', full: true, hint: 'When on, students must finish each chapter before the next one in the same subject unlocks.' },
             { name: 'pricing_type', label: 'Pricing', type: 'select', options: opt(['free', 'paid']), default: 'free' },
             { name: 'price', label: 'Price', type: 'number', step: '0.01', default: 0, showIf: (v) => v.pricing_type === 'paid', hint: 'Amount the student pays. Payment gateway is handled separately for now.' },
             { name: 'original_price', label: 'Original price (strike-through)', type: 'number', step: '0.01', showIf: (v) => v.pricing_type === 'paid', hint: 'Optional higher price to show a discount.' },

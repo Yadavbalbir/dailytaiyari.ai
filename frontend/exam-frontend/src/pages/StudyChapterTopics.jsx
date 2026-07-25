@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
-  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock, ClipboardList, Code2,
+  BookOpen, PlayCircle, PenTool, ArrowLeft, ChevronRight, Clock, ClipboardList, Code2, Lock,
 } from 'lucide-react'
 
 /**
@@ -15,13 +15,37 @@ const StudyChapterTopics = () => {
   const { chapterId } = useParams()
   const navigate = useNavigate()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['studyChapterDetail', chapterId],
     queryFn: () => courseService.getStudyChapterDetail(chapterId),
     enabled: !!chapterId,
+    retry: (count, err) => err?.response?.status !== 403 && count < 2,
   })
 
   if (isLoading) return <Loading fullScreen />
+
+  // Chapter is locked behind sequential progression.
+  if (isError && error?.response?.status === 403) {
+    const info = error.response.data || {}
+    const subjectId = info?.subject_id || info?.locked_by?.subject_id
+    return (
+      <div className="max-w-lg mx-auto text-center py-16 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-surface-100 dark:bg-surface-700 flex items-center justify-center mx-auto">
+          <Lock size={30} className="text-surface-400" />
+        </div>
+        <h1 className="text-xl font-semibold">Chapter locked</h1>
+        <p className="text-surface-500">
+          {info.detail || 'Complete the previous chapter to unlock this one.'}
+        </p>
+        <button
+          onClick={() => navigate(subjectId ? `/study/${subjectId}` : -1)}
+          className="btn-primary inline-flex items-center gap-2"
+        >
+          <ArrowLeft size={16} /> Back to chapters
+        </button>
+      </div>
+    )
+  }
 
   const chapter = data?.chapter
   const topics = data?.topics || []

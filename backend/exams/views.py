@@ -42,6 +42,61 @@ def _enrolled_course_ids(request):
     return ids or None
 
 
+def _chapter_completion_counts(student, topic_ids):
+    """
+    Total vs. completed learnable items for a chapter's set of topics.
+
+    Mirrors the per-chapter progress computation used in ``StudyChaptersView``
+    (published content + quizzes + assignments + coding). Returns a
+    ``(total, completed)`` tuple. Used to decide sequential-unlock locking.
+    """
+    from content.models import Content, ContentProgress
+    from quiz.models import Quiz, QuizAttempt
+    from assignments.models import Assignment, AssignmentSubmission
+    from coding.models import CodingProblem, CodingSubmission
+
+    if not topic_ids:
+        return 0, 0
+
+    content_count = Content.objects.filter(
+        topic_id__in=topic_ids, status='published'
+    ).count()
+    content_done = ContentProgress.objects.filter(
+        student=student, content__topic_id__in=topic_ids,
+        content__status='published', is_completed=True,
+    ).count()
+    quiz_count = Quiz.objects.filter(
+        topic_id__in=topic_ids, status='published',
+    ).count()
+    quiz_done = QuizAttempt.objects.filter(
+        student=student, quiz__topic_id__in=topic_ids, status='completed',
+    ).values('quiz').distinct().count()
+    assignment_total = Assignment.objects.filter(
+        topic_id__in=topic_ids, status='published',
+    ).count()
+    assignment_done = AssignmentSubmission.objects.filter(
+        student=student, assignment__topic_id__in=topic_ids,
+        assignment__status='published',
+    ).values('assignment').distinct().count()
+    coding_total = CodingProblem.objects.filter(
+        topic_id__in=topic_ids, status='published',
+    ).count()
+    coding_done = CodingSubmission.objects.filter(
+        student=student, problem__topic_id__in=topic_ids,
+        problem__status='published', total_count__gt=0,
+        passed_count=F('total_count'),
+    ).values('problem').distinct().count()
+
+    total = content_count + quiz_count + assignment_total + coding_total
+    done = content_done + quiz_done + assignment_done + coding_done
+    return total, done
+
+
+def _chapter_blocks_next(total, done):
+    """A chapter blocks subsequent chapters only if it has unfinished items."""
+    return total > 0 and done < total
+
+
 class CourseViewSet(TenantAwareReadOnlyViewSet):
     """
     ViewSet for course operations.
@@ -437,10 +492,11 @@ class StudyChaptersView(APIView):
 
         student = request.user.profile
         try:
-            subject = Subject.objects.get(pk=subject_id)
+            subject = Subject.objects.select_related('course').get(pk=subject_id)
         except Subject.DoesNotExist:
             return Response({'error': 'Subject not found'}, status=404)
 
+        sequential = bool(getattr(subject.course, 'sequential_chapter_unlock', False))
         chapters = subject.chapters.all().order_by('order').prefetch_related(
             'chapter_topics__topic'
         )
@@ -548,12 +604,27 @@ class StudyChaptersView(APIView):
                 'topics': topic_list,
                 'order': ch.order,
                 'progress': progress,
+                'is_completed': total_content > 0 and completed_content >= total_content,
+                'is_locked': False,
                 'reading': {'total': reading_total, 'completed': reading_done},
                 'videos': {'total': video_total, 'completed': video_done},
                 'quizzes': {'total': quiz_total, 'attempted': quiz_attempted},
                 'assignments': {'total': assignment_total, 'completed': assignment_done},
                 'coding': {'total': coding_total, 'completed': coding_done},
+                '_blocks_next': _chapter_blocks_next(total_content, completed_content),
             })
+
+        # Sequential unlock: a chapter stays locked until every preceding
+        # chapter (that has content) is fully completed.
+        if sequential:
+            unlocked = True
+            for item in result:
+                item['is_locked'] = not unlocked
+                if item.pop('_blocks_next'):
+                    unlocked = False
+        else:
+            for item in result:
+                item.pop('_blocks_next', None)
 
         return Response({
             'subject': {
@@ -562,6 +633,7 @@ class StudyChaptersView(APIView):
                 'code': subject.code,
                 'color': subject.color,
             },
+            'sequential_unlock': sequential,
             'chapters': result,
         })
 
@@ -581,11 +653,37 @@ class StudyChapterDetailView(APIView):
 
         student = request.user.profile
         try:
-            chapter = Chapter.objects.select_related('subject').prefetch_related(
+            chapter = Chapter.objects.select_related('subject', 'subject__course').prefetch_related(
                 'chapter_topics__topic'
             ).get(pk=chapter_id)
         except Chapter.DoesNotExist:
             return Response({'error': 'Chapter not found'}, status=404)
+
+        # Enforce sequential unlock: block access when a preceding chapter in
+        # the same subject is not yet fully completed.
+        if getattr(chapter.subject.course, 'sequential_chapter_unlock', False):
+            preceding = chapter.subject.chapters.filter(
+                order__lt=chapter.order
+            ).order_by('order').prefetch_related('chapter_topics')
+            for prev in preceding:
+                if prev.id == chapter.id:
+                    continue
+                prev_topic_ids = [ct.topic_id for ct in prev.chapter_topics.all()]
+                total, done = _chapter_completion_counts(student, prev_topic_ids)
+                if _chapter_blocks_next(total, done):
+                    return Response(
+                        {
+                            'error': 'chapter_locked',
+                            'detail': 'Complete the previous chapter to unlock this one.',
+                            'subject_id': str(chapter.subject_id),
+                            'locked_by': {
+                                'id': str(prev.id),
+                                'name': prev.name,
+                                'subject_id': str(chapter.subject_id),
+                            },
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
 
         # Ordered topics in this chapter
         chapter_topics = list(
