@@ -7,7 +7,7 @@ import {
     ArrowLeft, Plus, ChevronRight, ChevronDown, Loader2, Layers, Book,
     FileText, ListChecks, GraduationCap, Pencil, Eye, Video, FileType,
     Sparkles, HelpCircle, ClipboardList, Clock, Users, X, CheckCircle2, Save,
-    Code2, Trash2, Image as ImageIcon, Upload,
+    Code2, Trash2, Image as ImageIcon, Upload, Radio, Calendar, Link2,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
 import { useAuthStore } from '../context/authStore'
@@ -778,6 +778,250 @@ const CodingSection = ({ topic, subjectId }) => {
     )
 }
 
+/* ===========================================================================
+ * Live classes for the selected topic
+ * ========================================================================= */
+const LIVE_PROVIDERS = [
+    { key: 'gmeet', label: 'Google Meet', hint: 'Paste a Google Meet link students join at class time.', soon: false },
+    { key: 'in_house', label: 'In-house Live', hint: 'Go live from the portal with your own device.', soon: true },
+]
+
+const LIVE_STATUS_BADGE = {
+    upcoming: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    live: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    ended: 'bg-surface-200 text-surface-600 dark:bg-surface-700 dark:text-surface-300',
+}
+
+// Format an ISO datetime into a value usable by <input type="datetime-local">
+// (local time, "YYYY-MM-DDTHH:MM"). Returns '' for empty/invalid input.
+const toLocalInput = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const LiveClassModal = ({ instance, onClose, onSubmit, saving }) => {
+    const [form, setForm] = useState(() => ({
+        title: instance?.title || '',
+        description: instance?.description || '',
+        provider: instance?.provider || 'gmeet',
+        meeting_url: instance?.meeting_url || '',
+        scheduled_start: toLocalInput(instance?.scheduled_start),
+        duration_minutes: instance?.duration_minutes ?? 60,
+        host_name: instance?.host_name || '',
+        status: instance?.status || 'draft',
+    }))
+
+    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+    const submit = (e) => {
+        e.preventDefault()
+        if (!form.title.trim()) return toast.error('Title is required')
+        if (form.provider === 'gmeet' && !form.meeting_url.trim()) return toast.error('A Google Meet link is required')
+        onSubmit({
+            title: form.title.trim(),
+            description: form.description,
+            provider: form.provider,
+            meeting_url: form.meeting_url.trim(),
+            scheduled_start: form.scheduled_start ? new Date(form.scheduled_start).toISOString() : null,
+            duration_minutes: Number(form.duration_minutes) || 60,
+            host_name: form.host_name.trim(),
+            status: form.status,
+        })
+    }
+
+    return (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+            <motion.div
+                className="bg-white dark:bg-surface-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl"
+                initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="sticky top-0 bg-white dark:bg-surface-900 border-b border-surface-100 dark:border-surface-800 px-5 py-3.5 flex items-center justify-between z-10">
+                    <h3 className="font-bold flex items-center gap-2"><Radio className="w-4 h-4 text-primary-500" /> {instance ? 'Edit' : 'New'} live class</h3>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800"><X className="w-4 h-4" /></button>
+                </div>
+
+                <form onSubmit={submit} className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1">Title</label>
+                        <input className="input" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Doubt-clearing session: Kinematics" />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1.5">Platform</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {LIVE_PROVIDERS.map((p) => {
+                                const active = form.provider === p.key
+                                return (
+                                    <button
+                                        key={p.key}
+                                        type="button"
+                                        disabled={p.soon}
+                                        onClick={() => !p.soon && set('provider', p.key)}
+                                        className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${active ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' : 'border-surface-200 dark:border-surface-700'} ${p.soon ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary-300'}`}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={`text-sm font-semibold ${active ? 'text-primary-600 dark:text-primary-400' : 'text-surface-700 dark:text-surface-200'}`}>{p.label}</span>
+                                            {p.soon && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Coming soon</span>}
+                                        </div>
+                                        <p className="text-[11px] text-surface-400 mt-0.5">{p.hint}</p>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {form.provider === 'gmeet' && (
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Google Meet link</label>
+                            <div className="relative">
+                                <Link2 className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input className="input pl-9" value={form.meeting_url} onChange={(e) => set('meeting_url', e.target.value)} placeholder="https://meet.google.com/abc-defg-hij" />
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1">Description</label>
+                        <textarea rows={4} className="input resize-y" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="What will be covered, prerequisites, etc." />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Starts at</label>
+                            <input type="datetime-local" className="input" value={form.scheduled_start} onChange={(e) => set('scheduled_start', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Duration (min)</label>
+                            <input type="number" min="1" className="input" value={form.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Status</label>
+                            <select className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
+                                <option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-surface-500 mb-1">Host name (optional)</label>
+                        <input className="input" value={form.host_name} onChange={(e) => set('host_name', e.target.value)} placeholder="e.g. Prof. Sharma" />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+                        <button type="submit" disabled={saving} className="btn-primary">
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {instance ? 'Save' : 'Create'}
+                        </button>
+                    </div>
+                </form>
+            </motion.div>
+        </motion.div>
+    )
+}
+
+const LiveClassSection = ({ topic, subjectId }) => {
+    const { courseId } = useParams()
+    const queryClient = useQueryClient()
+    const [modal, setModal] = useState(null) // { instance } | null
+    const [del, setDel] = useState(null)
+
+    const { data: classes = [], isLoading } = useQuery({
+        queryKey: ['cb-live', topic.id],
+        queryFn: () => svc.getLiveClasses(topic.id),
+    })
+
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['cb-live', topic.id] })
+
+    const saveMutation = useMutation({
+        mutationFn: ({ instance, payload }) => {
+            const body = { ...payload, course: courseId, subject: subjectId, topic: topic.id }
+            return instance ? svc.updateLiveClass(instance.id, body) : svc.createLiveClass(body)
+        },
+        onSuccess: (_d, vars) => { toast.success(vars.instance ? 'Live class saved' : 'Live class created'); invalidate(); setModal(null) },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const deleteMutation = useMutation({
+        mutationFn: (c) => svc.deleteLiveClass(c.id),
+        onSuccess: () => { toast.success('Deleted'); invalidate(); setDel(null) },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    if (isLoading) {
+        return <div className="py-8 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-surface-400" /></div>
+    }
+
+    const fmtWhen = (iso) => {
+        if (!iso) return 'Not scheduled'
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return 'Not scheduled'
+        return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    }
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-surface-700 dark:text-surface-200">Live classes</h4>
+                <button onClick={() => setModal({ instance: null })} className="btn-primary text-xs px-3 py-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Add live class
+                </button>
+            </div>
+            {classes.length === 0 ? (
+                <EmptyHint icon={Radio} text="No live classes yet." sub="Schedule a Google Meet live class for students to join." />
+            ) : (
+                <div className="space-y-2">
+                    {classes.map((c) => (
+                        <div key={c.id} className="group card p-3.5 flex items-center justify-between gap-3 hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 flex items-center justify-center shrink-0">
+                                    <Radio className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-surface-800 dark:text-surface-100 truncate">{c.title}</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        {c.live_status && <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${LIVE_STATUS_BADGE[c.live_status] || ''}`}>{c.live_status}</span>}
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusPill(c.status)}`}>{c.status}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{c.provider_display || 'Google Meet'}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> {fmtWhen(c.scheduled_start)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {c.meeting_url && (
+                                    <a href={c.meeting_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs px-2.5 py-1.5">
+                                        <Link2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Join</span>
+                                    </a>
+                                )}
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <RowActions onEdit={() => setModal({ instance: c })} onDelete={() => setDel(c)} />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <AnimatePresence>
+                {modal && (
+                    <LiveClassModal
+                        instance={modal.instance}
+                        saving={saveMutation.isPending}
+                        onClose={() => setModal(null)}
+                        onSubmit={(payload) => saveMutation.mutate({ instance: modal.instance, payload })}
+                    />
+                )}
+                {del && (
+                    <ConfirmDialog label={del.title} deleting={deleteMutation.isPending} onCancel={() => setDel(null)} onConfirm={() => deleteMutation.mutate(del)} />
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
 const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
     const [tab, setTab] = useState('content')
     return (
@@ -796,7 +1040,7 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             </div>
 
             <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-fit my-4">
-                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }, { id: 'assignments', label: 'Assignments', icon: ClipboardList }, { id: 'coding', label: 'Coding', icon: Code2 }].map((t) => (
+                {[{ id: 'content', label: 'Content', icon: FileText }, { id: 'quizzes', label: 'Quizzes', icon: ListChecks }, { id: 'assignments', label: 'Assignments', icon: ClipboardList }, { id: 'coding', label: 'Coding', icon: Code2 }, { id: 'live', label: 'Live', icon: Radio }].map((t) => (
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
@@ -811,6 +1055,7 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             {tab === 'quizzes' && <QuizSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
             {tab === 'assignments' && <AssignmentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
             {tab === 'coding' && <CodingSection topic={topic} subjectId={subjectId} />}
+            {tab === 'live' && <LiveClassSection topic={topic} subjectId={subjectId} />}
         </div>
     )
 }

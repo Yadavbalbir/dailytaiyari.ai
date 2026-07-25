@@ -128,6 +128,13 @@ export const contentBuilderService = {
   getCodingSubmission: async (id) =>
     (await api.get(`/coding/admin/submissions/${id}/`)).data,
   getCodingMeta: async () => (await api.get('/coding/meta/')).data,
+
+  // ---- Live classes ----
+  getLiveClasses: async (topicId) =>
+    list(await api.get('/live-classes/admin/classes/', { params: { topic: topicId, ...PAGE } })),
+  createLiveClass: async (data) => (await api.post('/live-classes/admin/classes/', data)).data,
+  updateLiveClass: async (id, data) => (await api.patch(`/live-classes/admin/classes/${id}/`, data)).data,
+  deleteLiveClass: async (id) => api.delete(`/live-classes/admin/classes/${id}/`),
 }
 
 export default contentBuilderService

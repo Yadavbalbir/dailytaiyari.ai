@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
 import { assignmentService } from '../services/assignmentService'
 import { codingService } from '../services/codingService'
+import { liveClassService } from '../services/liveClassService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ArrowLeft, CheckCircle2, Clock,
   Bookmark, FileText, RefreshCw, BarChart3, Eye, Star, LayoutList,
-  Circle, ChevronRight, Trophy, ClipboardList, Lock, Code2
+  Circle, ChevronRight, Trophy, ClipboardList, Lock, Code2, Radio
 } from 'lucide-react'
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'quizzes', label: 'Quizzes', icon: PenTool },
   { key: 'assignments', label: 'Assignments', icon: ClipboardList },
   { key: 'coding', label: 'Coding', icon: Code2 },
+  { key: 'live', label: 'Live', icon: Radio },
 ]
 
 /**
@@ -51,6 +53,12 @@ const StudyTopicContent = () => {
     enabled: !!topicId,
   })
 
+  const { data: liveClasses = [] } = useQuery({
+    queryKey: ['topicLive', topicId],
+    queryFn: () => liveClassService.getByTopic(topicId),
+    enabled: !!topicId,
+  })
+
   if (isLoading) return <Loading fullScreen />
 
   const chapter = data?.chapter
@@ -80,12 +88,14 @@ const StudyTopicContent = () => {
   const quizzesAttempted = quizzes.filter(q => q.attempts_count > 0).length
   const codingDone = codingProblems.filter(p => p.my_best?.all_passed).length
   const assignmentsDone = assignments.filter(a => a.is_completed).length
+  const liveNow = liveClasses.filter(l => l.live_status === 'live').length
   const headerStats = [
     { icon: BookOpen, color: 'text-blue-500', done: readingDone, total: reading.length, label: 'read' },
     { icon: PlayCircle, color: 'text-red-500', done: videosDone, total: videos.length, label: 'watched' },
     { icon: PenTool, color: 'text-green-500', done: quizzesAttempted, total: quizzes.length, label: 'quizzes' },
     { icon: Code2, color: 'text-primary-500', done: codingDone, total: codingProblems.length, label: 'coding' },
     { icon: ClipboardList, color: 'text-purple-500', done: assignmentsDone, total: assignments.length, label: 'assignments' },
+    { icon: Radio, color: 'text-red-500', done: liveNow, total: liveClasses.length, label: 'live' },
   ].filter(s => s.total > 0)
 
   return (
@@ -145,12 +155,13 @@ const StudyTopicContent = () => {
       <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon
-          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length + assignments.length + codingProblems.length
+          const count = tab.key === 'all' ? reading.length + videos.length + quizzes.length + assignments.length + codingProblems.length + liveClasses.length
             : tab.key === 'reading' ? reading.length
             : tab.key === 'videos' ? videos.length
             : tab.key === 'quizzes' ? quizzes.length
             : tab.key === 'assignments' ? assignments.length
             : tab.key === 'coding' ? codingProblems.length
+            : tab.key === 'live' ? liveClasses.length
             : 0
           // Hide categories that have no content (keep "All" always visible).
           if (tab.key !== 'all' && count === 0) return null
@@ -183,12 +194,13 @@ const StudyTopicContent = () => {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} coding={codingProblems} navigate={navigate} quizNavState={quizNavState} />}
+          {activeTab === 'all' && <AllTab reading={reading} videos={videos} quizzes={quizzes} assignments={assignments} coding={codingProblems} live={liveClasses} navigate={navigate} quizNavState={quizNavState} />}
           {activeTab === 'reading' && <ReadingTab items={reading} navigate={navigate} />}
           {activeTab === 'videos' && <VideosTab items={videos} navigate={navigate} />}
           {activeTab === 'quizzes' && <QuizzesTab items={quizzes} navigate={navigate} quizNavState={quizNavState} />}
           {activeTab === 'assignments' && <AssignmentsTab items={assignments} navigate={navigate} />}
           {activeTab === 'coding' && <CodingTab items={codingProblems} navigate={navigate} />}
+          {activeTab === 'live' && <LiveTab items={liveClasses} />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -252,7 +264,19 @@ const codingStatus = (p) => {
   return { tone: 'idle', icon: Circle, label: 'Not attempted' }
 }
 
-const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navigate, quizNavState }) => {
+const liveStatus = (l) => {
+  if (l.live_status === 'live') return { tone: 'score', icon: Radio, label: 'Live now' }
+  if (l.live_status === 'ended') return { tone: 'idle', icon: CheckCircle2, label: 'Ended' }
+  const when = l.scheduled_start ? new Date(l.scheduled_start).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA'
+  return { tone: 'progress', icon: Clock, label: when }
+}
+
+// Open a live class's join link (Google Meet) in a new tab.
+const openLive = (l) => {
+  if (l.meeting_url) window.open(l.meeting_url, '_blank', 'noopener,noreferrer')
+}
+
+const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], live = [], navigate, quizNavState }) => {
   // Reading + videos share a real `order`; interleave them, quizzes go last.
   const materials = [...reading, ...videos]
     .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
@@ -262,6 +286,7 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
     ...quizzes.map(q => ({ ...q, _kind: 'quiz' })),
     ...assignments.map(a => ({ ...a, _kind: 'assignment' })),
     ...coding.map(c => ({ ...c, _kind: 'coding' })),
+    ...live.map(l => ({ ...l, _kind: 'live' })),
   ]
 
   if (rows.length === 0) {
@@ -275,12 +300,14 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
         const isVideo = item._kind === 'video'
         const isAssignment = item._kind === 'assignment'
         const isCoding = item._kind === 'coding'
+        const isLive = item._kind === 'live'
 
         let cfg
         if (isQuiz) cfg = { icon: PenTool, color: 'bg-green-50 text-green-600 dark:bg-green-900/30', label: 'Quiz' }
         else if (isVideo) cfg = { icon: PlayCircle, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Video' }
         else if (isAssignment) cfg = { icon: ClipboardList, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30', label: 'Assignment' }
         else if (isCoding) cfg = { icon: Code2, color: 'bg-primary-50 text-primary-600 dark:bg-primary-900/30', label: 'Coding' }
+        else if (isLive) cfg = { icon: Radio, color: 'bg-red-50 text-red-600 dark:bg-red-900/30', label: 'Live class' }
         else cfg = readingCfg(item)
         const Icon = cfg.icon
 
@@ -295,6 +322,9 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
           status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
         } else if (isCoding) {
           const s = codingStatus(item)
+          status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
+        } else if (isLive) {
+          const s = liveStatus(item)
           status = <StatusPill tone={s.tone} icon={s.icon} label={s.label} />
         } else if (item.is_completed) {
           status = <StatusPill tone="success" icon={CheckCircle2} label={isVideo ? 'Watched' : 'Completed'} />
@@ -319,6 +349,9 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
         } else if (isCoding) {
           if (item.difficulty) meta.push(item.difficulty)
           if (item.max_marks) meta.push(`${item.max_marks} marks`)
+        } else if (isLive) {
+          meta.push(item.provider_display || 'Google Meet')
+          if (item.duration_minutes) meta.push(`${item.duration_minutes} min`)
         } else {
           if (item.estimated_time_minutes) meta.push(`${item.estimated_time_minutes} min read`)
         }
@@ -327,6 +360,7 @@ const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], navig
           if (isQuiz) navigate(`/quiz/${item.id}`, { state: quizNavState })
           else if (isAssignment) navigate(`/assignment/${item.id}`)
           else if (isCoding) navigate(`/coding/${item.id}`)
+          else if (isLive) openLive(item)
           else navigate(`/content/${item.id}`)
         }
 
@@ -633,6 +667,50 @@ const CodingTab = ({ items, navigate }) => {
                   className={`w-full text-xs py-1.5 ${attempted ? 'btn-outline' : 'btn-primary'}`}
                 >
                   {solved ? 'Review' : attempted ? 'Continue' : 'Solve'}
+                </button>
+              </div>
+            }
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+const LiveTab = ({ items }) => {
+  if (items.length === 0) {
+    return <EmptyState icon={Radio} message="No live classes have been scheduled yet" />
+  }
+  return (
+    <div className={TILE_GRID}>
+      {items.map((l) => {
+        const s = liveStatus(l)
+        const isLive = l.live_status === 'live'
+        const ended = l.live_status === 'ended'
+        return (
+          <Tile
+            key={l.id}
+            icon={Radio}
+            iconColor={isLive
+              ? 'bg-red-50 text-red-600 dark:bg-red-900/30'
+              : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30'}
+            label={l.provider_display || 'Google Meet'}
+            title={l.title}
+            meta={<>{s.label}{l.duration_minutes ? ` · ${l.duration_minutes} min` : ''}</>}
+            badge={isLive && (
+              <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600">
+                <Radio size={12} /> Live
+              </span>
+            )}
+            onClick={() => openLive(l)}
+            action={
+              <div className="mt-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); openLive(l) }}
+                  disabled={ended || !l.meeting_url}
+                  className={`w-full text-xs py-1.5 ${isLive ? 'btn-primary' : 'btn-outline'} ${(ended || !l.meeting_url) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {ended ? 'Ended' : isLive ? 'Join now' : 'Join'}
                 </button>
               </div>
             }

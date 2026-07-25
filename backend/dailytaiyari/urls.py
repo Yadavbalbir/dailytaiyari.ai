@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/v1/community/', include('community.urls')),
     path('api/v1/assignments/', include('assignments.urls')),
     path('api/v1/coding/', include('coding.urls')),
+    path('api/v1/live-classes/', include('liveclass.urls')),
     path('api/v1/jobs/', include('jobs.urls')),
     path('api/v1/certificates/', include('certificates.urls')),
     path('api/v1/payments/', include('payments.urls')),

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'community.apps.CommunityConfig',
     'assignments.apps.AssignmentsConfig',
     'coding.apps.CodingConfig',
+    'liveclass.apps.LiveClassConfig',
     'jobs.apps.JobsConfig',
     'certificates.apps.CertificatesConfig',
     'payments.apps.PaymentsConfig',
