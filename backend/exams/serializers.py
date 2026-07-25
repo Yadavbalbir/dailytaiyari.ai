@@ -233,10 +233,14 @@ class CurriculumSubjectSerializer(SubjectSerializer):
 
 class CourseDetailSerializer(CourseSerializer):
     """Detailed course serializer with curriculum (subjects -> chapters)."""
-    subjects = CurriculumSubjectSerializer(many=True, read_only=True)
+    subjects = serializers.SerializerMethodField()
 
     class Meta(CourseSerializer.Meta):
         fields = CourseSerializer.Meta.fields + ['subjects']
+
+    def get_subjects(self, obj):
+        qs = obj.subjects.all().order_by('order', 'name')
+        return CurriculumSubjectSerializer(qs, many=True, context=self.context).data
 
 
 class SubjectWithChaptersSerializer(SubjectSerializer):
