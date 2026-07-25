@@ -20,6 +20,8 @@ export const codingService = {
     (await api.post(`/coding/problems/${id}/submit/`, { language, source_code })).data,
   mySubmissions: async (id) =>
     (await api.get(`/coding/problems/${id}/my-submissions/`)).data,
+  toggleExternalSolved: async (id) =>
+    (await api.post(`/coding/problems/${id}/toggle-external-solved/`)).data,
   meta: async () => (await api.get('/coding/meta/')).data,
 }
 
