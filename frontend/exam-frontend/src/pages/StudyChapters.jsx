@@ -5,7 +5,7 @@ import { courseService } from '../services/courseService'
 import Loading from '../components/common/Loading'
 import {
   BookOpen, PlayCircle, PenTool, ChevronRight, ArrowLeft,
-  CheckCircle2, Trophy, ClipboardList, Code2
+  CheckCircle2, Trophy, ClipboardList, Code2, Lock
 } from 'lucide-react'
 
 const StudyChapters = () => {
@@ -85,23 +85,34 @@ const StudyChapters = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {chapters.map((chapter, index) => (
+              {chapters.map((chapter, index) => {
+                const locked = !!chapter.is_locked
+                return (
                 <motion.div
                   key={chapter.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => navigate(`/study/chapter/${chapter.id}`)}
-                  className="card p-4 cursor-pointer hover:border-primary-200 hover:shadow-md transition-all group"
+                  onClick={() => !locked && navigate(`/study/chapter/${chapter.id}`)}
+                  className={`card p-4 transition-all group ${
+                    locked
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'cursor-pointer hover:border-primary-200 hover:shadow-md'
+                  }`}
+                  title={locked ? 'Complete the previous chapter to unlock this one' : undefined}
                 >
                   <div className="flex items-center gap-4">
                     {/* Chapter number */}
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 ${
-                      chapter.progress === 100
+                      locked
+                        ? 'bg-surface-100 text-surface-400 dark:bg-surface-700'
+                        : chapter.progress === 100
                         ? 'bg-success-100 text-success-600 dark:bg-success-900/30'
                         : 'bg-surface-100 text-surface-500 dark:bg-surface-700'
                     }`}>
-                      {chapter.progress === 100 ? (
+                      {locked ? (
+                        <Lock size={22} />
+                      ) : chapter.progress === 100 ? (
                         <CheckCircle2 size={24} />
                       ) : (
                         index + 1
@@ -111,6 +122,11 @@ const StudyChapters = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold truncate">{chapter.name}</h3>
+                        {locked && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-surface-400 bg-surface-100 dark:bg-surface-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            <Lock size={10} /> Locked
+                          </span>
+                        )}
                       </div>
                       {chapter.description && (
                         <p className="text-sm text-surface-500 mt-0.5 truncate">
@@ -153,14 +169,19 @@ const StudyChapters = () => {
 
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="text-sm font-semibold">{chapter.progress}%</span>
-                      <ChevronRight
-                        size={18}
-                        className="text-surface-300 group-hover:text-primary-500 transition-colors"
-                      />
+                      {locked ? (
+                        <Lock size={18} className="text-surface-300" />
+                      ) : (
+                        <ChevronRight
+                          size={18}
+                          className="text-surface-300 group-hover:text-primary-500 transition-colors"
+                        />
+                      )}
                     </div>
                   </div>
                 </motion.div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

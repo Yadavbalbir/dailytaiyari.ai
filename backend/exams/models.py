@@ -92,6 +92,17 @@ class Course(TimeStampedModel):
         max_length=20, choices=CERTIFICATE_TEMPLATES, default='classic'
     )
 
+    # ── Sequential chapter progression ─────────────────────────────────────
+    # When enabled, within each subject a chapter stays locked for a student
+    # until every preceding chapter (that has content) is fully completed.
+    sequential_chapter_unlock = models.BooleanField(
+        default=False,
+        help_text=(
+            "If enabled, students must finish each chapter before the next one "
+            "in the same subject unlocks."
+        ),
+    )
+
     # Instructors assigned by a tenant admin. Assigned instructors can edit the
     # course content (chapters, topics, quizzes, etc.) but cannot manage the
     # instructor list themselves — that stays admin-only.

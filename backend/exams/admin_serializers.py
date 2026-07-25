@@ -30,6 +30,7 @@ class AdminCourseSerializer(serializers.ModelSerializer):
             'pricing_type', 'price', 'original_price', 'currency',
             'discount_percent', 'subtitle', 'highlights', 'refund_policy',
             'certificate_enabled', 'certificate_template',
+            'sequential_chapter_unlock',
             'subjects_count', 'instructors', 'instructors_detail',
             'created_at', 'updated_at',
         ]
