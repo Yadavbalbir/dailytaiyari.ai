@@ -37,4 +37,33 @@ def mark_order_paid(order: PaymentOrder, provider_payment_id: str = '') -> Payme
     if order.status != PaymentOrder.STATUS_PAID:
         order.status = PaymentOrder.STATUS_PAID
     order.save(update_fields=['status', 'provider_payment_id', 'enrollment', 'updated_at'])
+
+    _record_coupon_redemption(order)
     return order
+
+
+def _record_coupon_redemption(order):
+    """Record the coupon usage tied to a paid order (idempotent, best-effort)."""
+    if not order.coupon_id:
+        return
+    try:
+        from marketing.services import record_redemption
+
+        original = order.original_amount if order.original_amount is not None else order.amount
+        record_redemption(
+            coupon=order.coupon,
+            student=order.student,
+            course=order.course,
+            order=order,
+            quote={
+                'original_amount': original,
+                'discount_amount': order.discount_amount or 0,
+                'final_amount': order.amount,
+                'currency': order.currency,
+            },
+        )
+    except Exception:  # noqa: BLE001 — never fail a paid order on redemption bookkeeping
+        import logging
+        logging.getLogger(__name__).exception(
+            'Failed to record coupon redemption for order %s', order.pk
+        )

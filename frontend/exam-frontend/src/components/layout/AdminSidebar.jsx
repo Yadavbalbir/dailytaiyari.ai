@@ -15,6 +15,7 @@ import {
   Shield,
   Briefcase,
   ShoppingCart,
+  Megaphone,
 } from 'lucide-react'
 
 // Admin navigation sections. `tab` items drive the in-page section shown by
@@ -24,6 +25,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'students', label: 'Student Records', icon: Users },
   { tab: 'enrollments', label: 'Enrollments', icon: GraduationCap },
   { tab: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
+  { tab: 'marketing', label: 'Marketing & Promotions', icon: Megaphone },
   { tab: 'performance', label: 'Reports', icon: BarChart3 },
   { tab: 'content', label: 'Course Builder', icon: Library },
   { tab: 'landing', label: 'Landing Page', icon: LayoutTemplate },

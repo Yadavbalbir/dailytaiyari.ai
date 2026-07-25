@@ -53,6 +53,19 @@ class PaymentOrder(models.Model):
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default='INR')
+
+    # --- Coupon / discount (set when a coupon is applied at checkout) ---
+    coupon = models.ForeignKey(
+        'marketing.Coupon', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='payment_orders'
+    )
+    # Price before any coupon discount; ``amount`` is what is actually charged.
+    original_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    discount_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default=STATUS_CREATED, db_index=True
     )

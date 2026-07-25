@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import MobileNav from './MobileNav'
+import PromoBanner from './PromoBanner'
 import StudyTimer from '../common/StudyTimer'
 import { useAppStore } from '../../context/appStore'
 import { useAuthStore } from '../../context/authStore'
@@ -41,6 +42,9 @@ const MainLayout = () => {
         className={`min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
           }`}
       >
+        {/* Sitewide promotional banner */}
+        <PromoBanner />
+
         {/* Header */}
         <Header />
 

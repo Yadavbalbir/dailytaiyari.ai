@@ -12,6 +12,7 @@ class AdminPaymentOrderSerializer(serializers.ModelSerializer):
     course_code = serializers.CharField(source='course.code', read_only=True)
     course_id = serializers.CharField(source='course.id', read_only=True)
     refunded_by_email = serializers.CharField(source='refunded_by.email', read_only=True)
+    coupon_code = serializers.CharField(source='coupon.code', read_only=True)
     enrollment_status = serializers.SerializerMethodField()
     enrollment_active = serializers.SerializerMethodField()
 
@@ -20,6 +21,7 @@ class AdminPaymentOrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'provider', 'provider_order_id', 'provider_payment_id',
             'amount', 'currency', 'status', 'is_test_mode',
+            'original_amount', 'discount_amount', 'coupon_code',
             'student_name', 'student_email',
             'course_id', 'course_name', 'course_code',
             'provider_refund_id', 'refund_amount', 'refund_reason',
