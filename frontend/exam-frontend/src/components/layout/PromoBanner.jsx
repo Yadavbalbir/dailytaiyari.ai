@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Tag, ArrowRight } from 'lucide-react'
@@ -6,29 +6,74 @@ import { useTenantStore } from '../../context/tenantStore'
 import { bannerThemeStyle } from '../../config/bannerThemes'
 
 const DISMISS_KEY = 'dt_promo_banner_dismissed'
+// A dismissed banner reappears after this cooldown even if unchanged, so an
+// active promotion keeps surfacing without nagging on every page view.
+const REDISPLAY_AFTER_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+// A dismissal only sticks while the same banner *version* is live and within
+// the cooldown window. Editing/republishing the banner (new id or updated_at)
+// clears it immediately.
+const isDismissed = (banner) => {
+    try {
+        const raw = localStorage.getItem(DISMISS_KEY)
+        if (!raw) return false
+        const saved = JSON.parse(raw)
+        if (saved.id !== banner.id) return false
+        if (saved.updated_at !== banner.updated_at) return false
+        if (Date.now() - (saved.ts || 0) > REDISPLAY_AFTER_MS) return false
+        return true
+    } catch {
+        return false
+    }
+}
 
 /**
- * Sitewide promo banner shown at the very top of the app. Content comes from the
- * tenant config (`promo_banner`); a dismissible banner is remembered per id via
- * localStorage so it stays hidden until the admin publishes a different one.
+ * Sitewide promo banner shown at the very top of the app and the public landing
+ * page. Content comes from the tenant config (`promo_banner`). A dismissal is
+ * remembered per banner version for a 7-day cooldown, then the banner returns;
+ * it also returns immediately if the admin edits or republishes the banner.
  */
 const PromoBanner = () => {
     const banner = useTenantStore((s) => s.tenant?.promo_banner)
-    const [dismissed, setDismissed] = useState(() => {
-        if (!banner) return false
-        try {
-            return localStorage.getItem(DISMISS_KEY) === banner.id
-        } catch {
-            return false
-        }
-    })
+    const [dismissed, setDismissed] = useState(false)
+    const ref = useRef(null)
 
-    if (!banner || dismissed) return null
+    // Re-evaluate dismissal whenever the live banner (or its version) changes.
+    useEffect(() => {
+        setDismissed(banner ? isDismissed(banner) : false)
+    }, [banner?.id, banner?.updated_at])
+
+    const visible = Boolean(banner) && !dismissed
+
+    // Publish the banner height so a fixed header (e.g. the landing navbar) can
+    // sit right below it via `top: var(--promo-banner-height)`.
+    useLayoutEffect(() => {
+        const root = document.documentElement
+        const reset = () => root.style.setProperty('--promo-banner-height', '0px')
+        if (!visible || !ref.current) {
+            reset()
+            return reset
+        }
+        const update = () =>
+            root.style.setProperty('--promo-banner-height', `${ref.current.offsetHeight}px`)
+        update()
+        const ro = new ResizeObserver(update)
+        ro.observe(ref.current)
+        return () => {
+            ro.disconnect()
+            reset()
+        }
+    }, [visible, banner?.message, banner?.title])
+
+    if (!visible) return null
 
     const style = bannerThemeStyle(banner)
     const dismiss = () => {
         try {
-            localStorage.setItem(DISMISS_KEY, banner.id)
+            localStorage.setItem(
+                DISMISS_KEY,
+                JSON.stringify({ id: banner.id, updated_at: banner.updated_at, ts: Date.now() })
+            )
         } catch {
             /* ignore storage errors */
         }
@@ -51,6 +96,7 @@ const PromoBanner = () => {
     return (
         <AnimatePresence>
             <motion.div
+                ref={ref}
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
