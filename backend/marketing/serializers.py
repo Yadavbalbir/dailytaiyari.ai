@@ -18,6 +18,7 @@ class PublicPromoBannerSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'message', 'cta_label', 'cta_url',
             'theme', 'bg_color', 'text_color', 'dismissible', 'coupon_code',
+            'updated_at',
         ]
 
     def get_coupon_code(self, obj):
