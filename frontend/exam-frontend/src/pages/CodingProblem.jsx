@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Play, Send, Loader2, Code2, CheckCircle2, XCircle,
-  Clock, AlertTriangle, Trophy, Terminal,
+  Clock, AlertTriangle, Trophy, Terminal, ExternalLink, Circle,
 } from 'lucide-react'
 import { codingService } from '../services/codingService'
 import Loading from '../components/common/Loading'
@@ -16,6 +16,24 @@ const DIFF_TINT = {
   easy: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20',
   medium: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20',
   hard: 'bg-red-50 text-red-600 dark:bg-red-900/20',
+}
+
+// Friendly platform label from an external problem URL (e.g. leetcode.com -> LeetCode).
+const PLATFORM_LABELS = [
+  [/leetcode\.com/i, 'LeetCode'],
+  [/geeksforgeeks\.org/i, 'GeeksforGeeks'],
+  [/hackerrank\.com/i, 'HackerRank'],
+  [/hackerearth\.com/i, 'HackerEarth'],
+  [/codeforces\.com/i, 'Codeforces'],
+  [/codechef\.com/i, 'CodeChef'],
+  [/spoj\.com/i, 'SPOJ'],
+  [/atcoder\.jp/i, 'AtCoder'],
+  [/interviewbit\.com/i, 'InterviewBit'],
+]
+const platformName = (url) => {
+  if (!url) return 'the external platform'
+  const hit = PLATFORM_LABELS.find(([re]) => re.test(url))
+  return hit ? hit[1] : 'the external platform'
 }
 
 const VERDICT = {
@@ -48,6 +66,7 @@ const VerdictPill = ({ verdict }) => {
 const CodingProblem = () => {
   const { problemId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { data: problem, isLoading } = useQuery({
     queryKey: ['codingProblem', problemId],
@@ -87,11 +106,25 @@ const CodingProblem = () => {
       setRunResult(null)
       if (data.all_passed) {
         toast.success(data.xp_awarded > 0 ? `All test cases passed! +${data.xp_awarded} XP 🎉` : 'All test cases passed! 🎉')
+        queryClient.invalidateQueries({ queryKey: ['codingProblem', problemId] })
       } else {
         toast(`${data.passed_count}/${data.total_count} test cases passed`)
       }
     },
     onError: (err) => toast.error(err?.response?.data?.error || 'Submission failed. Try again.'),
+  })
+
+  const toggleExternalMutation = useMutation({
+    mutationFn: () => codingService.toggleExternalSolved(problemId),
+    onSuccess: (data) => {
+      if (data.is_solved) {
+        toast.success(data.xp_awarded > 0 ? `Marked as solved! +${data.xp_awarded} XP 🎉` : 'Marked as solved 🎉')
+      } else {
+        toast('Marked as not solved')
+      }
+      queryClient.invalidateQueries({ queryKey: ['codingProblem', problemId] })
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Could not update. Try again.'),
   })
 
   if (isLoading) return <Loading fullScreen />
@@ -109,6 +142,12 @@ const CodingProblem = () => {
   const best = problem.my_best
   const busy = runMutation.isPending || submitMutation.isPending
 
+  const solveMode = problem.solve_mode || 'in_app'
+  const canExternal = (solveMode === 'external' || solveMode === 'both') && !!problem.external_url
+  const showEditor = solveMode === 'in_app' || solveMode === 'both'
+  const isSolved = !!problem.is_solved
+  const completion = problem.my_completion
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -125,7 +164,12 @@ const CodingProblem = () => {
             {problem.difficulty && <span className={`px-2 py-0.5 rounded capitalize ${DIFF_TINT[problem.difficulty] || 'bg-surface-100 dark:bg-surface-800'}`}>{problem.difficulty}</span>}
             {problem.max_marks != null && <span className="px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800">{problem.max_marks} marks</span>}
             <span className="px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800 inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {problem.time_limit_ms}ms</span>
-            {best && (
+            {isSolved && (
+              <span className="px-2 py-0.5 rounded bg-success-50 dark:bg-success-900/20 text-success-600 inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Solved{completion?.method === 'external' ? ' (external)' : ''}
+              </span>
+            )}
+            {!isSolved && best && (
               <span className="px-2 py-0.5 rounded bg-success-50 dark:bg-success-900/20 text-success-600 inline-flex items-center gap-1">
                 <Trophy className="w-3 h-3" /> Best {best.passed_count}/{best.total_count}
               </span>
@@ -134,7 +178,17 @@ const CodingProblem = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      {canExternal && (
+        <ExternalSolveCard
+          url={problem.external_url}
+          isSolved={isSolved}
+          completion={completion}
+          onToggle={() => toggleExternalMutation.mutate()}
+          toggling={toggleExternalMutation.isPending}
+        />
+      )}
+
+      <div className={`grid grid-cols-1 gap-4 items-start ${showEditor ? 'lg:grid-cols-2' : ''}`}>
         {/* Left: statement + samples */}
         <div className="space-y-4">
           <div className="card p-5">
@@ -160,6 +214,7 @@ const CodingProblem = () => {
         </div>
 
         {/* Right: editor + actions + results */}
+        {showEditor && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
@@ -196,6 +251,46 @@ const CodingProblem = () => {
           {/* Submit results */}
           {submitResult && (
             <SubmitResultPanel result={submitResult} maxMarks={problem.max_marks} />
+          )}
+        </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const ExternalSolveCard = ({ url, isSolved, completion, onToggle, toggling }) => {
+  const name = platformName(url)
+  const solvedExternally = isSolved && completion?.method === 'external'
+  const solvedInApp = isSolved && completion?.method === 'in_app'
+  return (
+    <div className="card p-4 sm:p-5 border border-primary-100 dark:border-primary-900/40 bg-primary-50/40 dark:bg-primary-900/10">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold flex items-center gap-1.5">
+            <ExternalLink className="w-4 h-4 text-primary-500" /> Solve on {name}
+          </h3>
+          <p className="text-xs text-surface-500 mt-1">
+            {solvedInApp
+              ? 'You already solved this in the app. Nice work!'
+              : `Open the problem on ${name}, solve it there, then mark it as solved here.`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm px-3 py-1.5 inline-flex items-center gap-1.5">
+            <ExternalLink className="w-4 h-4" /> Open on {name}
+          </a>
+          {!solvedInApp && (
+            <button
+              onClick={onToggle}
+              disabled={toggling}
+              className={`text-sm px-3 py-1.5 inline-flex items-center gap-1.5 disabled:opacity-50 ${solvedExternally ? 'btn-outline' : 'btn-primary'}`}
+            >
+              {toggling
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : solvedExternally ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+              {solvedExternally ? 'Mark as not solved' : 'Mark as solved'}
+            </button>
           )}
         </div>
       </div>

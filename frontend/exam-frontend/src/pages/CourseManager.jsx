@@ -514,6 +514,8 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
         max_marks: instance?.max_marks ?? '',
         time_limit_ms: instance?.time_limit_ms ?? 3000,
         memory_limit_mb: instance?.memory_limit_mb ?? 256,
+        solve_mode: instance?.solve_mode || 'in_app',
+        external_url: instance?.external_url || '',
         allowed_languages: instance?.allowed_languages?.length ? instance.allowed_languages : ['python'],
         starter_code: instance?.starter_code || {},
         test_cases: instance?.test_cases?.length ? instance.test_cases.map((c) => ({ ...c })) : [{ ...blankCase(), is_sample: true }],
@@ -532,8 +534,11 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
     const submit = (e) => {
         e.preventDefault()
         if (!form.title.trim()) return toast.error('Title is required')
-        if (!form.allowed_languages.length) return toast.error('Pick at least one language')
-        if (!form.test_cases.length) return toast.error('Add at least one test case')
+        const needsExternal = form.solve_mode === 'external' || form.solve_mode === 'both'
+        if (needsExternal && !form.external_url.trim()) return toast.error('Add the external problem link (required for external/both)')
+        const inAppRequired = form.solve_mode === 'in_app' || form.solve_mode === 'both'
+        if (inAppRequired && !form.allowed_languages.length) return toast.error('Pick at least one language')
+        if (inAppRequired && !form.test_cases.length) return toast.error('Add at least one test case')
         onSubmit({
             title: form.title.trim(),
             statement: form.statement,
@@ -542,6 +547,8 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
             max_marks: form.max_marks === '' ? null : Number(form.max_marks),
             time_limit_ms: Number(form.time_limit_ms) || 3000,
             memory_limit_mb: Number(form.memory_limit_mb) || 256,
+            solve_mode: form.solve_mode,
+            external_url: form.external_url.trim(),
             allowed_languages: form.allowed_languages,
             starter_code: Object.fromEntries(form.allowed_languages.map((k) => [k, form.starter_code[k] || ''])),
             test_cases: form.test_cases.map((c, i) => ({
@@ -577,6 +584,24 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
                         <textarea rows={6} className="input resize-y" value={form.statement} onChange={(e) => set('statement', e.target.value)} placeholder="Describe the problem, input format, output format, constraints…" />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-surface-500 mb-1">Where to solve</label>
+                            <select className="input" value={form.solve_mode} onChange={(e) => set('solve_mode', e.target.value)}>
+                                <option value="in_app">In app only</option>
+                                <option value="external">External platform only</option>
+                                <option value="both">Both (in app or external)</option>
+                            </select>
+                        </div>
+                        {(form.solve_mode === 'external' || form.solve_mode === 'both') && (
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-semibold text-surface-500 mb-1">External problem link</label>
+                                <input type="url" className="input" value={form.external_url} onChange={(e) => set('external_url', e.target.value)} placeholder="https://leetcode.com/problems/two-sum/" />
+                                <p className="text-[11px] text-surface-400 mt-1">Works with LeetCode, GeeksforGeeks, HackerRank, etc. Students get a link + a self-report “Mark as solved” button.</p>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-surface-500 mb-1">Difficulty</label>
@@ -600,6 +625,8 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
                         </div>
                     </div>
 
+                    {form.solve_mode !== 'external' && (
+                      <>
                     <div>
                         <label className="block text-xs font-semibold text-surface-500 mb-1.5">Allowed languages</label>
                         <div className="flex flex-wrap gap-2">
@@ -657,6 +684,8 @@ const CodingProblemModal = ({ instance, onClose, onSubmit, saving }) => {
                             </div>
                         ))}
                     </div>
+                      </>
+                    )}
 
                     <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>

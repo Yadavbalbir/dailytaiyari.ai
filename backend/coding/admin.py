@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CodingProblem, TestCase, CodingSubmission
+from .models import CodingProblem, TestCase, CodingSubmission, CodingProblemCompletion
 
 
 class TestCaseInline(admin.TabularInline):
@@ -10,10 +10,18 @@ class TestCaseInline(admin.TabularInline):
 
 @admin.register(CodingProblem)
 class CodingProblemAdmin(admin.ModelAdmin):
-    list_display = ['title', 'course', 'topic', 'difficulty', 'status', 'max_marks']
-    list_filter = ['status', 'difficulty', 'course']
+    list_display = ['title', 'course', 'topic', 'difficulty', 'status', 'solve_mode', 'max_marks']
+    list_filter = ['status', 'difficulty', 'solve_mode', 'course']
     search_fields = ['title']
     inlines = [TestCaseInline]
+
+
+@admin.register(CodingProblemCompletion)
+class CodingProblemCompletionAdmin(admin.ModelAdmin):
+    list_display = ['problem', 'student', 'method', 'completed_at']
+    list_filter = ['method']
+    search_fields = ['problem__title']
+    readonly_fields = ['completed_at']
 
 
 @admin.register(CodingSubmission)

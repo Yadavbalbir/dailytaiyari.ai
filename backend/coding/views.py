@@ -9,7 +9,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from users.models import CourseEnrollment
 
-from .models import CodingProblem, CodingSubmission
+from .models import CodingProblem, CodingSubmission, CodingProblemCompletion
 from .serializers import (
     CodingProblemListSerializer,
     CodingProblemDetailSerializer,
@@ -56,7 +56,7 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         return qs.order_by('order', '-created_at')
 
     def _attach_best(self, problems):
-        """Attach each student's best submission (most tests passed, then latest)."""
+        """Attach each student's best submission + explicit completion record."""
         student = self._student()
         if not student:
             return
@@ -67,8 +67,13 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         for s in subs:
             if s.problem_id not in best:
                 best[s.problem_id] = s
+        completions = {
+            c.problem_id: c
+            for c in CodingProblemCompletion.objects.filter(student=student, problem__in=problems)
+        }
         for p in problems:
             p._my_best = best.get(p.id)
+            p._my_completion = completions.get(p.id)
 
     def list(self, request, *args, **kwargs):
         problems = list(self.get_queryset())
@@ -174,29 +179,75 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
             marks=marks,
         )
 
-        # Award XP the first time the student fully solves this problem.
+        # Record a definitive completion + award XP the first time the student
+        # fully solves this problem in-app.
         xp_awarded = 0
         if submission.total_count > 0 and submission.passed_count == submission.total_count:
-            from gamification.models import XPTransaction
-            from gamification.services import GamificationService
-            from core.utils import calculate_xp_for_coding
-
-            already_awarded = XPTransaction.objects.filter(
-                student=student, transaction_type='coding_solved', reference_id=problem.id,
-            ).exists()
-            if not already_awarded:
-                xp_awarded = calculate_xp_for_coding(problem.difficulty)
-                GamificationService.award_xp(
-                    student,
-                    xp_awarded,
-                    'coding_solved',
-                    f'Solved coding problem: {problem.title}',
-                    str(problem.id),
-                )
+            CodingProblemCompletion.objects.update_or_create(
+                problem=problem, student=student,
+                defaults={'tenant': problem.tenant, 'method': 'in_app'},
+            )
+            xp_awarded = self._award_solve_xp(student, problem)
 
         data = SubmissionResultSerializer(submission).data
         data['xp_awarded'] = xp_awarded
         return Response(data, status=status.HTTP_201_CREATED)
+
+    def _award_solve_xp(self, student, problem):
+        """Award coding-solved XP once per problem (idempotent). Returns XP given."""
+        from gamification.models import XPTransaction
+        from gamification.services import GamificationService
+        from core.utils import calculate_xp_for_coding
+
+        already_awarded = XPTransaction.objects.filter(
+            student=student, transaction_type='coding_solved', reference_id=problem.id,
+        ).exists()
+        if already_awarded:
+            return 0
+        xp_awarded = calculate_xp_for_coding(problem.difficulty)
+        GamificationService.award_xp(
+            student,
+            xp_awarded,
+            'coding_solved',
+            f'Solved coding problem: {problem.title}',
+            str(problem.id),
+        )
+        return xp_awarded
+
+    @action(detail=True, methods=['post'], url_path='toggle-external-solved')
+    def toggle_external_solved(self, request, pk=None):
+        """Self-report (or un-report) solving this problem on an external judge.
+
+        Honour-based: only allowed when the problem is configured with an external
+        link (solve_mode 'external' or 'both'). Toggling on creates a completion
+        record (method='external') and awards solve XP once; toggling off removes
+        the external completion (in-app completions are never removed here).
+        """
+        problem = self.get_object()
+        student = self._student()
+        if not student:
+            return Response({'error': 'Student profile required.'}, status=400)
+        if not problem.allows_external:
+            return Response(
+                {'error': 'This problem is not set up for external solving.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing = CodingProblemCompletion.objects.filter(problem=problem, student=student).first()
+        if existing:
+            # Only external self-reports are reversible; an in-app solve stays.
+            if existing.method == 'external':
+                existing.delete()
+                return Response({'is_solved': False, 'method': None, 'xp_awarded': 0})
+            return Response({
+                'is_solved': True, 'method': existing.method, 'xp_awarded': 0,
+            })
+
+        CodingProblemCompletion.objects.create(
+            tenant=problem.tenant, problem=problem, student=student, method='external',
+        )
+        xp_awarded = self._award_solve_xp(student, problem)
+        return Response({'is_solved': True, 'method': 'external', 'xp_awarded': xp_awarded})
 
     @action(detail=True, methods=['get'], url_path='my-submissions')
     def my_submissions(self, request, pk=None):

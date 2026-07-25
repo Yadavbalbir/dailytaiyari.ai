@@ -27,10 +27,20 @@ class AdminCodingProblemSerializer(serializers.ModelSerializer):
             'id', 'course', 'subject', 'subject_name', 'topic', 'topic_name',
             'title', 'statement', 'difficulty', 'allowed_languages', 'starter_code',
             'time_limit_ms', 'memory_limit_mb', 'max_marks', 'status', 'order',
+            'solve_mode', 'external_url',
             'test_cases', 'submission_count', 'test_case_count',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, attrs):
+        solve_mode = attrs.get('solve_mode', getattr(self.instance, 'solve_mode', 'in_app'))
+        external_url = attrs.get('external_url', getattr(self.instance, 'external_url', ''))
+        if solve_mode in ('external', 'both') and not (external_url or '').strip():
+            raise serializers.ValidationError({
+                'external_url': 'An external problem link is required when the solve mode is external or both.',
+            })
+        return attrs
 
     def get_submission_count(self, obj):
         return obj.submissions.count()

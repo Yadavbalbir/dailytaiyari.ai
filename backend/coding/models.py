@@ -25,6 +25,15 @@ class CodingProblem(OrderedModel):
         ('medium', 'Medium'),
         ('hard', 'Hard'),
     ]
+    # Where a student is expected to solve this problem.
+    #   in_app   -> solved by passing all in-app test cases (default, legacy behaviour)
+    #   external -> solved only on an external judge (e.g. LeetCode); self-reported
+    #   both     -> either an in-app all-pass OR an external self-report completes it
+    SOLVE_MODE_CHOICES = [
+        ('in_app', 'Solve in app'),
+        ('external', 'Solve on external platform'),
+        ('both', 'Solve in app or external platform'),
+    ]
 
     tenant = models.ForeignKey(
         'core.Tenant', on_delete=models.CASCADE, related_name='coding_problems',
@@ -53,6 +62,12 @@ class CodingProblem(OrderedModel):
     max_marks = models.PositiveIntegerField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
 
+    # External-judge support (e.g. LeetCode / GeeksforGeeks / HackerRank).
+    solve_mode = models.CharField(max_length=10, choices=SOLVE_MODE_CHOICES, default='in_app')
+    # Optional link to the same problem on an external platform. Required when
+    # solve_mode is 'external' or 'both' (enforced in the authoring serializer).
+    external_url = models.URLField(max_length=1000, blank=True)
+
     class Meta:
         verbose_name = 'Coding Problem'
         verbose_name_plural = 'Coding Problems'
@@ -68,6 +83,14 @@ class CodingProblem(OrderedModel):
     def normalized_languages(self):
         langs = [l for l in (self.allowed_languages or []) if l in LANGUAGE_KEYS]
         return langs or list(LANGUAGE_KEYS)
+
+    @property
+    def allows_in_app(self):
+        return self.solve_mode in ('in_app', 'both')
+
+    @property
+    def allows_external(self):
+        return self.solve_mode in ('external', 'both') and bool(self.external_url)
 
 
 class TestCase(OrderedModel):
@@ -132,3 +155,43 @@ class CodingSubmission(OrderedModel):
     @property
     def all_passed(self):
         return self.total_count > 0 and self.passed_count == self.total_count
+
+
+class CodingProblemCompletion(TimeStampedModel):
+    """A definitive per-student completion record for a coding problem.
+
+    Written when a student either passes all in-app test cases (method="in_app")
+    or self-reports solving the problem on an external judge (method="external").
+    Exactly one row per (problem, student); the `method` reflects how it was most
+    recently completed. External completions are reversible (the student can
+    unmark), which deletes the row.
+    """
+    METHOD_CHOICES = [
+        ('in_app', 'Solved in app'),
+        ('external', 'Solved on external platform'),
+    ]
+
+    tenant = models.ForeignKey(
+        'core.Tenant', on_delete=models.CASCADE, related_name='coding_completions',
+    )
+    problem = models.ForeignKey(
+        CodingProblem, on_delete=models.CASCADE, related_name='completions',
+    )
+    student = models.ForeignKey(
+        'users.StudentProfile', on_delete=models.CASCADE, related_name='coding_completions',
+    )
+    method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='in_app')
+    completed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Coding Problem Completion'
+        verbose_name_plural = 'Coding Problem Completions'
+        constraints = [
+            models.UniqueConstraint(fields=['problem', 'student'], name='uniq_problem_student_completion'),
+        ]
+        indexes = [
+            models.Index(fields=['problem', 'student'], name='coding_completion_ps_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.student_id} solved {self.problem_id} ({self.method})'
