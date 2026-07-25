@@ -16,7 +16,8 @@ import {
   Sparkles,
   Settings,
   Users,
-  Briefcase
+  Briefcase,
+  Bookmark
 } from 'lucide-react'
 
 // Navigation items with professional icons.
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/courses', label: 'Courses', icon: GraduationCap, feature: 'courses' },
   { path: '/study', label: 'Study', icon: BookOpen, feature: 'study' },
+  { path: '/revision', label: 'Revision', icon: Bookmark, feature: 'study' },
   { path: '/quiz', label: 'Practice Quiz', icon: PenTool, feature: 'quiz' },
   { path: '/mock-test', label: 'Mock Tests', icon: ClipboardList, feature: 'mock_tests' },
   { path: '/pyp', label: 'PYQ Papers', icon: FileText, feature: 'pyq' },

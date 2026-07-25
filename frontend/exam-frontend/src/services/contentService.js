@@ -48,6 +48,14 @@ export const contentService = {
     return response.data
   },
 
+  // Get bookmarked content (for the Revision section)
+  getBookmarks: async () => {
+    const response = await api.get('/content/progress/', {
+      params: { is_bookmarked: true },
+    })
+    return response.data
+  },
+
   // Toggle bookmark
   toggleBookmark: async (progressId) => {
     const response = await api.post(`/content/progress/${progressId}/toggle_bookmark/`)

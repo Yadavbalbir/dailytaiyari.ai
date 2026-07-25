@@ -37,11 +37,12 @@ class ContentProgressSerializer(serializers.ModelSerializer):
     """Serializer for ContentProgress model."""
     content_title = serializers.CharField(source='content.title', read_only=True)
     content_type = serializers.CharField(source='content.content_type', read_only=True)
+    content_data = ContentSerializer(source='content', read_only=True)
     
     class Meta:
         model = ContentProgress
         fields = [
-            'id', 'content', 'content_title', 'content_type',
+            'id', 'content', 'content_title', 'content_type', 'content_data',
             'is_completed', 'completed_at', 'progress_percentage',
             'video_position_seconds', 'time_spent_minutes',
             'is_bookmarked', 'is_liked', 'personal_notes',
