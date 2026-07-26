@@ -10,6 +10,7 @@ Security note: the engine sandboxes each run (network disabled, process/memory/
 output caps, timeouts). We additionally pass explicit per-run limits here.
 """
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from django.conf import settings
@@ -23,6 +24,8 @@ MAX_RUN_TIMEOUT_MS = 10_000
 MAX_MEMORY_MB = 512
 # Wall-clock timeout for the HTTP call to the engine (generous vs run_timeout).
 HTTP_TIMEOUT_S = 20
+# Default number of test cases to execute concurrently when settings is absent.
+DEFAULT_JUDGE_PARALLELISM = 4
 
 
 class EngineError(Exception):
@@ -128,9 +131,45 @@ def run_against_cases(*, language, source, cases, time_limit_ms, memory_limit_mb
     are included in the returned per-test detail (True for samples/run, False
     for hidden graded cases so answers never leak to the client).
 
+    Test cases are executed with a bounded thread pool (CODE_JUDGE_PARALLELISM,
+    default 1 = sequential). Concurrency is opt-in because Piston's run_timeout
+    is wall-clock: parallel runs only stay correct when Piston has that many
+    dedicated cores, otherwise CPU contention inflates wall time into spurious
+    TIME_LIMIT verdicts. Ordering, scoring, and compile-error semantics are
+    preserved regardless of the parallelism level.
+
     Returns dict: {results[], passed_count, total_count, passed_points,
     total_points, compile_error(bool), compile_output(str)}.
     """
+    cases = list(cases)
+
+    def _execute(case):
+        return run_code(
+            language=language,
+            source=source,
+            stdin=getattr(case, 'stdin', '') or '',
+            time_limit_ms=time_limit_ms,
+            memory_limit_mb=memory_limit_mb,
+        )
+
+    # Execute cases, filling engine_results in input order. A `None` slot marks a
+    # case that was short-circuited after a compile failure (see below) and is
+    # reported as a compile_error without being run.
+    engine_results = [None] * len(cases)
+    if cases:
+        # Probe with the first case. Compilation is input-independent, so if the
+        # source fails to compile here the whole submission fails -- skip running
+        # the remaining cases instead of recompiling the broken source N times.
+        engine_results[0] = _execute(cases[0])
+        if engine_results[0].get('compile_ok') and len(cases) > 1:
+            parallelism = getattr(settings, 'CODE_JUDGE_PARALLELISM', DEFAULT_JUDGE_PARALLELISM)
+            # Concurrency only helps with a multi-core Piston; see the setting's
+            # docs. map() preserves order and re-raises EngineError to the caller.
+            max_workers = max(1, min(int(parallelism or 1), len(cases) - 1))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for offset, res in enumerate(executor.map(_execute, cases[1:]), start=1):
+                    engine_results[offset] = res
+
     results = []
     passed_count = 0
     passed_points = 0
@@ -142,8 +181,9 @@ def run_against_cases(*, language, source, cases, time_limit_ms, memory_limit_mb
         points = int(getattr(case, 'points', 1) or 0)
         total_points += points
 
-        # If compilation already failed once, short-circuit the rest.
-        if compile_error:
+        res = engine_results[idx]
+        if res is None:
+            # Short-circuited: an earlier case failed to compile.
             results.append({
                 'index': idx,
                 'is_sample': bool(getattr(case, 'is_sample', False)),
@@ -153,16 +193,11 @@ def run_against_cases(*, language, source, cases, time_limit_ms, memory_limit_mb
             })
             continue
 
-        res = run_code(
-            language=language,
-            source=source,
-            stdin=getattr(case, 'stdin', '') or '',
-            time_limit_ms=time_limit_ms,
-            memory_limit_mb=memory_limit_mb,
-        )
         verdict = _verdict_for(res, getattr(case, 'expected_output', '') or '')
 
-        if verdict == 'compile_error':
+        # Compilation is input-independent: a compile failure means the whole
+        # submission fails to compile. Record it once for the outcome.
+        if verdict == 'compile_error' and not compile_error:
             compile_error = True
             compile_output = res.get('compile_output', '')
 

@@ -114,6 +114,8 @@ class TestCase(OrderedModel):
 
 class CodingSubmission(OrderedModel):
     STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('running', 'Running'),
         ('done', 'Evaluated'),
         ('error', 'Engine error'),
     ]

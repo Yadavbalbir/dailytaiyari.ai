@@ -1,7 +1,9 @@
 """Student-facing coding endpoints: list problems, solve, run samples, submit."""
-from decimal import Decimal
+import logging
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db.models import F
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -18,6 +20,8 @@ from .serializers import (
 from .languages import LANGUAGES
 from . import services
 
+logger = logging.getLogger(__name__)
+
 
 class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
     """Published coding problems for the student's approved-enrolled courses."""
@@ -33,6 +37,11 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == 'submit':
             self.throttle_scope = 'code_submit'
             return [ScopedRateThrottle()]
+        # Polling one's own submission is a cheap authenticated read that the
+        # frontend does repeatedly while a submission grades — don't throttle it
+        # under the shared 'user' bucket (that would starve normal API calls).
+        if self.action == 'submission_status':
+            return []
         return super().get_throttles()
 
     def _student(self):
@@ -63,7 +72,7 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         best = {}
         subs = CodingSubmission.objects.filter(
             student=student, problem__in=problems,
-        ).order_by('problem_id', '-passed_points', '-submitted_at')
+        ).exclude(status__in=['queued', 'running']).order_by('problem_id', '-passed_points', '-submitted_at')
         for s in subs:
             if s.problem_id not in best:
                 best[s.problem_id] = s
@@ -131,7 +140,16 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'])
     def submit(self, request, pk=None):
-        """Run code against ALL test cases, score, and persist the submission."""
+        """Run code against ALL test cases, score, and persist the submission.
+
+        Behaviour depends on settings.CODE_JUDGE_ASYNC:
+          * async  -> create a 'queued' submission, enqueue grading to Celery,
+                      return 202 with the queued submission; client polls
+                      `submissions/<id>/` until status is done/error.
+          * sync   -> grade in-request and return 201 with the full result
+                      (legacy behaviour). Also the automatic fallback if the
+                      task queue can't be reached.
+        """
         problem = self.get_object()
         student = self._student()
         if not student:
@@ -147,72 +165,79 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         if not source.strip():
             return Response({'error': 'Write some code first.'}, status=400)
 
-        cases = list(problem.test_cases.all().order_by('order', 'created_at'))
-        if not cases:
+        if not problem.test_cases.exists():
             return Response({'error': 'This problem has no test cases yet.'}, status=400)
-
-        try:
-            outcome = services.run_against_cases(
-                language=language, source=source, cases=cases,
-                time_limit_ms=problem.time_limit_ms,
-                memory_limit_mb=problem.memory_limit_mb,
-                reveal_io=False,
-            )
-        except services.EngineError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        marks = None
-        if problem.max_marks and outcome['total_points'] > 0:
-            marks = (Decimal(problem.max_marks) * outcome['passed_points'] / outcome['total_points']).quantize(Decimal('0.01'))
-        elif problem.max_marks:
-            marks = Decimal('0.00')
 
         submission = CodingSubmission.objects.create(
             problem=problem, student=student, language=language, source_code=source,
-            status='error' if outcome['compile_error'] and outcome['passed_count'] == 0 else 'done',
-            results=outcome['results'],
-            compile_output=outcome['compile_output'],
-            passed_count=outcome['passed_count'],
-            total_count=outcome['total_count'],
-            passed_points=outcome['passed_points'],
-            total_points=outcome['total_points'],
-            marks=marks,
+            status='queued',
         )
 
-        # Record a definitive completion + award XP the first time the student
-        # fully solves this problem in-app.
-        xp_awarded = 0
-        if submission.total_count > 0 and submission.passed_count == submission.total_count:
-            CodingProblemCompletion.objects.update_or_create(
-                problem=problem, student=student,
-                defaults={'tenant': problem.tenant, 'method': 'in_app'},
-            )
-            xp_awarded = self._award_solve_xp(student, problem)
+        if getattr(settings, 'CODE_JUDGE_ASYNC', False):
+            try:
+                from .tasks import grade_submission
+                grade_submission.delay(str(submission.id))
+            except Exception as exc:  # broker down -> never block the student
+                logger.warning('Async enqueue failed (%s); grading synchronously.', exc)
+                return self._grade_sync(submission)
+            data = SubmissionResultSerializer(submission).data
+            data['xp_awarded'] = 0
+            return Response(data, status=status.HTTP_202_ACCEPTED)
 
+        return self._grade_sync(submission)
+
+    def _grade_sync(self, submission):
+        """Grade a queued submission in-request and return the 201 result."""
+        from . import grading
+        try:
+            xp_awarded = grading.finalize_submission(submission)
+        except services.EngineError as exc:
+            # Preserve legacy behaviour: an engine failure leaves no submission
+            # row and returns 503 (the student simply retries).
+            submission.delete()
+            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         data = SubmissionResultSerializer(submission).data
         data['xp_awarded'] = xp_awarded
         return Response(data, status=status.HTTP_201_CREATED)
 
-    def _award_solve_xp(self, student, problem):
-        """Award coding-solved XP once per problem (idempotent). Returns XP given."""
-        from gamification.models import XPTransaction
-        from gamification.services import GamificationService
-        from core.utils import calculate_xp_for_coding
+    @action(detail=True, methods=['get'],
+            url_path=r'submissions/(?P<sub_id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
+    def submission_status(self, request, pk=None, sub_id=None):
+        """Poll a single submission's status/result (owner-scoped).
 
-        already_awarded = XPTransaction.objects.filter(
-            student=student, transaction_type='coding_solved', reference_id=problem.id,
-        ).exists()
-        if already_awarded:
+        Used by the frontend to poll a queued/async submission until it is graded.
+        Returns the same shape as `submit`, including a display-only `xp_awarded`.
+        """
+        student = self._student()
+        if not student:
+            return Response({'error': 'Student profile required.'}, status=400)
+        try:
+            submission = CodingSubmission.objects.filter(
+                id=sub_id, problem_id=pk, student=student,
+            ).first()
+        except (ValidationError, ValueError):
+            submission = None
+        if not submission:
+            return Response({'error': 'Submission not found.'}, status=status.HTTP_404_NOT_FOUND)
+        data = SubmissionResultSerializer(submission).data
+        data['xp_awarded'] = self._display_xp(submission) if submission.status == 'done' else 0
+        return Response(data)
+
+    def _display_xp(self, submission):
+        """XP to *display* for a graded submission: the solve XP only when this is
+        the first fully-passing submission for the student on this problem, else 0
+        (mirrors the award-once semantics without re-awarding)."""
+        from core.utils import calculate_xp_for_coding
+        if not (submission.total_count > 0 and submission.passed_count == submission.total_count):
             return 0
-        xp_awarded = calculate_xp_for_coding(problem.difficulty)
-        GamificationService.award_xp(
-            student,
-            xp_awarded,
-            'coding_solved',
-            f'Solved coding problem: {problem.title}',
-            str(problem.id),
-        )
-        return xp_awarded
+        earlier_solve = CodingSubmission.objects.filter(
+            problem_id=submission.problem_id, student_id=submission.student_id,
+            total_count__gt=0, passed_count=F('total_count'),
+            submitted_at__lt=submission.submitted_at,
+        ).exists()
+        if earlier_solve:
+            return 0
+        return calculate_xp_for_coding(submission.problem.difficulty)
 
     @action(detail=True, methods=['post'], url_path='toggle-external-solved')
     def toggle_external_solved(self, request, pk=None):
@@ -246,7 +271,8 @@ class CodingProblemViewSet(viewsets.ReadOnlyModelViewSet):
         CodingProblemCompletion.objects.create(
             tenant=problem.tenant, problem=problem, student=student, method='external',
         )
-        xp_awarded = self._award_solve_xp(student, problem)
+        from . import grading
+        xp_awarded = grading.award_solve_xp(student, problem)
         return Response({'is_solved': True, 'method': 'external', 'xp_awarded': xp_awarded})
 
     @action(detail=True, methods=['get'], url_path='my-submissions')
