@@ -49,6 +49,8 @@ const StudyChapterTopics = () => {
 
   const chapter = data?.chapter
   const topics = data?.topics || []
+  const locked = chapter?.locked || false
+  const lockedBy = chapter?.locked_by || null
 
   return (
     <div className="space-y-6">
@@ -89,6 +91,18 @@ const StudyChapterTopics = () => {
       {/* Topics list */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Topics</h2>
+        {locked && (
+          <div className="card p-4 mb-3 flex items-start gap-3 bg-warning-50 dark:bg-warning-900/20 border-warning-100 dark:border-warning-900/40">
+            <Lock size={18} className="text-warning-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-warning-700 dark:text-warning-300">
+              <p className="font-semibold">This chapter is locked</p>
+              <p className="mt-0.5">
+                Complete
+                {lockedBy?.name ? <> <span className="font-semibold">“{lockedBy.name}”</span></> : ' the previous chapter'} to unlock these topics. You can preview what’s inside below.
+              </p>
+            </div>
+          </div>
+        )}
         {topics.length === 0 ? (
           <div className="card p-8 text-center text-surface-500">
             <p>No topics in this chapter yet.</p>
@@ -119,8 +133,12 @@ const StudyChapterTopics = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
-                  onClick={() => navigate(`/study/chapter/${chapterId}/topic/${topic.id}`)}
-                  className="card p-4 flex items-center gap-4 cursor-pointer hover:border-primary-200 hover:shadow-md transition-all group"
+                  onClick={() => { if (!locked) navigate(`/study/chapter/${chapterId}/topic/${topic.id}`) }}
+                  className={`card p-4 flex items-center gap-4 transition-all group ${
+                    locked
+                      ? 'opacity-70 cursor-not-allowed'
+                      : 'cursor-pointer hover:border-primary-200 hover:shadow-md'
+                  }`}
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center text-primary-600 font-semibold text-sm flex-shrink-0">
                     {index + 1}
@@ -143,7 +161,11 @@ const StudyChapterTopics = () => {
                     <div className="w-16 text-right">
                       <span className="text-sm font-semibold">{progress}%</span>
                     </div>
-                    <ChevronRight size={20} className="text-surface-400 group-hover:text-primary-500" />
+                    {locked ? (
+                      <Lock size={18} className="text-surface-400" />
+                    ) : (
+                      <ChevronRight size={20} className="text-surface-400 group-hover:text-primary-500" />
+                    )}
                   </div>
                 </motion.div>
               )

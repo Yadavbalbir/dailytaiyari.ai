@@ -10,7 +10,7 @@ import CertificateModal from '../components/certificate/CertificateModal'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
   ChevronRight, ChevronDown, GraduationCap, ArrowLeft, Settings2,
-  PlayCircle, PenTool, ClipboardList, Code2, Trophy, CheckCircle2, Award,
+  PlayCircle, PenTool, ClipboardList, Code2, Trophy, CheckCircle2, Award, Lock,
 } from 'lucide-react'
 
 const iconMap = {
@@ -61,7 +61,7 @@ const Bar = ({ value, color }) => (
 )
 
 /** Leaf row: a single topic with an Enter button. */
-const TopicRow = ({ item, index, onEnter }) => {
+const TopicRow = ({ item, index, onEnter, locked = false }) => {
   const { topic, reading = [], videos = [], quizzes = [], assignments = [], coding = [] } = item
   const readingDone = reading.filter((r) => r.is_completed).length
   const videosDone = videos.filter((v) => v.is_completed).length
@@ -113,13 +113,22 @@ const TopicRow = ({ item, index, onEnter }) => {
       <span className="text-xs font-semibold text-surface-500 w-9 text-right flex-shrink-0">
         {hasContent ? `${progress}%` : '—'}
       </span>
-      <button
-        type="button"
-        onClick={onEnter}
-        className="btn-primary text-xs px-3 py-1.5 flex-shrink-0"
-      >
-        Enter
-      </button>
+      {locked ? (
+        <span
+          className="flex items-center gap-1 text-xs font-medium text-surface-400 px-3 py-1.5 flex-shrink-0"
+          title="Complete the previous chapter to unlock"
+        >
+          <Lock size={13} /> Locked
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onEnter}
+          className="btn-primary text-xs px-3 py-1.5 flex-shrink-0"
+        >
+          Enter
+        </button>
+      )}
     </div>
   )
 }
@@ -133,6 +142,8 @@ const ChapterRow = ({ chapter, index, courseColor, navigate }) => {
     enabled: open,
   })
   const topics = data?.topics || []
+  const locked = data?.chapter?.locked || false
+  const lockedBy = data?.chapter?.locked_by || null
 
   // A chapter is only "complete" if it actually has content — 0/0 is never 100%.
   const chapterItems =
@@ -189,14 +200,26 @@ const ChapterRow = ({ chapter, index, courseColor, navigate }) => {
               ) : topics.length === 0 ? (
                 <p className="text-sm text-surface-400 px-4 py-3">No topics in this chapter yet.</p>
               ) : (
-                topics.map((item, i) => (
-                  <TopicRow
-                    key={item.topic.id}
-                    item={item}
-                    index={i}
-                    onEnter={() => navigate(`/study/chapter/${chapter.id}/topic/${item.topic.id}`)}
-                  />
-                ))
+                <>
+                  {locked && (
+                    <div className="flex items-start gap-2 mx-2 mb-1 px-3 py-2.5 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-100 dark:border-warning-900/40">
+                      <Lock size={15} className="text-warning-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-warning-700 dark:text-warning-300 leading-relaxed">
+                        This chapter is locked. Complete
+                        {lockedBy?.name ? <> <span className="font-semibold">“{lockedBy.name}”</span></> : ' the previous chapter'} to unlock it.
+                      </p>
+                    </div>
+                  )}
+                  {topics.map((item, i) => (
+                    <TopicRow
+                      key={item.topic.id}
+                      item={item}
+                      index={i}
+                      locked={locked}
+                      onEnter={() => navigate(`/study/chapter/${chapter.id}/topic/${item.topic.id}`)}
+                    />
+                  ))}
+                </>
               )}
             </div>
           </motion.div>

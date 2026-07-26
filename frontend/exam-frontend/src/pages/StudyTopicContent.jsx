@@ -83,6 +83,30 @@ const StudyTopicContent = () => {
     )
   }
 
+  // Chapter is locked behind sequential progression — allow the metadata to load
+  // (so we can name the blocking chapter) but do not reveal the content itself.
+  if (chapter?.locked) {
+    const lockedBy = chapter?.locked_by
+    return (
+      <div className="max-w-lg mx-auto text-center py-16 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-warning-50 dark:bg-warning-900/20 flex items-center justify-center mx-auto">
+          <Lock size={30} className="text-warning-600" />
+        </div>
+        <h1 className="text-xl font-semibold">This chapter is locked</h1>
+        <p className="text-surface-500">
+          Complete
+          {lockedBy?.name ? <> <span className="font-semibold">“{lockedBy.name}”</span></> : ' the previous chapter'} to unlock “{topic.name}”.
+        </p>
+        <button
+          onClick={() => navigate(`/study/chapter/${chapterId}`)}
+          className="btn-primary inline-flex items-center gap-2"
+        >
+          <ArrowLeft size={16} /> Back to topics
+        </button>
+      </div>
+    )
+  }
+
   const readingDone = reading.filter(r => r.is_completed).length
   const videosDone = videos.filter(v => v.is_completed).length
   const quizzesAttempted = quizzes.filter(q => q.attempts_count > 0).length
