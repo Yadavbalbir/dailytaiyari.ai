@@ -61,6 +61,11 @@ services:
     image: ghcr.io/engineer-man/piston
     privileged: true
     restart: unless-stopped
+    # Raise the program output cap from Piston's 1 KB default to 64 KB so
+    # array-returning problems (and students' correct solutions to them) can
+    # emit large outputs on big inputs without a spurious output_limit verdict.
+    environment:
+      - PISTON_OUTPUT_MAX_SIZE=65536
     volumes:
       - piston_data:/piston
     # No `ports:` on purpose — do NOT expose to host/internet.
