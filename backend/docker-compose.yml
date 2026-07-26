@@ -21,7 +21,7 @@ services:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-    environment:
+    environment: &app-env
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -48,9 +48,56 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-ap-south-1}
+      # Async code judging (Phase A). Celery broker/result on Redis; flip
+      # CODE_JUDGE_ASYNC=True once the redis + celery-worker services are up so
+      # submissions are graded off the request thread. Defaults keep the app
+      # working synchronously if these are unset. (Set REDIS_URL as well to move
+      # the Django cache onto Redis too — left unset here so the cache stays
+      # LocMem and this change is scoped to async judging only.)
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      - CODE_JUDGE_ASYNC=${CODE_JUDGE_ASYNC:-False}
+      - CODE_JUDGE_PARALLELISM=${CODE_JUDGE_PARALLELISM:-1}
 
     depends_on:
       db:
+        condition: service_healthy
+
+  # Redis — Celery broker + result backend for async code judging.
+  # Internal only; no published ports. Uses noeviction so queued task messages
+  # are never dropped under memory pressure (a full broker instead makes enqueue
+  # fail, which the app handles by falling back to synchronous grading).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    mem_limit: 320m
+
+  # Celery worker — grades coding submissions off the web request thread.
+  # Shares the web image and the same app environment. Concurrency defaults to 1
+  # to match the single-core Piston sandbox: grading several submissions at once
+  # on one core would inflate Piston's wall-clock run_timeout into spurious
+  # TIME_LIMIT verdicts. Raise CELERY_CONCURRENCY together with Piston cores.
+  celery-worker:
+    build: .
+    restart: unless-stopped
+    # Skip the web entrypoint (migrate/collectstatic) — the web service owns
+    # those; the worker only needs to consume the queue.
+    entrypoint: []
+    command: celery -A dailytaiyari worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-1}
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # Code-execution sandbox for coding questions. Runs untrusted student code.

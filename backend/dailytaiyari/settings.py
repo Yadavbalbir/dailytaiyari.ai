@@ -375,24 +375,44 @@ CODING_ENABLED = config('CODING_ENABLED', default=True, cast=bool)
 # on a multi-core host with cores >= this value (e.g. a dedicated judge box).
 CODE_JUDGE_PARALLELISM = config('CODE_JUDGE_PARALLELISM', default=1, cast=int)
 
-# Caching (Redis for production)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
-    }
-}
+# --- Async code judging (Phase A) --------------------------------------------
+# When True, graded submissions are enqueued to Celery and graded off the web
+# request thread; the client receives a "queued" submission and polls for the
+# result. When False (default), grading runs synchronously in-request exactly as
+# before. Flip to True only once the redis + celery-worker services are running.
+CODE_JUDGE_ASYNC = config('CODE_JUDGE_ASYNC', default=False, cast=bool)
 
-# For production with Redis:
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django_redis.cache.RedisCache',
-#         'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
-#         'OPTIONS': {
-#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#         }
-#     }
-# }
+# Celery (broker + result backend on Redis). Result backend stores the task
+# state so the poll endpoint can distinguish queued/running/done.
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://redis:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://redis:6379/1')
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 180
+CELERY_TASK_SOFT_TIME_LIMIT = 150
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Caching. Prefer a shared Redis cache when REDIS_URL is configured (needed once
+# there are multiple web workers/hosts); otherwise fall back to per-process
+# LocMem so the app still runs without Redis.
+_REDIS_URL = config('REDIS_URL', default='')
+if _REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': f'{_REDIS_URL}/2',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
+    }
 
 # Logging Configuration
 LOGGING = {

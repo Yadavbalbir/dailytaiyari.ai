@@ -12,6 +12,33 @@ import Loading from '../components/common/Loading'
 
 const CodeEditor = lazy(() => import('../components/coding/CodeEditor'))
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Poll a queued/async submission until it is graded (or a generous deadline).
+// Sync submissions return a terminal status directly and never reach here.
+// Transient poll failures are tolerated (grading continues server-side).
+const pollSubmission = async (problemId, submissionId) => {
+  const deadline = Date.now() + 180000
+  let delay = 1200
+  let consecutiveErrors = 0
+  while (Date.now() < deadline) {
+    await sleep(delay)
+    try {
+      const s = await codingService.submissionStatus(problemId, submissionId)
+      consecutiveErrors = 0
+      if (s.status === 'done' || s.status === 'error') return s
+    } catch (e) {
+      // A single 5xx/network blip shouldn't abort — keep polling. Give up only
+      // after several consecutive failures (server likely unreachable).
+      if (++consecutiveErrors >= 5) throw e
+    }
+    delay = Math.min(delay + 300, 3000)
+  }
+  const err = new Error('grading-timeout')
+  err.friendly = 'Still grading — this is taking longer than usual. Check "My submissions" in a moment.'
+  throw err
+}
+
 const DIFF_TINT = {
   easy: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20',
   medium: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20',
@@ -100,10 +127,21 @@ const CodingProblem = () => {
   })
 
   const submitMutation = useMutation({
-    mutationFn: () => codingService.submit(problemId, { language: lang, source_code: code }),
+    mutationFn: async () => {
+      const res = await codingService.submit(problemId, { language: lang, source_code: code })
+      // Async judging returns a queued submission (HTTP 202) — poll until graded.
+      if (res && res.id && (res.status === 'queued' || res.status === 'running')) {
+        return pollSubmission(problemId, res.id)
+      }
+      return res
+    },
     onSuccess: (data) => {
       setSubmitResult(data)
       setRunResult(null)
+      if (data.status === 'error' && (data.total_count || 0) === 0) {
+        toast.error(data.compile_output || 'Could not grade your submission. Please try again.')
+        return
+      }
       if (data.all_passed) {
         toast.success(data.xp_awarded > 0 ? `All test cases passed! +${data.xp_awarded} XP 🎉` : 'All test cases passed! 🎉')
         queryClient.invalidateQueries({ queryKey: ['codingProblem', problemId] })
@@ -111,7 +149,7 @@ const CodingProblem = () => {
         toast(`${data.passed_count}/${data.total_count} test cases passed`)
       }
     },
-    onError: (err) => toast.error(err?.response?.data?.error || 'Submission failed. Try again.'),
+    onError: (err) => toast.error(err?.friendly || err?.response?.data?.error || 'Submission failed. Try again.'),
   })
 
   const toggleExternalMutation = useMutation({
@@ -248,8 +286,15 @@ const CodingProblem = () => {
             <RunResultPanel result={runResult} />
           )}
 
+          {/* Grading in progress (async submissions are queued then polled) */}
+          {submitMutation.isPending && (
+            <div className="flex items-center gap-2 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/40 px-4 py-3 text-sm text-surface-500">
+              <Loader2 className="w-4 h-4 animate-spin" /> Grading your submission…
+            </div>
+          )}
+
           {/* Submit results */}
-          {submitResult && (
+          {!submitMutation.isPending && submitResult && (
             <SubmitResultPanel result={submitResult} maxMarks={problem.max_marks} />
           )}
         </div>
