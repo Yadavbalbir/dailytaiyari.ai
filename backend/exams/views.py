@@ -659,8 +659,13 @@ class StudyChapterDetailView(APIView):
         except Chapter.DoesNotExist:
             return Response({'error': 'Chapter not found'}, status=404)
 
-        # Enforce sequential unlock: block access when a preceding chapter in
-        # the same subject is not yet fully completed.
+        # Sequential unlock: when a preceding chapter in the same subject is not
+        # yet fully completed, this chapter is "locked". We no longer hard-block
+        # the request (that hid the chapter's topics entirely). Instead we return
+        # the topic list as usual but flag it as locked, so the UI can preview the
+        # contents, show a lock indicator, and prevent entering a topic.
+        locked = False
+        locked_by = None
         if getattr(chapter.subject.course, 'sequential_chapter_unlock', False):
             preceding = chapter.subject.chapters.filter(
                 order__lt=chapter.order
@@ -671,19 +676,26 @@ class StudyChapterDetailView(APIView):
                 prev_topic_ids = [ct.topic_id for ct in prev.chapter_topics.all()]
                 total, done = _chapter_completion_counts(student, prev_topic_ids)
                 if _chapter_blocks_next(total, done):
-                    return Response(
-                        {
-                            'error': 'chapter_locked',
-                            'detail': 'Complete the previous chapter to unlock this one.',
-                            'subject_id': str(chapter.subject_id),
-                            'locked_by': {
-                                'id': str(prev.id),
-                                'name': prev.name,
-                                'subject_id': str(chapter.subject_id),
-                            },
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+                    locked = True
+                    locked_by = {
+                        'id': str(prev.id),
+                        'name': prev.name,
+                        'subject_id': str(chapter.subject_id),
+                    }
+                    break
+
+        def _chapter_dict():
+            return {
+                'id': str(chapter.id),
+                'name': chapter.name,
+                'code': chapter.code,
+                'description': chapter.description,
+                'subject_name': chapter.subject.name,
+                'subject_id': str(chapter.subject.id),
+                'estimated_hours': float(chapter.estimated_hours),
+                'locked': locked,
+                'locked_by': locked_by,
+            }
 
         # Ordered topics in this chapter
         chapter_topics = list(
@@ -693,15 +705,7 @@ class StudyChapterDetailView(APIView):
 
         if not topic_ids:
             return Response({
-                'chapter': {
-                    'id': str(chapter.id),
-                    'name': chapter.name,
-                    'code': chapter.code,
-                    'description': chapter.description,
-                    'subject_name': chapter.subject.name,
-                    'subject_id': str(chapter.subject.id),
-                    'estimated_hours': float(chapter.estimated_hours),
-                },
+                'chapter': _chapter_dict(),
                 'topics': [],
             })
 
@@ -853,15 +857,7 @@ class StudyChapterDetailView(APIView):
             })
 
         return Response({
-            'chapter': {
-                'id': str(chapter.id),
-                'name': chapter.name,
-                'code': chapter.code,
-                'description': chapter.description,
-                'subject_name': chapter.subject.name,
-                'subject_id': str(chapter.subject.id),
-                'estimated_hours': float(chapter.estimated_hours),
-            },
+            'chapter': _chapter_dict(),
             'topics': topics_payload,
         })
 
