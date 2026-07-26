@@ -301,15 +301,40 @@ const openLive = (l) => {
 }
 
 const AllTab = ({ reading, videos, quizzes, assignments = [], coding = [], live = [], navigate, quizNavState }) => {
-  // Reading + videos share a real `order`; interleave them, quizzes go last.
-  const materials = [...reading, ...videos]
+  // An "editorial" note shares its exact title with a coding problem in this
+  // topic (our authoring convention). We lift those notes out of the reading
+  // block and place each one immediately before its problem, so the flow reads
+  // concept note → quizzes → (editorial + problem) pairs. Notes with no matching
+  // problem stay in the reading block, so topics without this pairing are
+  // unaffected.
+  const norm = (s) => (s || '').trim().toLowerCase()
+  const codingTitles = new Set(coding.map(c => norm(c.title)))
+  const editorialByTitle = {}
+  reading.forEach(r => {
+    if (r.content_type !== 'video' && codingTitles.has(norm(r.title))) {
+      editorialByTitle[norm(r.title)] = r
+    }
+  })
+
+  // Reading + videos share a real `order`; interleave them. Editorial notes are
+  // excluded here — they travel with their coding problem below.
+  const materials = [...reading.filter(r => !editorialByTitle[norm(r.title)]), ...videos]
     .map(item => ({ ...item, _kind: item.content_type === 'video' ? 'video' : 'reading' }))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+  const codingRows = coding.flatMap(c => {
+    const editorial = editorialByTitle[norm(c.title)]
+    const pair = []
+    if (editorial) pair.push({ ...editorial, _kind: 'reading' })
+    pair.push({ ...c, _kind: 'coding' })
+    return pair
+  })
+
   const rows = [
     ...materials,
     ...quizzes.map(q => ({ ...q, _kind: 'quiz' })),
     ...assignments.map(a => ({ ...a, _kind: 'assignment' })),
-    ...coding.map(c => ({ ...c, _kind: 'coding' })),
+    ...codingRows,
     ...live.map(l => ({ ...l, _kind: 'live' })),
   ]
 
