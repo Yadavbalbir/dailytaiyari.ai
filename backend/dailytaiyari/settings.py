@@ -366,6 +366,14 @@ else:
 # Code-execution engine (Piston) for coding problems.
 PISTON_URL = config('PISTON_URL', default='http://piston:2000')
 CODING_ENABLED = config('CODING_ENABLED', default=True, cast=bool)
+# How many test cases to execute in parallel per submission. Each case is an
+# independent HTTP call to Piston. Concurrency only helps when Piston has at
+# least this many DEDICATED CPU cores: Piston's run_timeout is measured in
+# WALL-CLOCK time, so if concurrent runs contend for a shared/single core their
+# wall time balloons past the limit and every run wrongly fails as TIME_LIMIT.
+# Default is 1 (sequential, correct on any host). Raise it only when Piston runs
+# on a multi-core host with cores >= this value (e.g. a dedicated judge box).
+CODE_JUDGE_PARALLELISM = config('CODE_JUDGE_PARALLELISM', default=1, cast=int)
 
 # Caching (Redis for production)
 CACHES = {
