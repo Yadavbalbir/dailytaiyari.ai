@@ -307,6 +307,8 @@ CORS_ALLOW_CREDENTIALS = True
 # deploys) that must be allowed to call the public platform endpoints.
 CORS_ALLOWED_ORIGINS += [
     'https://testlaevacademy.netlify.app',
+    # JoinLoop tenant frontend (client-owned domain).
+    'https://classroom.joinloop.co.in',
 ]
 # Allow the marketing site + demo portal (any *.dailytaiyari.in / *.dailytaiyari.ai
 # subdomain, plus the apex) to call the public platform endpoints cross-origin.
