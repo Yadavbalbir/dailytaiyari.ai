@@ -296,6 +296,11 @@ secrets.json
 credentials.json
 *.pem
 *.key
+# Local-only credential/reference copies (never commit real .env secrets)
+credentials/
+*-credentials.txt
+*.env.txt
+env-*.txt
 *.crt
 *.cert
 
