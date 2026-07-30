@@ -1,5 +1,20 @@
 from rest_framework import permissions
 
+
+class IsSuperAdmin(permissions.BasePermission):
+    """Allows access only to platform super admins (Django superusers).
+
+    Super admins are tenant-less (``tenant=None``) accounts that own the whole
+    platform. They power the super-admin dashboard where tenants are viewed and
+    managed, and must never be confused with a tenant's ``admin`` role.
+    """
+    message = 'Super admin privileges are required.'
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and user.is_superuser)
+
+
 class IsTenantAdmin(permissions.BasePermission):
     """
     Allows access only to users with the 'admin' role in the current tenant.
