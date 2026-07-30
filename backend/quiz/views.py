@@ -38,13 +38,24 @@ class QuizSubmitThrottle(UserRateThrottle):
 
 def _get_student_course_ids(request):
     """
-    Return the IDs of every course the student is actively enrolled in.
+    Return the IDs of every *active* course the student may access.
 
-    Access to quizzes / questions / mock tests is scoped to all of a
-    student's approved, active enrollments — not just their primary course —
-    so multi-course students can open items from any enrolled course (e.g. a
-    Python quiz while their primary course is Class XI). Returns None when the
-    user isn't an enrolled student (leaving the queryset tenant-scoped only).
+    Access to quizzes / questions / mock tests is scoped to a student's
+    approved, active enrollments whose course is itself ``active`` — not just
+    their primary course — so multi-course students can open items from any
+    enrolled course (e.g. a Python quiz while their primary course is Class XI),
+    while quizzes from ``inactive`` / ``coming_soon`` courses stay hidden.
+
+    Return values are deliberately three-valued:
+      * ``None``  -> the user isn't a student (e.g. staff / no profile); the
+        queryset is left tenant-scoped only.
+      * ``[]``    -> a student with no accessible courses; callers must scope
+        the queryset down to nothing course-specific (NOT leave it open).
+      * ``[...]`` -> the concrete list of accessible course IDs.
+
+    Callers must therefore test ``if course_ids is not None`` and never a plain
+    truthiness check, otherwise a student with zero accessible courses would
+    incorrectly see every quiz in the tenant.
     """
     if not request.user.is_authenticated:
         return None
@@ -52,12 +63,11 @@ def _get_student_course_ids(request):
         profile = request.user.profile
     except Exception:
         return None
-    ids = list(
+    return list(
         profile.enrollments.filter(
-            status='approved', is_active=True
+            status='approved', is_active=True, course__status='active'
         ).values_list('course_id', flat=True)
     )
-    return ids or None
 
 
 class QuestionViewSet(TenantAwareReadOnlyViewSet):
@@ -78,9 +88,9 @@ class QuestionViewSet(TenantAwareReadOnlyViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # Scope to every course the student is actively enrolled in.
+        # Scope to every active course the student may access.
         course_ids = _get_student_course_ids(self.request)
-        if course_ids:
+        if course_ids is not None:
             queryset = queryset.filter(courses__in=course_ids).distinct()
         return queryset
 
@@ -124,13 +134,15 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         if self.action == 'list' and 'is_daily_challenge' not in request.query_params:
             queryset = queryset.filter(is_daily_challenge=False)
         
-        # Auto-filter by the student's enrolled courses (unless an explicit
-        # course filter is provided). Scopes to ALL approved enrollments so a
-        # quiz from any enrolled course opens, not just the primary course.
-        if not request.query_params.get('course'):
-            course_ids = _get_student_course_ids(request)
-            if course_ids:
-                queryset = queryset.filter(course__in=course_ids)
+        # Scope to the student's accessible (enrolled + active) courses. Always
+        # applied — even when an explicit `course` filter is supplied — so a
+        # student can never widen visibility to a course they aren't enrolled
+        # in (or an inactive course) by passing `?course=`. `None` means the
+        # viewer isn't a student (staff), so leave it tenant-scoped only; `[]`
+        # means a student with no accessible courses, who must see no quizzes.
+        course_ids = _get_student_course_ids(request)
+        if course_ids is not None:
+            queryset = queryset.filter(course_id__in=course_ids)
         
         # Filter by attempted status
         attempted_filter = request.query_params.get('attempted')
@@ -159,10 +171,10 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         """Get available filter options for quizzes (scoped to student's course)."""
         from exams.models import Subject, Topic, Course
         
-        # Scope to the student's enrolled courses
+        # Scope to the student's accessible (enrolled + active) courses
         course_ids = _get_student_course_ids(request)
         quiz_qs = Quiz.objects.filter(status='published')
-        if course_ids:
+        if course_ids is not None:
             quiz_qs = quiz_qs.filter(course__in=course_ids)
         
         # Get subjects that have quizzes for this course
@@ -238,13 +250,19 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         today = timezone.now().date()
         student = getattr(request.user, 'profile', None)
 
-        # Resolve a usable course: requested -> primary -> first approved enrollment
-        course_id = request.query_params.get('course_id')
-        if not course_id and student:
+        # Resolve a usable course, restricted to the student's *accessible*
+        # (enrolled + active) courses so a daily challenge is never surfaced for
+        # an inactive course or one the student isn't enrolled in.
+        accessible_ids = set(_get_student_course_ids(request) or [])
+        requested = request.query_params.get('course_id')
+        course_id = None
+        if requested and str(requested) in {str(c) for c in accessible_ids}:
+            course_id = requested
+        if not course_id and student and student.primary_course_id in accessible_ids:
             course_id = student.primary_course_id
-        if not course_id and student:
+        if not course_id and accessible_ids:
             enr = student.enrollments.filter(
-                status='approved', is_active=True
+                status='approved', is_active=True, course__status='active'
             ).order_by('created_at').first()
             course_id = enr.course_id if enr else None
 
@@ -635,10 +653,10 @@ class MockTestViewSet(TenantAwareReadOnlyViewSet):
         """Get available filter options for mock tests (scoped to student's course)."""
         from exams.models import Course
         
-        # Scope to the student's enrolled courses (legacy FK or rich M2M).
+        # Scope to the student's accessible courses (legacy FK or rich M2M).
         course_ids = _get_student_course_ids(request)
         test_qs = MockTest.objects.filter(status='published')
-        if course_ids:
+        if course_ids is not None:
             test_qs = test_qs.filter(
                 Q(course__in=course_ids) | Q(courses__in=course_ids)
             ).distinct()
