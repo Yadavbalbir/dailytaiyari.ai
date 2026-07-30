@@ -70,15 +70,32 @@ its own separate database). Confirm it applied cleanly on pre-prod before
 promoting to `production`. Never point a migration at prod that hasn't run on
 pre-prod.
 
-## Branch protection (recommended settings)
+## Branch protection (configured)
 
-- `production`: require PR, require status checks, **no direct pushes**, no
-  force-push, no deletion.
-- `main`: require PR + passing checks before merge.
+Both branches block force-pushes, block deletion, and require **linear
+history**. They differ on how commits land:
+
+- **`main`** — **PR required** (all real development lands via PR). No direct
+  pushes; force-push and deletion blocked.
+- **`production`** — **no PR requirement, but updated by fast-forward-only
+  promotion only.** Force-push, deletion, and non-linear history are blocked.
+
+> Why `production` isn't PR-gated: it is a long-lived branch that must stay a
+> *true fast-forward* of `main`. Merging into it via PR (squash/rebase) rewrites
+> commit SHAs, causing `production` to diverge from `main` and producing
+> duplicate-commit conflicts on every future promotion. A plain `--ff-only`
+> promotion push keeps `production` byte-identical to a tested `main`, which is
+> exactly what we want (and what makes tag-based rollback reliable). The review
+> gate already happened on `main`.
+
+`enforce_admins` is intentionally **off** on both, leaving the maintainer an
+emergency escape hatch. Turn it on if the team grows.
 
 ## Rules of thumb
 
-- Never commit directly to `main` or `production` — always via PR.
+- Never commit directly to `main` — always via PR.
+- Only ever update `production` with a **fast-forward** from `main` (promotion)
+  or a reviewed hotfix PR; never force-push it.
 - Never merge `production → main` except when back-merging a hotfix.
 - `production` is always fast-forwardable from `main` (never diverges except for
   in-flight hotfixes, which are back-merged immediately).
