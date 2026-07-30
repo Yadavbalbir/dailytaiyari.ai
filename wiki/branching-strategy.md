@@ -1,0 +1,85 @@
+# Branching Strategy
+
+DailyTaiyari runs **two long-lived environments** from a **single repository**.
+Changes always flow one direction: feature → pre-prod → prod. This guarantees
+nothing reaches production without first being tested on pre-prod.
+
+```
+feature/*  ─PR─►  main  ──promote──►  production
+ (work)         (pre-prod)             (prod)
+                api.dailytaiyari.in    api-prod.dailytaiyari.in
+```
+
+## Long-lived branches
+
+| Branch        | Environment | Host                        | Deploys when            |
+| ------------- | ----------- | --------------------------- | ----------------------- |
+| `main`        | Pre-prod    | `api.dailytaiyari.in`       | every merge to `main`   |
+| `production`  | Prod        | `api-prod.dailytaiyari.in`  | after a promotion merge |
+
+Short-lived work branches (`feature/*`, `fix/*`, `chore/*`) exist only until
+their PR is squash-merged into `main`, then are deleted.
+
+## Everyday flow
+
+1. **Branch** off `main`:
+   ```bash
+   git checkout main && git pull --ff-only
+   git checkout -b feature/<short-name>
+   ```
+2. **Build**, commit, push, open a **PR into `main`**.
+3. **Squash-merge** the PR once reviewed and CI is green.
+4. **Deploy `main` to pre-prod** and test live on `api.dailytaiyari.in`
+   (see [deployment.md](./deployment.md)).
+5. When satisfied, **promote to production** (below).
+
+## Promotion (main → production)
+
+Production only ever moves forward to an already-tested `main`. Promote with a
+fast-forward-only merge so `production` is always a subset of `main`:
+
+```bash
+git checkout production
+git pull --ff-only
+git merge --ff-only origin/main
+git push origin production
+git tag -a prod-$(date +%Y.%m.%d) -m "Prod deploy <summary>"
+git push origin --tags
+```
+
+Then run the prod deploy (see [deployment.md](./deployment.md)).
+
+> Tag every prod deploy (`prod-YYYY.MM.DD`). Tags are your rollback points —
+> to roll back, deploy the previous tag.
+
+## Hotfixes (urgent prod fix)
+
+1. Branch off `production`: `git checkout -b fix/<name> production`.
+2. Fix, PR **into `production`**, review, merge, deploy prod.
+3. **Back-merge** so pre-prod doesn't regress:
+   ```bash
+   git checkout main && git pull --ff-only
+   git merge origin/production   # or cherry-pick the fix commit
+   git push origin main
+   ```
+
+## Migrations
+
+A DB migration merged to `main` runs on **pre-prod first** (each environment has
+its own separate database). Confirm it applied cleanly on pre-prod before
+promoting to `production`. Never point a migration at prod that hasn't run on
+pre-prod.
+
+## Branch protection (recommended settings)
+
+- `production`: require PR, require status checks, **no direct pushes**, no
+  force-push, no deletion.
+- `main`: require PR + passing checks before merge.
+
+## Rules of thumb
+
+- Never commit directly to `main` or `production` — always via PR.
+- Never merge `production → main` except when back-merging a hotfix.
+- `production` is always fast-forwardable from `main` (never diverges except for
+  in-flight hotfixes, which are back-merged immediately).
+- One change, one PR, squash-merged — keeps history and rollbacks clean.

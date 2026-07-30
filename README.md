@@ -347,6 +347,18 @@ VITE_API_URL=https://api.dailytaiyari.ai
 - 🔲 Advanced ML recommendations
 - 🔲 Payment & subscriptions
 
+## 📖 Documentation
+
+Project docs live in [`wiki/`](./wiki):
+
+- [Architecture](./wiki/architecture.md)
+- [Backend Guide](./wiki/backend-guide.md) · [Frontend Guide](./wiki/frontend-guide.md)
+- [API Reference](./wiki/api-reference.md)
+- [Environment Variables](./wiki/environment-variables.md)
+- [Tenant Setup](./wiki/tenant-setup.md)
+- **[Branching Strategy](./wiki/branching-strategy.md)** — `main` (pre-prod) → `production` (prod)
+- **[Deployment Guide](./wiki/deployment.md)** — how the backend is deployed & operated
+
 ## 🤝 Contributing
 
 This is a proprietary project. For partnership inquiries, contact support@dailytaiyari.ai
