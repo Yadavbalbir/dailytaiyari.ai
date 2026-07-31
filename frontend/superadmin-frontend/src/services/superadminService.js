@@ -18,3 +18,6 @@ export const fetchTenant = (id) =>
 
 export const updateTenant = (id, payload) =>
   api.patch(`/superadmin/tenants/${id}/`, payload).then((r) => r.data)
+
+export const fetchAuditLogs = (params = {}) =>
+  api.get('/superadmin/audit-logs/', { params }).then((r) => r.data)

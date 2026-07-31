@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Tenant
+from .models import Tenant, SuperAdminAuditLog
 
 User = get_user_model()
 
@@ -78,6 +78,7 @@ class TenantListSerializer(serializers.ModelSerializer):
         model = Tenant
         fields = [
             'id', 'name', 'tagline', 'subdomain', 'theme', 'is_active',
+            'is_suspended',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
         ]
@@ -111,6 +112,7 @@ class TenantDetailSerializer(serializers.ModelSerializer):
     """
 
     features = serializers.JSONField(required=False)
+    feature_locks = serializers.JSONField(required=False)
     user_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
     admin_count = serializers.SerializerMethodField()
@@ -120,7 +122,8 @@ class TenantDetailSerializer(serializers.ModelSerializer):
         model = Tenant
         fields = [
             'id', 'name', 'tagline', 'subdomain', 'theme', 'show_name',
-            'is_active', 'features',
+            'is_active', 'is_suspended', 'suspension_message',
+            'features', 'feature_locks',
             'request_enrollment_free', 'request_enrollment_paid',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
@@ -167,9 +170,18 @@ class TenantDetailSerializer(serializers.ModelSerializer):
             )
         return {k: bool(v) for k, v in value.items() if k in Tenant.FEATURE_CHOICES}
 
+    def validate_feature_locks(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError(
+                'feature_locks must be an object mapping feature keys to booleans.'
+            )
+        return {k: bool(v) for k, v in value.items() if k in Tenant.FEATURE_CHOICES}
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['features'] = instance.get_features()
+        data['feature_locks'] = instance.get_feature_locks()
+        data['locked_features'] = instance.locked_feature_keys()
         data['available_features'] = [
             {'key': k, 'label': label} for k, label in Tenant.FEATURE_CHOICES.items()
         ]
@@ -182,6 +194,11 @@ class TenantDetailSerializer(serializers.ModelSerializer):
         features = validated_data.pop('features', None)
         if features is not None:
             instance.features = {**(instance.features or {}), **features}
+        # feature_locks is replaced wholesale (it is the complete lock map the
+        # super admin intends), not merged, so unlocking removes the key.
+        locks = validated_data.pop('feature_locks', None)
+        if locks is not None:
+            instance.feature_locks = locks
         return super().update(instance, validated_data)
 
 
@@ -206,3 +223,20 @@ class TenantCreateSerializer(serializers.ModelSerializer):
                 'Unknown theme. Choose one of: ' + ', '.join(Tenant.THEME_CHOICES)
             )
         return value
+
+
+class SuperAdminAuditLogSerializer(serializers.ModelSerializer):
+    """Read-only view of a super-admin audit trail entry."""
+
+    tenant_name = serializers.CharField(source='target_name', read_only=True)
+    tenant_id = serializers.PrimaryKeyRelatedField(
+        source='target_tenant', read_only=True
+    )
+
+    class Meta:
+        model = SuperAdminAuditLog
+        fields = [
+            'id', 'actor_email', 'action', 'tenant_id', 'tenant_name',
+            'changes', 'created_at',
+        ]
+        read_only_fields = fields

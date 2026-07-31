@@ -8,16 +8,26 @@ import {
   GraduationCap,
   BookOpen,
   ShieldCheck,
+  Lock,
+  Unlock,
+  AlertTriangle,
+  History,
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
-import { fetchTenant, updateTenant } from '../services/superadminService'
+import {
+  fetchTenant,
+  updateTenant,
+  fetchAuditLogs,
+} from '../services/superadminService'
 
-function Toggle({ checked, onChange, label }) {
+function Toggle({ checked, onChange, label, disabled }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex items-center justify-between w-full py-2"
+      className="flex items-center justify-between w-full py-2 disabled:opacity-50"
     >
       <span className="text-sm text-slate-700">{label}</span>
       <span
@@ -49,6 +59,88 @@ function MiniStat({ icon: Icon, label, value }) {
   )
 }
 
+// Three-state control for a feature: tenant-controlled, forced on, forced off.
+function FeatureRow({ feature, mode, tenantValue, onChange }) {
+  const options = [
+    { key: 'tenant', label: 'Tenant' },
+    { key: 'on', label: 'Force On' },
+    { key: 'off', label: 'Force Off' },
+  ]
+  const locked = mode !== 'tenant'
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        {locked ? (
+          <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+        ) : (
+          <Unlock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+        )}
+        <div className="min-w-0">
+          <div className="text-sm text-slate-800 truncate">{feature.label}</div>
+          <div className="text-[11px] text-slate-400">
+            {locked
+              ? 'Locked — tenant cannot change'
+              : `Tenant-controlled (currently ${tenantValue ? 'on' : 'off'})`}
+          </div>
+        </div>
+      </div>
+      <div className="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
+        {options.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onChange(feature.key, o.key)}
+            className={`px-2.5 py-1 text-xs font-medium transition ${
+              mode === o.key
+                ? o.key === 'off'
+                  ? 'bg-rose-600 text-white'
+                  : o.key === 'on'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-700 text-white'
+                : 'bg-white text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Map API feature_locks map -> per-feature UI mode ('tenant' | 'on' | 'off').
+function locksToModes(availableFeatures, featureLocks) {
+  const modes = {}
+  for (const f of availableFeatures) {
+    if (Object.prototype.hasOwnProperty.call(featureLocks, f.key)) {
+      modes[f.key] = featureLocks[f.key] ? 'on' : 'off'
+    } else {
+      modes[f.key] = 'tenant'
+    }
+  }
+  return modes
+}
+
+function modesToLocks(modes) {
+  const locks = {}
+  for (const [key, mode] of Object.entries(modes)) {
+    if (mode === 'on') locks[key] = true
+    else if (mode === 'off') locks[key] = false
+  }
+  return locks
+}
+
+function actionLabel(action) {
+  const map = {
+    'tenant.create': 'Created tenant',
+    'tenant.update': 'Updated tenant',
+    'tenant.suspend': 'Suspended tenant',
+    'tenant.unsuspend': 'Unsuspended tenant',
+    'tenant.feature_locks': 'Changed feature locks',
+  }
+  return map[action] || action
+}
+
 export default function TenantDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -56,6 +148,12 @@ export default function TenantDetail() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(null)
+  const [logs, setLogs] = useState([])
+
+  const loadLogs = () =>
+    fetchAuditLogs({ tenant: id })
+      .then((d) => setLogs((d.results || d).slice(0, 8)))
+      .catch(() => {})
 
   useEffect(() => {
     fetchTenant(id)
@@ -68,7 +166,9 @@ export default function TenantDetail() {
           theme: data.theme,
           show_name: data.show_name,
           is_active: data.is_active,
-          features: { ...data.features },
+          is_suspended: data.is_suspended,
+          suspension_message: data.suspension_message || '',
+          featureModes: locksToModes(data.available_features || [], data.feature_locks || {}),
         })
       })
       .catch(() => {
@@ -76,11 +176,13 @@ export default function TenantDetail() {
         navigate('/tenants', { replace: true })
       })
       .finally(() => setLoading(false))
+    loadLogs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const setFeature = (key, v) =>
-    setForm((f) => ({ ...f, features: { ...f.features, [key]: v } }))
+  const setFeatureMode = (key, mode) =>
+    setForm((f) => ({ ...f, featureModes: { ...f.featureModes, [key]: mode } }))
 
   const save = async () => {
     setSaving(true)
@@ -91,12 +193,19 @@ export default function TenantDetail() {
         theme: form.theme,
         show_name: form.show_name,
         is_active: form.is_active,
-        features: form.features,
+        is_suspended: form.is_suspended,
+        suspension_message: form.suspension_message,
+        feature_locks: modesToLocks(form.featureModes),
       }
       const sub = form.subdomain.trim().toLowerCase()
       if (sub !== (tenant.subdomain || '')) payload.subdomain = sub
       const updated = await updateTenant(id, payload)
       setTenant(updated)
+      setForm((f) => ({
+        ...f,
+        featureModes: locksToModes(updated.available_features || [], updated.feature_locks || {}),
+      }))
+      loadLogs()
       toast.success('Saved')
     } catch (err) {
       const d = err.response?.data || {}
@@ -118,6 +227,8 @@ export default function TenantDetail() {
     )
   }
 
+  const lockedCount = Object.values(form.featureModes).filter((m) => m !== 'tenant').length
+
   return (
     <div className="space-y-6">
       <Link
@@ -130,11 +241,16 @@ export default function TenantDetail() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{tenant.name}</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
             {tenant.subdomain || 'no subdomain'} ·{' '}
             <span className={tenant.is_active ? 'text-emerald-600' : 'text-rose-600'}>
               {tenant.is_active ? 'Active' : 'Inactive'}
             </span>
+            {tenant.is_suspended && (
+              <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5" /> Suspended
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -208,23 +324,91 @@ export default function TenantDetail() {
           </div>
         </div>
 
-        {/* Features */}
+        {/* Feature governance */}
         <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="font-semibold text-slate-900 mb-2">Features</h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold text-slate-900">Feature Governance</h2>
+            {lockedCount > 0 && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                {lockedCount} locked
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 mb-3">
-            Toggle which product modules this tenant can use.
+            <strong>Tenant</strong> lets the academy admin decide. <strong>Force On/Off</strong>
+            {' '}locks the feature — the tenant admin sees it greyed out and is told to contact
+            the DailyTaiyari team.
           </p>
           <div className="divide-y divide-slate-100">
             {(tenant.available_features || []).map((f) => (
-              <Toggle
+              <FeatureRow
                 key={f.key}
-                checked={!!form.features[f.key]}
-                onChange={(v) => setFeature(f.key, v)}
-                label={f.label}
+                feature={f}
+                mode={form.featureModes[f.key] || 'tenant'}
+                tenantValue={tenant.features?.[f.key]}
+                onChange={setFeatureMode}
               />
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Suspension */}
+      <div
+        className={`rounded-xl border p-6 ${
+          form.is_suspended ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'
+        }`}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <AlertTriangle className={`w-5 h-5 ${form.is_suspended ? 'text-amber-600' : 'text-slate-400'}`} />
+          <h2 className="font-semibold text-slate-900">Suspension</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          A suspended tenant is frozen: logins and all data access are blocked and the message
+          below is shown to its users. Use this for billing or compliance holds.
+        </p>
+        <Toggle
+          checked={form.is_suspended}
+          onChange={(v) => set('is_suspended', v)}
+          label="Suspend this tenant"
+        />
+        <textarea
+          value={form.suspension_message}
+          onChange={(e) => set('suspension_message', e.target.value)}
+          placeholder="Message shown to the tenant while suspended (e.g. Account on billing hold — contact the DailyTaiyari team)."
+          rows={2}
+          className="mt-2 w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+        />
+      </div>
+
+      {/* Audit log */}
+      <div className="bg-white rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+          <History className="w-4 h-4 text-slate-400" />
+          <h2 className="font-semibold text-slate-900">Recent Changes</h2>
+        </div>
+        {logs.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-slate-400 text-center">No changes recorded yet.</div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {logs.map((log) => (
+              <li key={log.id} className="px-5 py-3 flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-medium text-slate-800">{actionLabel(log.action)}</span>
+                  {log.changes && Object.keys(log.changes).length > 0 && (
+                    <span className="text-slate-400">
+                      {' '}· {Object.keys(log.changes).join(', ')}
+                    </span>
+                  )}
+                  <div className="text-xs text-slate-400">{log.actor_email || 'system'}</div>
+                </div>
+                <span className="text-xs text-slate-400 whitespace-nowrap">
+                  {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

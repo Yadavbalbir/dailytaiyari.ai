@@ -12,6 +12,7 @@ from .superadmin_views import (
     PlatformStatsView,
     TenantListCreateView,
     TenantDetailView,
+    AuditLogListView,
 )
 
 urlpatterns = [
@@ -20,4 +21,5 @@ urlpatterns = [
     path('stats/', PlatformStatsView.as_view(), name='superadmin-stats'),
     path('tenants/', TenantListCreateView.as_view(), name='superadmin-tenant-list'),
     path('tenants/<uuid:pk>/', TenantDetailView.as_view(), name='superadmin-tenant-detail'),
+    path('audit-logs/', AuditLogListView.as_view(), name='superadmin-audit-logs'),
 ]

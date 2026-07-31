@@ -18,6 +18,16 @@ TENANT_EXEMPT_PATHS = [
     '/media/',
 ]
 
+# Auth-bootstrap paths a user of a suspended tenant may still reach so the
+# frontend can authenticate enough to render the suspension overlay (and the
+# login view can return a clear "suspended" message). Everything else is frozen.
+TENANT_SUSPENSION_BYPASS_PATHS = [
+    '/api/v1/auth/login/',
+    '/api/v1/auth/refresh/',
+    '/api/v1/auth/logout/',
+    '/api/v1/auth/profile/',
+]
+
 class TenantMiddleware(MiddlewareMixin):
     """
     Middleware to extract and enforce the tenant from request headers.
@@ -55,6 +65,24 @@ class TenantMiddleware(MiddlewareMixin):
             )
 
         request.tenant = tenant
+
+        # A suspended tenant stays active (so its public config + suspension
+        # notice still load) but is frozen: every authenticated API call is
+        # rejected. Auth-bootstrap paths are allowed through so the login flow
+        # can surface a clear message and the frontend can render its overlay.
+        if tenant.is_suspended and not self._is_suspension_bypass(request.path):
+            return JsonResponse(
+                {
+                    'detail': tenant.suspension_message
+                    or 'This academy is temporarily suspended. Please contact the DailyTaiyari team.',
+                    'code': 'tenant_suspended',
+                },
+                status=403,
+            )
+
+    @staticmethod
+    def _is_suspension_bypass(path):
+        return any(path.startswith(p) for p in TENANT_SUSPENSION_BYPASS_PATHS)
 
 
 
