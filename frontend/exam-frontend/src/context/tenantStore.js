@@ -44,7 +44,15 @@ export const useTenantStore = create((set, get) => ({
         }
 
         try {
-            set({ isLoading: true, error: null });
+            // Only show the full-screen loader on the very first load. Later
+            // refreshes (e.g. after an admin saves a setting) run silently so the
+            // app's route tree isn't unmounted/remounted — which would otherwise
+            // flash a spinner and reset the scroll position to the top.
+            if (!get().tenant) {
+                set({ isLoading: true, error: null });
+            } else {
+                set({ error: null });
+            }
             const response = await tenantApi.get(`/tenant/${tenantId}/`);
             set({ tenant: response.data, isLoading: false });
 
