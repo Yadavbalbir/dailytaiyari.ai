@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
-    GraduationCap, Plus, Search, X, Settings2, Pencil, Trash2, Loader2,
+    GraduationCap, Plus, Search, X, Settings2, Pencil, Trash2, Loader2, Copy,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
 import { EntityModal, ConfirmDialog, formatApiError } from './builderShared'
@@ -27,6 +27,7 @@ const CourseBuilder = () => {
     const [search, setSearch] = useState('')
     const [modal, setModal] = useState(null)   // { instance } | null (null instance = create)
     const [del, setDel] = useState(null)        // { instance, label } | null
+    const [copy, setCopy] = useState(null)      // { instance } | null
 
     const { data: courses = [], isLoading } = useQuery({
         queryKey: ['cb-courses'],
@@ -61,6 +62,17 @@ const CourseBuilder = () => {
             queryClient.invalidateQueries({ queryKey: ['cb-courses'] })
             queryClient.invalidateQueries({ queryKey: ['availableCourses'] })
             setDel(null)
+        },
+        onError: (err) => toast.error(formatApiError(err)),
+    })
+
+    const copyMutation = useMutation({
+        mutationFn: ({ instance, name }) => svc.copyExam(instance.id, name),
+        onSuccess: () => {
+            toast.success('Course copied — the copy is unpublished until you activate it')
+            queryClient.invalidateQueries({ queryKey: ['cb-courses'] })
+            queryClient.invalidateQueries({ queryKey: ['availableCourses'] })
+            setCopy(null)
         },
         onError: (err) => toast.error(formatApiError(err)),
     })
@@ -169,6 +181,15 @@ const CourseBuilder = () => {
                                 </button>
                                 <button
                                     type="button"
+                                    onClick={() => setCopy({ instance: course })}
+                                    aria-label="Copy course"
+                                    title="Create a copy"
+                                    className="p-2.5 rounded-xl text-surface-500 bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                                >
+                                    <Copy size={15} />
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setDel({ instance: course, label: course.name })}
                                     aria-label="Delete course"
                                     className="p-2.5 rounded-xl text-rose-500 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors"
@@ -199,9 +220,87 @@ const CourseBuilder = () => {
                         onConfirm={() => deleteMutation.mutate({ instance: del.instance })}
                     />
                 )}
+                {copy && (
+                    <CopyCourseDialog
+                        source={copy.instance}
+                        copying={copyMutation.isPending}
+                        onCancel={() => setCopy(null)}
+                        onConfirm={(name) => copyMutation.mutate({ instance: copy.instance, name })}
+                    />
+                )}
             </AnimatePresence>
         </div>
     )
 }
 
 export default CourseBuilder
+
+/* ===========================================================================
+ * CopyCourseDialog — prompts for a name and deep-copies a course.
+ * The copy duplicates the whole content graph (subjects, chapters, topics,
+ * notes, quizzes, questions, mock tests, assignments, coding problems) as a
+ * new, independent course that starts unpublished.
+ * ========================================================================= */
+const CopyCourseDialog = ({ source, onCancel, onConfirm, copying }) => {
+    const [name, setName] = useState(`${source?.name || 'Course'} (Copy)`)
+    const trimmed = name.trim()
+
+    const submit = (e) => {
+        e.preventDefault()
+        if (!trimmed || copying) return
+        onConfirm(trimmed)
+    }
+
+    return (
+        <motion.div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            onMouseDown={(e) => e.target === e.currentTarget && onCancel()}
+        >
+            <motion.form
+                onSubmit={submit}
+                className="card w-full max-w-md p-6"
+                initial={{ opacity: 0, scale: 0.97, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
+            >
+                <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0">
+                        <Copy className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                    </div>
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-surface-900 dark:text-white">Copy course</h3>
+                        <p className="text-sm text-surface-500 mt-0.5">
+                            Duplicates <span className="font-medium">{source?.name}</span> — all subjects,
+                            chapters, topics, notes, quizzes, questions and more — into a new, independent
+                            course. Student data isn&apos;t copied and the copy starts unpublished.
+                        </p>
+                    </div>
+                </div>
+
+                <label className="block mt-5 text-sm font-medium text-surface-700 dark:text-surface-300">
+                    New course name
+                </label>
+                <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter a name for the copy"
+                    className="mt-1.5 w-full px-3.5 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 focus:border-primary-400 dark:focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
+                />
+
+                <div className="flex justify-end gap-2 mt-6">
+                    <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+                    <button type="submit" disabled={!trimmed || copying} className="btn-primary">
+                        {copying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                        {copying ? 'Copying…' : 'Create copy'}
+                    </button>
+                </div>
+            </motion.form>
+        </motion.div>
+    )
+}

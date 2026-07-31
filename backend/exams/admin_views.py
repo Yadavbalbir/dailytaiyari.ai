@@ -119,6 +119,24 @@ class AdminCourseViewSet(TenantAdminModelViewSet):
             serializer.validated_data.pop('instructors', None)
         serializer.save()
 
+    @action(detail=True, methods=['post'])
+    def copy(self, request, pk=None):
+        """Deep-clone this course (whole authored graph) into a new, independent
+        course under the same tenant. Body: {"name": "New course name"}. Admin only."""
+        if request.user.role != 'admin':
+            raise PermissionDenied('Only admins can copy courses.')
+        source = self.get_object()
+        name = (request.data.get('name') or '').strip()
+        if not name:
+            return Response(
+                {'name': ['A name for the copied course is required.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from .course_copy import clone_course
+        new_course = clone_course(source, name)
+        serializer = self.get_serializer(new_course)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['get'])
     def instructors(self, request):
         """List tenant users with the instructor role (for assignment). Admin only."""
