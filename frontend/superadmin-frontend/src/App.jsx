@@ -7,6 +7,9 @@ import Dashboard from './pages/Dashboard'
 import Tenants from './pages/Tenants'
 import TenantDetail from './pages/TenantDetail'
 import AuditLog from './pages/AuditLog'
+import UsersPage from './pages/Users'
+import Support from './pages/Support'
+import Announcements from './pages/Announcements'
 
 export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -28,6 +31,9 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/tenants/:id" element={<TenantDetail />} />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/support" element={<Support />} />
+        <Route path="/announcements" element={<Announcements />} />
         <Route path="/audit" element={<AuditLog />} />
       </Route>
 

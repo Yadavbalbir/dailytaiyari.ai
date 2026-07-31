@@ -11,6 +11,14 @@ const ACTION_META = {
   'tenant.unsuspend': { label: 'Unsuspended tenant', color: 'bg-emerald-50 text-emerald-700' },
   'tenant.feature_locks': { label: 'Changed feature locks', color: 'bg-amber-50 text-amber-700' },
   'tenant.plan': { label: 'Changed plan / quotas', color: 'bg-indigo-50 text-indigo-700' },
+  'tenant.origins': { label: 'Changed frontend origins', color: 'bg-sky-50 text-sky-700' },
+  'user.suspend': { label: 'Suspended user', color: 'bg-rose-50 text-rose-700' },
+  'user.unsuspend': { label: 'Unsuspended user', color: 'bg-emerald-50 text-emerald-700' },
+  'user.verify': { label: 'Verified user email', color: 'bg-emerald-50 text-emerald-700' },
+  'user.reset_password': { label: 'Sent password reset', color: 'bg-slate-100 text-slate-700' },
+  'announcement.create': { label: 'Created announcement', color: 'bg-indigo-50 text-indigo-700' },
+  'announcement.update': { label: 'Updated announcement', color: 'bg-slate-100 text-slate-700' },
+  'announcement.delete': { label: 'Deleted announcement', color: 'bg-rose-50 text-rose-700' },
 }
 
 export default function AuditLog() {

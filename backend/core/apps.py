@@ -6,3 +6,7 @@ class CoreConfig(AppConfig):
     name = 'core'
     verbose_name = 'Core'
 
+    def ready(self):
+        # Register signal handlers (self-serve CORS origin whitelist).
+        from . import signals  # noqa: F401
+

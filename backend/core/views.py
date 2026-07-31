@@ -84,6 +84,7 @@ class TenantDetailView(APIView):
                 "request_enrollment_paid": tenant.request_enrollment_paid,
                 "payment_gateway": _public_payment_gateway(tenant),
                 "promo_banner": _public_promo_banner(tenant),
+                "announcements": _public_announcements(tenant),
             })
         except Tenant.DoesNotExist:
             return Response({"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -103,6 +104,25 @@ def _public_promo_banner(tenant):
     if banner is None or not banner.is_live():
         return None
     return PublicPromoBannerSerializer(banner).data
+
+
+def _public_announcements(tenant):
+    """Live platform announcements (global + tenant-scoped) for the app banner."""
+    from .models import PlatformAnnouncement
+
+    live = PlatformAnnouncement.live_for_tenant(tenant)
+    return [
+        {
+            'id': str(a.id),
+            'title': a.title,
+            'body': a.body,
+            'level': a.level,
+            'scope': 'global' if a.target_tenant_id is None else 'tenant',
+            'starts_at': a.starts_at.isoformat() if a.starts_at else None,
+            'ends_at': a.ends_at.isoformat() if a.ends_at else None,
+        }
+        for a in live
+    ]
 
 
 def _public_payment_gateway(tenant):
