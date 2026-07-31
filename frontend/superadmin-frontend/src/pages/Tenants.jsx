@@ -204,13 +204,19 @@ export default function Tenants() {
                   <td className="px-5 py-3.5 text-right text-slate-700">{t.admin_count}</td>
                   <td className="px-5 py-3.5 text-right text-slate-700">{t.course_count}</td>
                   <td className="px-5 py-3.5">
-                    <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        t.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                      }`}
-                    >
-                      {t.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    {t.is_suspended ? (
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
+                        Suspended
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                          t.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                        }`}
+                      >
+                        {t.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

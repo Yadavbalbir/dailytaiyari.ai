@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Tenants from './pages/Tenants'
 import TenantDetail from './pages/TenantDetail'
+import AuditLog from './pages/AuditLog'
 
 export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/tenants/:id" element={<TenantDetail />} />
+        <Route path="/audit" element={<AuditLog />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

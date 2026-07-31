@@ -38,10 +38,27 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'features must be an object mapping feature keys to booleans.'
             )
+        instance = self.instance
+        locked = set(instance.locked_feature_keys()) if instance else set()
         cleaned = {}
+        blocked = []
         for key, enabled in value.items():
-            if key in Tenant.FEATURE_CHOICES:
-                cleaned[key] = bool(enabled)
+            if key not in Tenant.FEATURE_CHOICES:
+                continue
+            if key in locked:
+                # The super admin has locked this feature. Silently ignore a
+                # no-op, but reject any attempt to actually change it.
+                current = instance.get_features().get(key)
+                if bool(enabled) != bool(current):
+                    blocked.append(Tenant.FEATURE_CHOICES[key])
+                continue
+            cleaned[key] = bool(enabled)
+        if blocked:
+            raise serializers.ValidationError(
+                'These features are managed by the DailyTaiyari team and can’t '
+                'be changed here — please contact the DailyTaiyari team to '
+                'enable or disable: ' + ', '.join(blocked) + '.'
+            )
         return cleaned
 
     def validate(self, attrs):
@@ -69,6 +86,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['features'] = instance.get_features()
+        data['locked_features'] = instance.locked_feature_keys()
         data['available_features'] = [
             {'key': key, 'label': label}
             for key, label in Tenant.FEATURE_CHOICES.items()

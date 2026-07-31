@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, LogOut, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, Building2, LogOut, ShieldCheck, History } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 
 const navItems = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/tenants', label: 'Tenants', icon: Building2, end: false },
+  { to: '/audit', label: 'Audit Log', icon: History, end: false },
 ]
 
 export default function Layout() {

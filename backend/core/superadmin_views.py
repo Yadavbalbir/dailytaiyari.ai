@@ -13,16 +13,51 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions import IsSuperAdmin
-from .models import Tenant
+from .models import Tenant, SuperAdminAuditLog
 from .superadmin_serializers import (
     SuperAdminLoginSerializer,
     SuperAdminUserSerializer,
     TenantListSerializer,
     TenantDetailSerializer,
     TenantCreateSerializer,
+    SuperAdminAuditLogSerializer,
 )
 
 User = get_user_model()
+
+
+# Tenant fields whose changes are worth recording in the audit trail.
+_AUDITED_FIELDS = [
+    'name', 'tagline', 'subdomain', 'theme', 'show_name', 'is_active',
+    'is_suspended', 'suspension_message', 'features', 'feature_locks',
+    'request_enrollment_free', 'request_enrollment_paid',
+]
+
+
+def _snapshot(tenant):
+    """Capture the audited fields of a tenant as a plain dict."""
+    return {f: getattr(tenant, f) for f in _AUDITED_FIELDS}
+
+
+def _diff(before, after):
+    """Return {field: [old, new]} for fields that actually changed."""
+    changes = {}
+    for field in _AUDITED_FIELDS:
+        old, new = before.get(field), after.get(field)
+        if old != new:
+            changes[field] = [old, new]
+    return changes
+
+
+def _record_audit(request, action, tenant, changes=None):
+    SuperAdminAuditLog.objects.create(
+        actor=request.user if request.user.is_authenticated else None,
+        actor_email=getattr(request.user, 'email', '') or '',
+        action=action,
+        target_tenant=tenant,
+        target_name=tenant.name if tenant else '',
+        changes=changes or {},
+    )
 
 
 class SuperAdminLoginView(APIView):
@@ -55,6 +90,7 @@ class PlatformStatsView(APIView):
         tenants = Tenant.objects.all()
         total_tenants = tenants.count()
         active_tenants = tenants.filter(is_active=True).count()
+        suspended_tenants = tenants.filter(is_suspended=True).count()
 
         # Users belonging to a tenant (exclude platform superusers).
         tenant_users = User.objects.filter(tenant__isnull=False)
@@ -64,6 +100,7 @@ class PlatformStatsView(APIView):
             'total_tenants': total_tenants,
             'active_tenants': active_tenants,
             'inactive_tenants': total_tenants - active_tenants,
+            'suspended_tenants': suspended_tenants,
             'total_users': tenant_users.count(),
             'total_students': tenant_users.filter(role='student').count(),
             'total_admins': tenant_users.filter(role='admin').count(),
@@ -101,6 +138,7 @@ class TenantListCreateView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         tenant = serializer.save()
+        _record_audit(request, 'tenant.create', tenant)
         return Response(
             TenantDetailSerializer(tenant).data, status=status.HTTP_201_CREATED
         )
@@ -114,3 +152,38 @@ class TenantDetailView(generics.RetrieveUpdateAPIView):
     queryset = Tenant.objects.all()
     lookup_field = 'pk'
     http_method_names = ['get', 'patch', 'head', 'options']
+
+    def update(self, request, *args, **kwargs):
+        tenant = self.get_object()
+        before = _snapshot(tenant)
+        partial = kwargs.pop('partial', True)
+        serializer = self.get_serializer(tenant, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        tenant = serializer.save()
+        tenant.refresh_from_db()
+        changes = _diff(before, _snapshot(tenant))
+        if changes:
+            action = 'tenant.update'
+            if 'is_suspended' in changes:
+                action = 'tenant.suspend' if tenant.is_suspended else 'tenant.unsuspend'
+            elif 'feature_locks' in changes and len(changes) == 1:
+                action = 'tenant.feature_locks'
+            _record_audit(request, action, tenant, changes)
+        return Response(TenantDetailSerializer(tenant).data)
+
+
+class AuditLogListView(generics.ListAPIView):
+    """Read the super-admin audit trail, newest first.
+
+    Optional ``?tenant=<uuid>`` filters to a single tenant's history.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsSuperAdmin]
+    serializer_class = SuperAdminAuditLogSerializer
+
+    def get_queryset(self):
+        qs = SuperAdminAuditLog.objects.select_related('target_tenant')
+        tenant_id = self.request.query_params.get('tenant')
+        if tenant_id:
+            qs = qs.filter(target_tenant_id=tenant_id)
+        return qs

@@ -41,6 +41,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user and user.check_password(password):
             if not user.is_active:
                 raise serializers.ValidationError('User account is disabled.')
+            # A suspended tenant is frozen for everyone, including its admins.
+            if getattr(tenant, 'is_suspended', False):
+                raise serializers.ValidationError(
+                    tenant.suspension_message
+                    or 'This academy is temporarily suspended. Please contact the DailyTaiyari team.'
+                )
             # NOTE: Unverified and suspended users are allowed to authenticate.
             # The frontend gates the app behind a "verify your email" screen for
             # unverified users, and blurs it behind a modal for suspended users.

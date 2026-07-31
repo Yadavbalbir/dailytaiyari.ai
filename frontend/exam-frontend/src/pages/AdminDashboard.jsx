@@ -51,6 +51,7 @@ import {
     ToggleRight,
     Palette,
     SlidersHorizontal as SlidersIcon,
+    Lock as LockIcon,
     CreditCard,
     KeyRound,
     Trash2,
@@ -1925,6 +1926,7 @@ const TenantSettings = () => {
     }, [settings])
 
     const availableFeatures = settings?.available_features || []
+    const lockedFeatures = settings?.locked_features || []
 
     const featuresMutation = useMutation({
         mutationFn: (next) => tenantAdminService.updateFeatures(next),
@@ -2002,6 +2004,10 @@ const TenantSettings = () => {
     const logoIncludesName = settings?.show_name === false
 
     const toggleFeature = (key) => {
+        if (lockedFeatures.includes(key)) {
+            toast.error('This feature is managed by DailyTaiyari. Contact the DailyTaiyari team to change it.')
+            return
+        }
         const next = { ...features, [key]: !features[key] }
         setFeatures(next)
         featuresMutation.mutate({ [key]: next[key] })
@@ -2247,15 +2253,27 @@ const TenantSettings = () => {
                 <div className="divide-y divide-surface-100 dark:divide-surface-800">
                     {availableFeatures.map((f) => {
                         const enabled = Boolean(features[f.key])
+                        const locked = lockedFeatures.includes(f.key)
                         return (
                             <div key={f.key} className="flex items-center justify-between py-3">
-                                <span className="font-medium text-surface-800 dark:text-surface-200">{f.label}</span>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-medium text-surface-800 dark:text-surface-200">{f.label}</span>
+                                        {locked && <LockIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                    </div>
+                                    {locked && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                            Managed by DailyTaiyari — contact the DailyTaiyari team to change this.
+                                        </p>
+                                    )}
+                                </div>
                                 <button
                                     role="switch"
                                     aria-checked={enabled}
                                     onClick={() => toggleFeature(f.key)}
-                                    disabled={featuresMutation.isPending}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${enabled ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
+                                    disabled={featuresMutation.isPending || locked}
+                                    title={locked ? 'Locked by DailyTaiyari' : undefined}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${enabled ? 'bg-primary-500' : 'bg-surface-300 dark:bg-surface-700'}`}
                                 >
                                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>

@@ -9,6 +9,7 @@ import {
   BookOpen,
   ArrowRight,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fetchStats, fetchTenants } from '../services/superadminService'
@@ -68,6 +69,7 @@ export default function Dashboard() {
         <StatCard icon={Building2} label="Total Tenants" value={stats.total_tenants} tone="brand" />
         <StatCard icon={CheckCircle2} label="Active" value={stats.active_tenants} tone="green" />
         <StatCard icon={XCircle} label="Inactive" value={stats.inactive_tenants} tone="red" />
+        <StatCard icon={AlertTriangle} label="Suspended" value={stats.suspended_tenants ?? 0} tone="amber" />
         <StatCard icon={BookOpen} label="Courses" value={stats.total_courses} tone="amber" />
         <StatCard icon={Users} label="Total Users" value={stats.total_users} tone="slate" />
         <StatCard icon={GraduationCap} label="Students" value={stats.total_students} tone="brand" />

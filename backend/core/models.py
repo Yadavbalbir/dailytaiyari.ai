@@ -66,6 +66,22 @@ class Tenant(models.Model):
     # enabled so newly introduced features are on until an admin turns them off.
     features = models.JSONField(default=dict, blank=True)
 
+    # Super-admin feature locks: {feature_key: bool}. A key present here is
+    # *locked* — the tenant admin cannot change it and the value given here is
+    # forced (True = force-enabled, False = force-disabled), overriding whatever
+    # sits in ``features``. Only the platform super admin edits this map; the
+    # tenant-admin UI shows locked features as read-only with a "contact the
+    # DailyTaiyari team" note. Missing keys are tenant-controlled as usual.
+    feature_locks = models.JSONField(default=dict, blank=True)
+
+    # ── Suspension (super-admin freeze) ────────────────────────────────────
+    # A suspended tenant stays ``is_active`` (so its public config, and thus the
+    # suspension notice, still loads) but every authenticated API call and login
+    # is blocked with ``suspension_message``. Use it for billing/compliance
+    # holds; use ``is_active=False`` to quietly retire a tenant instead.
+    is_suspended = models.BooleanField(default=False)
+    suspension_message = models.TextField(blank=True, default='')
+
     # ── Enrollment mode flags ──────────────────────────────────────────────
     # These decide how a student joins a course:
     #   * request_enrollment_* = True  → student sends a request, admin approves
@@ -90,9 +106,30 @@ class Tenant(models.Model):
         return self.name
 
     def get_features(self):
-        """Return the full feature map, defaulting any missing key to enabled."""
+        """Return the full *effective* feature map.
+
+        Resolution per feature key: a super-admin lock (``feature_locks``) wins
+        and forces its value; otherwise the tenant's own ``features`` value is
+        used, defaulting any missing key to enabled.
+        """
         stored = self.features or {}
-        return {key: bool(stored.get(key, True)) for key in self.FEATURE_CHOICES}
+        locks = self.feature_locks or {}
+        result = {}
+        for key in self.FEATURE_CHOICES:
+            if key in locks:
+                result[key] = bool(locks[key])
+            else:
+                result[key] = bool(stored.get(key, True))
+        return result
+
+    def get_feature_locks(self):
+        """Return the sanitized lock map: only known keys, coerced to bool."""
+        locks = self.feature_locks or {}
+        return {k: bool(v) for k, v in locks.items() if k in self.FEATURE_CHOICES}
+
+    def locked_feature_keys(self):
+        """List of feature keys currently locked by the super admin."""
+        return list(self.get_feature_locks().keys())
 
     @property
     def active_payment_gateway(self):
@@ -420,3 +457,38 @@ class JobApplication(PlatformLead):
 
     def __str__(self):
         return f'{self.name} <{self.email}> — {self.position}'
+
+
+class SuperAdminAuditLog(models.Model):
+    """An immutable record of a super-admin action on the platform.
+
+    Written whenever a super admin creates or changes a tenant (including
+    feature locks and suspension) so there is an accountable who/what/when
+    trail. ``changes`` holds a ``{field: [old, new]}`` diff for updates.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='superadmin_audit_logs',
+    )
+    actor_email = models.EmailField(blank=True, default='')
+    action = models.CharField(max_length=64)
+    target_tenant = models.ForeignKey(
+        Tenant, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='audit_logs',
+    )
+    target_name = models.CharField(max_length=255, blank=True, default='')
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Super Admin Audit Log'
+        verbose_name_plural = 'Super Admin Audit Logs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['target_tenant', '-created_at']),
+            models.Index(fields=['-created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.actor_email or "system"} {self.action} {self.target_name}'.strip()

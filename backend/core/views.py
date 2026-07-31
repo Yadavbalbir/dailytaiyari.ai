@@ -74,6 +74,8 @@ class TenantDetailView(APIView):
                 "theme": tenant.theme or Tenant.DEFAULT_THEME,
                 "show_name": tenant.show_name,
                 "features": tenant.get_features(),
+                "is_suspended": tenant.is_suspended,
+                "suspension_message": tenant.suspension_message,
                 "request_enrollment_free": tenant.request_enrollment_free,
                 "request_enrollment_paid": tenant.request_enrollment_paid,
                 "payment_gateway": _public_payment_gateway(tenant),
