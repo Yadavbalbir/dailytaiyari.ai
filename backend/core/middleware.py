@@ -66,16 +66,17 @@ class TenantMiddleware(MiddlewareMixin):
 
         request.tenant = tenant
 
-        # A suspended tenant stays active (so its public config + suspension
-        # notice still load) but is frozen: every authenticated API call is
-        # rejected. Auth-bootstrap paths are allowed through so the login flow
-        # can surface a clear message and the frontend can render its overlay.
-        if tenant.is_suspended and not self._is_suspension_bypass(request.path):
+        # A suspended or billing-frozen tenant stays active (so its public
+        # config + notice still load) but is frozen: every authenticated API
+        # call is rejected. Auth-bootstrap paths are allowed through so the
+        # login flow can surface a clear message and the frontend can render
+        # its overlay.
+        blocked, message, code = tenant.access_block()
+        if blocked and not self._is_suspension_bypass(request.path):
             return JsonResponse(
                 {
-                    'detail': tenant.suspension_message
-                    or 'This academy is temporarily suspended. Please contact the DailyTaiyari team.',
-                    'code': 'tenant_suspended',
+                    'detail': message,
+                    'code': code,
                 },
                 status=403,
             )

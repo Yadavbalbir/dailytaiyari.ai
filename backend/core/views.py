@@ -64,6 +64,7 @@ class TenantDetailView(APIView):
             
         try:
             tenant = Tenant.objects.get(id=pk, is_active=True)
+            _frozen, _freeze_msg, _freeze_code = tenant.access_block()
             return Response({
                 "id": str(tenant.id),
                 "name": tenant.name,
@@ -76,6 +77,9 @@ class TenantDetailView(APIView):
                 "features": tenant.get_features(),
                 "is_suspended": tenant.is_suspended,
                 "suspension_message": tenant.suspension_message,
+                "is_frozen": _frozen,
+                "freeze_message": _freeze_msg,
+                "freeze_code": _freeze_code,
                 "request_enrollment_free": tenant.request_enrollment_free,
                 "request_enrollment_paid": tenant.request_enrollment_paid,
                 "payment_gateway": _public_payment_gateway(tenant),

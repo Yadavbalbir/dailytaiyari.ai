@@ -208,6 +208,10 @@ export default function Tenants() {
                       <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
                         Suspended
                       </span>
+                    ) : t.is_billing_frozen ? (
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-rose-50 text-rose-700">
+                        Subscription inactive
+                      </span>
                     ) : (
                       <span
                         className={`text-xs font-medium px-2.5 py-1 rounded-full ${

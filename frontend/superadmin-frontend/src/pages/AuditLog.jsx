@@ -10,6 +10,7 @@ const ACTION_META = {
   'tenant.suspend': { label: 'Suspended tenant', color: 'bg-rose-50 text-rose-700' },
   'tenant.unsuspend': { label: 'Unsuspended tenant', color: 'bg-emerald-50 text-emerald-700' },
   'tenant.feature_locks': { label: 'Changed feature locks', color: 'bg-amber-50 text-amber-700' },
+  'tenant.plan': { label: 'Changed plan / quotas', color: 'bg-indigo-50 text-indigo-700' },
 }
 
 export default function AuditLog() {

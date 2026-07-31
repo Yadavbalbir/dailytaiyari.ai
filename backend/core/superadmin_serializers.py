@@ -73,12 +73,13 @@ class TenantListSerializer(serializers.ModelSerializer):
     student_count = serializers.SerializerMethodField()
     admin_count = serializers.SerializerMethodField()
     course_count = serializers.SerializerMethodField()
+    is_billing_frozen = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Tenant
         fields = [
             'id', 'name', 'tagline', 'subdomain', 'theme', 'is_active',
-            'is_suspended',
+            'is_suspended', 'plan', 'billing_status', 'is_billing_frozen',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
         ]
@@ -125,6 +126,8 @@ class TenantDetailSerializer(serializers.ModelSerializer):
             'is_active', 'is_suspended', 'suspension_message',
             'features', 'feature_locks',
             'request_enrollment_free', 'request_enrollment_paid',
+            'plan', 'billing_status', 'trial_ends_at', 'current_period_end',
+            'max_students', 'max_courses', 'max_admins',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
         ]
@@ -177,6 +180,21 @@ class TenantDetailSerializer(serializers.ModelSerializer):
             )
         return {k: bool(v) for k, v in value.items() if k in Tenant.FEATURE_CHOICES}
 
+    def validate_plan(self, value):
+        if value and value not in Tenant.PLAN_CHOICES:
+            raise serializers.ValidationError(
+                'Unknown plan. Choose one of: ' + ', '.join(Tenant.PLAN_CHOICES)
+            )
+        return value
+
+    def validate_billing_status(self, value):
+        if value and value not in Tenant.BILLING_STATUS_CHOICES:
+            raise serializers.ValidationError(
+                'Unknown billing status. Choose one of: '
+                + ', '.join(Tenant.BILLING_STATUS_CHOICES)
+            )
+        return value
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['features'] = instance.get_features()
@@ -188,6 +206,16 @@ class TenantDetailSerializer(serializers.ModelSerializer):
         data['available_themes'] = [
             {'key': k, 'label': label} for k, label in Tenant.THEME_CHOICES.items()
         ]
+        data['available_plans'] = [
+            {'key': k, 'label': label, 'defaults': Tenant.PLAN_DEFAULTS.get(k, {})}
+            for k, label in Tenant.PLAN_CHOICES.items()
+        ]
+        data['billing_statuses'] = [
+            {'key': k, 'label': label}
+            for k, label in Tenant.BILLING_STATUS_CHOICES.items()
+        ]
+        data['quota_status'] = instance.quota_status()
+        data['is_billing_frozen'] = instance.is_billing_frozen
         return data
 
     def update(self, instance, validated_data):
@@ -199,7 +227,18 @@ class TenantDetailSerializer(serializers.ModelSerializer):
         locks = validated_data.pop('feature_locks', None)
         if locks is not None:
             instance.feature_locks = locks
-        return super().update(instance, validated_data)
+        # When the plan changes and the caller didn't also send explicit caps,
+        # seed the max_* caps from the new plan's defaults. Explicit caps in the
+        # same payload always win.
+        new_plan = validated_data.get('plan')
+        plan_changed = new_plan is not None and new_plan != instance.plan
+        instance = super().update(instance, validated_data)
+        if plan_changed and not any(
+            k in validated_data for k in ('max_students', 'max_courses', 'max_admins')
+        ):
+            instance.apply_plan_defaults()
+            instance.save(update_fields=['max_students', 'max_courses', 'max_admins'])
+        return instance
 
 
 class TenantCreateSerializer(serializers.ModelSerializer):

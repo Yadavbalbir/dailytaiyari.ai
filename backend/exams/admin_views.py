@@ -106,6 +106,14 @@ class AdminCourseViewSet(TenantAdminModelViewSet):
         # Only admins create courses; instructors edit assigned ones.
         if request.user.role != 'admin':
             raise PermissionDenied('Only admins can create courses.')
+        tenant = self._tenant()
+        if tenant is not None and not tenant.can_add('courses'):
+            return Response(
+                {'detail': 'This academy has reached its course limit. '
+                           'Please contact the DailyTaiyari team to add more.',
+                 'code': 'quota_exceeded'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().create(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -125,6 +133,14 @@ class AdminCourseViewSet(TenantAdminModelViewSet):
         course under the same tenant. Body: {"name": "New course name"}. Admin only."""
         if request.user.role != 'admin':
             raise PermissionDenied('Only admins can copy courses.')
+        tenant = self._tenant()
+        if tenant is not None and not tenant.can_add('courses'):
+            return Response(
+                {'detail': 'This academy has reached its course limit. '
+                           'Please contact the DailyTaiyari team to add more.',
+                 'code': 'quota_exceeded'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         source = self.get_object()
         name = (request.data.get('name') or '').strip()
         if not name:

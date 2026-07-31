@@ -96,6 +96,20 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             for key, label in Tenant.THEME_CHOICES.items()
         ]
         data['has_active_payment_gateway'] = instance.has_active_payment_gateway
+        # Read-only plan + quota snapshot so the tenant admin can see their
+        # plan, usage against caps, and any billing freeze (all managed by the
+        # DailyTaiyari team).
+        data['plan'] = instance.plan
+        data['plan_label'] = Tenant.PLAN_CHOICES.get(instance.plan, instance.plan)
+        data['billing_status'] = instance.billing_status
+        data['trial_ends_at'] = (
+            instance.trial_ends_at.isoformat() if instance.trial_ends_at else None
+        )
+        data['current_period_end'] = (
+            instance.current_period_end.isoformat() if instance.current_period_end else None
+        )
+        data['quota_status'] = instance.quota_status()
+        data['is_billing_frozen'] = instance.is_billing_frozen
         return data
 
     def update(self, instance, validated_data):
