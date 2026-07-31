@@ -2,6 +2,7 @@
 Core models - Base classes for all models in the platform.
 """
 from django.db import models
+from django.utils import timezone
 import uuid
 
 
@@ -46,6 +47,49 @@ class Tenant(models.Model):
     }
     DEFAULT_THEME = 'sunrise'
 
+    # ── Subscription plans & billing (Phase 2) ─────────────────────────────
+    # A tenant's commercial plan. The plan is informational + drives default
+    # quota caps (see PLAN_DEFAULTS); the super admin may still override any
+    # individual cap per tenant. Keys are stable identifiers.
+    PLAN_TRIAL = 'trial'
+    PLAN_STARTER = 'starter'
+    PLAN_GROWTH = 'growth'
+    PLAN_ENTERPRISE = 'enterprise'
+    PLAN_CHOICES = {
+        PLAN_TRIAL: 'Trial',
+        PLAN_STARTER: 'Starter',
+        PLAN_GROWTH: 'Growth',
+        PLAN_ENTERPRISE: 'Enterprise',
+    }
+
+    # Billing lifecycle status. ``trialing`` freezes once ``trial_ends_at``
+    # passes; ``past_due`` is a soft grace state (warned, not frozen);
+    # ``expired``/``canceled`` freeze immediately; ``active`` is healthy.
+    BILLING_TRIALING = 'trialing'
+    BILLING_ACTIVE = 'active'
+    BILLING_PAST_DUE = 'past_due'
+    BILLING_EXPIRED = 'expired'
+    BILLING_CANCELED = 'canceled'
+    BILLING_STATUS_CHOICES = {
+        BILLING_TRIALING: 'Trialing',
+        BILLING_ACTIVE: 'Active',
+        BILLING_PAST_DUE: 'Past Due',
+        BILLING_EXPIRED: 'Expired',
+        BILLING_CANCELED: 'Canceled',
+    }
+
+    # Default per-resource caps applied when a plan is assigned. ``None`` means
+    # unlimited. The super admin may override any cap independently afterwards.
+    PLAN_DEFAULTS = {
+        PLAN_TRIAL:      {'max_students': 50,   'max_courses': 3,   'max_admins': 2},
+        PLAN_STARTER:    {'max_students': 300,  'max_courses': 15,  'max_admins': 5},
+        PLAN_GROWTH:     {'max_students': 2000, 'max_courses': 100, 'max_admins': 15},
+        PLAN_ENTERPRISE: {'max_students': None, 'max_courses': None, 'max_admins': None},
+    }
+
+    # Quota-guarded resources. Each maps to a usage counter + a max_* field.
+    QUOTA_RESOURCES = ('students', 'courses', 'admins')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     tagline = models.CharField(max_length=255, blank=True, default='')
@@ -81,6 +125,26 @@ class Tenant(models.Model):
     # holds; use ``is_active=False`` to quietly retire a tenant instead.
     is_suspended = models.BooleanField(default=False)
     suspension_message = models.TextField(blank=True, default='')
+
+    # ── Subscription plan & quota caps (Phase 2) ───────────────────────────
+    # The commercial plan and its billing lifecycle. ``max_*`` are the effective
+    # per-tenant caps (None = unlimited); they seed from PLAN_DEFAULTS when a
+    # plan is applied but can be overridden individually by the super admin.
+    plan = models.CharField(
+        max_length=32,
+        choices=[(k, v) for k, v in PLAN_CHOICES.items()],
+        default=PLAN_TRIAL,
+    )
+    billing_status = models.CharField(
+        max_length=32,
+        choices=[(k, v) for k, v in BILLING_STATUS_CHOICES.items()],
+        default=BILLING_TRIALING,
+    )
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    max_students = models.PositiveIntegerField(null=True, blank=True)
+    max_courses = models.PositiveIntegerField(null=True, blank=True)
+    max_admins = models.PositiveIntegerField(null=True, blank=True)
 
     # ── Enrollment mode flags ──────────────────────────────────────────────
     # These decide how a student joins a course:
@@ -130,6 +194,94 @@ class Tenant(models.Model):
     def locked_feature_keys(self):
         """List of feature keys currently locked by the super admin."""
         return list(self.get_feature_locks().keys())
+
+    # ── Quotas & billing helpers (Phase 2) ─────────────────────────────────
+    def usage_counts(self):
+        """Live usage for each quota-guarded resource."""
+        return {
+            'students': self.users.filter(role='student').count(),
+            'courses': self.courses.count(),
+            'admins': self.users.filter(role='admin').count(),
+        }
+
+    def quota_limits(self):
+        """Effective caps per resource. ``None`` means unlimited."""
+        return {
+            'students': self.max_students,
+            'courses': self.max_courses,
+            'admins': self.max_admins,
+        }
+
+    def quota_status(self):
+        """Per-resource {used, limit, remaining, over} for dashboards/enforcement."""
+        used = self.usage_counts()
+        limits = self.quota_limits()
+        status = {}
+        for resource in self.QUOTA_RESOURCES:
+            limit = limits[resource]
+            count = used[resource]
+            status[resource] = {
+                'used': count,
+                'limit': limit,
+                'remaining': None if limit is None else max(limit - count, 0),
+                'over': limit is not None and count >= limit,
+            }
+        return status
+
+    def can_add(self, resource, count=1):
+        """True when ``count`` more of ``resource`` fits under the cap."""
+        limit = self.quota_limits().get(resource)
+        if limit is None:
+            return True
+        return self.usage_counts().get(resource, 0) + count <= limit
+
+    def apply_plan_defaults(self):
+        """Seed the ``max_*`` caps from the current plan's defaults."""
+        defaults = self.PLAN_DEFAULTS.get(self.plan)
+        if defaults:
+            self.max_students = defaults['max_students']
+            self.max_courses = defaults['max_courses']
+            self.max_admins = defaults['max_admins']
+
+    @property
+    def is_billing_frozen(self):
+        """True when the subscription lifecycle should freeze the tenant.
+
+        ``expired``/``canceled`` freeze immediately; a ``trialing`` tenant
+        freezes once its trial has lapsed. ``past_due`` is a soft grace state
+        (surfaced as a warning) and ``active`` is healthy.
+        """
+        now = timezone.now()
+        if self.billing_status in (self.BILLING_EXPIRED, self.BILLING_CANCELED):
+            return True
+        if (self.billing_status == self.BILLING_TRIALING
+                and self.trial_ends_at is not None and self.trial_ends_at < now):
+            return True
+        return False
+
+    @property
+    def billing_freeze_message(self):
+        return (
+            'Your DailyTaiyari subscription is inactive. '
+            'Please contact the DailyTaiyari team to restore access.'
+        )
+
+    def access_block(self):
+        """Consolidated freeze check used by login + middleware.
+
+        Returns ``(blocked, message, code)``. Suspension takes precedence over a
+        billing freeze so an explicit hold keeps its custom message.
+        """
+        if self.is_suspended:
+            return (
+                True,
+                self.suspension_message
+                or 'This academy is temporarily suspended. Please contact the DailyTaiyari team.',
+                'tenant_suspended',
+            )
+        if self.is_billing_frozen:
+            return True, self.billing_freeze_message, 'subscription_inactive'
+        return False, '', ''
 
     @property
     def active_payment_gateway(self):

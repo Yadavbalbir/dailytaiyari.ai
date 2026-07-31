@@ -12,6 +12,8 @@ import {
   Unlock,
   AlertTriangle,
   History,
+  CreditCard,
+  Gauge,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -59,7 +61,35 @@ function MiniStat({ icon: Icon, label, value }) {
   )
 }
 
-// Three-state control for a feature: tenant-controlled, forced on, forced off.
+// Progress bar for a resource's usage against its cap.
+function UsageBar({ label, status }) {
+  const { used, limit } = status || { used: 0, limit: null }
+  const unlimited = limit === null || limit === undefined
+  const pct = unlimited || limit === 0 ? 0 : Math.min((used / limit) * 100, 100)
+  const over = !unlimited && used >= limit
+  const near = !over && pct >= 80
+  const barColor = over ? 'bg-rose-500' : near ? 'bg-amber-500' : 'bg-brand-500'
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-slate-600">{label}</span>
+        <span className={`font-medium ${over ? 'text-rose-600' : 'text-slate-700'}`}>
+          {used}
+          {unlimited ? ' / ∞' : ` / ${limit}`}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ISO datetime -> value for <input type="date"> (YYYY-MM-DD), or ''.
+function isoToDateInput(iso) {
+  if (!iso) return ''
+  return iso.slice(0, 10)
+}
 function FeatureRow({ feature, mode, tenantValue, onChange }) {
   const options = [
     { key: 'tenant', label: 'Tenant' },
@@ -137,6 +167,7 @@ function actionLabel(action) {
     'tenant.suspend': 'Suspended tenant',
     'tenant.unsuspend': 'Unsuspended tenant',
     'tenant.feature_locks': 'Changed feature locks',
+    'tenant.plan': 'Changed plan / quotas',
   }
   return map[action] || action
 }
@@ -168,6 +199,13 @@ export default function TenantDetail() {
           is_active: data.is_active,
           is_suspended: data.is_suspended,
           suspension_message: data.suspension_message || '',
+          plan: data.plan || 'trial',
+          billing_status: data.billing_status || 'trialing',
+          trial_ends_at: isoToDateInput(data.trial_ends_at),
+          current_period_end: isoToDateInput(data.current_period_end),
+          max_students: data.max_students ?? '',
+          max_courses: data.max_courses ?? '',
+          max_admins: data.max_admins ?? '',
           featureModes: locksToModes(data.available_features || [], data.feature_locks || {}),
         })
       })
@@ -184,6 +222,25 @@ export default function TenantDetail() {
   const setFeatureMode = (key, mode) =>
     setForm((f) => ({ ...f, featureModes: { ...f.featureModes, [key]: mode } }))
 
+  // Apply a plan's default caps into the form (super admin can still tweak).
+  const applyPlanDefaults = (planKey) => {
+    const plan = (tenant.available_plans || []).find((p) => p.key === planKey)
+    const d = plan?.defaults || {}
+    setForm((f) => ({
+      ...f,
+      plan: planKey,
+      max_students: d.max_students ?? '',
+      max_courses: d.max_courses ?? '',
+      max_admins: d.max_admins ?? '',
+    }))
+  }
+
+  const capOrNull = (v) => {
+    if (v === '' || v === null || v === undefined) return null
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+
   const save = async () => {
     setSaving(true)
     try {
@@ -196,6 +253,13 @@ export default function TenantDetail() {
         is_suspended: form.is_suspended,
         suspension_message: form.suspension_message,
         feature_locks: modesToLocks(form.featureModes),
+        plan: form.plan,
+        billing_status: form.billing_status,
+        trial_ends_at: form.trial_ends_at || null,
+        current_period_end: form.current_period_end || null,
+        max_students: capOrNull(form.max_students),
+        max_courses: capOrNull(form.max_courses),
+        max_admins: capOrNull(form.max_admins),
       }
       const sub = form.subdomain.trim().toLowerCase()
       if (sub !== (tenant.subdomain || '')) payload.subdomain = sub
@@ -203,6 +267,11 @@ export default function TenantDetail() {
       setTenant(updated)
       setForm((f) => ({
         ...f,
+        trial_ends_at: isoToDateInput(updated.trial_ends_at),
+        current_period_end: isoToDateInput(updated.current_period_end),
+        max_students: updated.max_students ?? '',
+        max_courses: updated.max_courses ?? '',
+        max_admins: updated.max_admins ?? '',
         featureModes: locksToModes(updated.available_features || [], updated.feature_locks || {}),
       }))
       loadLogs()
@@ -212,6 +281,8 @@ export default function TenantDetail() {
       const msg =
         (Array.isArray(d.subdomain) && d.subdomain[0]) ||
         (Array.isArray(d.name) && d.name[0]) ||
+        (Array.isArray(d.plan) && d.plan[0]) ||
+        (Array.isArray(d.billing_status) && d.billing_status[0]) ||
         'Could not save changes'
       toast.error(msg)
     } finally {
@@ -251,6 +322,16 @@ export default function TenantDetail() {
                 <AlertTriangle className="w-3.5 h-3.5" /> Suspended
               </span>
             )}
+            {!tenant.is_suspended && tenant.is_billing_frozen && (
+              <span className="inline-flex items-center gap-1 text-rose-600 font-medium">
+                <CreditCard className="w-3.5 h-3.5" /> Subscription inactive
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-slate-500">
+              <CreditCard className="w-3.5 h-3.5" />
+              {(tenant.available_plans || []).find((p) => p.key === tenant.plan)?.label ||
+                tenant.plan}
+            </span>
           </p>
         </div>
         <button
@@ -348,6 +429,95 @@ export default function TenantDetail() {
                 tenantValue={tenant.features?.[f.key]}
                 onChange={setFeatureMode}
               />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Plan & Quota */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Gauge className="w-5 h-5 text-brand-600" />
+          <h2 className="font-semibold text-slate-900">Plan &amp; Quotas</h2>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Plan + billing */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Plan</label>
+              <select
+                value={form.plan}
+                onChange={(e) => applyPlanDefaults(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none"
+              >
+                {(tenant.available_plans || []).map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Changing the plan pre-fills its default caps — tweak them below if needed.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Billing status</label>
+              <select
+                value={form.billing_status}
+                onChange={(e) => set('billing_status', e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none"
+              >
+                {(tenant.billing_statuses || []).map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Trial ends</label>
+                <input
+                  type="date"
+                  value={form.trial_ends_at}
+                  onChange={(e) => set('trial_ends_at', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Renews / period end</label>
+                <input
+                  type="date"
+                  value={form.current_period_end}
+                  onChange={(e) => set('current_period_end', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quota caps + live usage */}
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500">
+              Caps limit what the tenant can create. Leave blank for <strong>unlimited</strong>.
+              When a cap is hit, the tenant admin is told to contact the DailyTaiyari team.
+            </p>
+            {[
+              { key: 'max_students', label: 'Max students', resource: 'students' },
+              { key: 'max_courses', label: 'Max courses', resource: 'courses' },
+              { key: 'max_admins', label: 'Max admins', resource: 'admins' },
+            ].map(({ key, label, resource }) => (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium text-slate-700">{label}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="∞"
+                    value={form[key]}
+                    onChange={(e) => set(key, e.target.value)}
+                    className="w-28 px-3 py-1.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none text-sm text-right"
+                  />
+                </div>
+                <UsageBar label="Current usage" status={tenant.quota_status?.[resource]} />
+              </div>
             ))}
           </div>
         </div>

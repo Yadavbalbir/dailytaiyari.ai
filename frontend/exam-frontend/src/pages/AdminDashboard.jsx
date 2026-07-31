@@ -1927,6 +1927,14 @@ const TenantSettings = () => {
 
     const availableFeatures = settings?.available_features || []
     const lockedFeatures = settings?.locked_features || []
+    const quotaStatus = settings?.quota_status || {}
+    const planLabel = settings?.plan_label || settings?.plan
+    const isBillingFrozen = Boolean(settings?.is_billing_frozen)
+    const quotaRows = [
+        { key: 'students', label: 'Students' },
+        { key: 'courses', label: 'Courses' },
+        { key: 'admins', label: 'Admins' },
+    ]
 
     const featuresMutation = useMutation({
         mutationFn: (next) => tenantAdminService.updateFeatures(next),
@@ -2238,6 +2246,55 @@ const TenantSettings = () => {
                                 </div>
                                 <p className="text-xs text-surface-500 leading-snug">{t.description}</p>
                             </button>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Plan & usage */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5 text-primary-500" />
+                        <h3 className="text-lg font-bold text-surface-900 dark:text-white">Plan &amp; Usage</h3>
+                    </div>
+                    {planLabel && (
+                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+                            {planLabel}
+                        </span>
+                    )}
+                </div>
+                {isBillingFrozen && (
+                    <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                        Your subscription is inactive. Please contact the DailyTaiyari team to restore full access.
+                    </div>
+                )}
+                <p className="text-sm text-surface-500">Your usage against the limits set by the DailyTaiyari team. Contact us to raise a limit or change your plan.</p>
+                <div className="space-y-3">
+                    {quotaRows.map(({ key, label }) => {
+                        const s = quotaStatus[key] || { used: 0, limit: null }
+                        const unlimited = s.limit === null || s.limit === undefined
+                        const pct = unlimited || s.limit === 0 ? 0 : Math.min((s.used / s.limit) * 100, 100)
+                        const over = !unlimited && s.used >= s.limit
+                        const near = !over && pct >= 80
+                        const barColor = over ? 'bg-red-500' : near ? 'bg-amber-500' : 'bg-primary-500'
+                        return (
+                            <div key={key}>
+                                <div className="flex items-center justify-between text-sm mb-1">
+                                    <span className="text-surface-600 dark:text-surface-300">{label}</span>
+                                    <span className={`font-medium ${over ? 'text-red-600 dark:text-red-400' : 'text-surface-700 dark:text-surface-200'}`}>
+                                        {s.used}{unlimited ? ' / ∞' : ` / ${s.limit}`}
+                                    </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-surface-100 dark:bg-surface-800 overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                {over && (
+                                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                        Limit reached — contact the DailyTaiyari team to add more.
+                                    </p>
+                                )}
+                            </div>
                         )
                     })}
                 </div>

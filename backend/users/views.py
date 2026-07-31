@@ -63,7 +63,15 @@ class RegisterView(generics.CreateAPIView):
                 {'error': 'A valid Tenant is required to register.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        if not request.tenant.can_add('students'):
+            return Response(
+                {'error': 'This academy has reached its student capacity. '
+                          'Please contact the DailyTaiyari team.',
+                 'code': 'quota_exceeded'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save(tenant=request.tenant)

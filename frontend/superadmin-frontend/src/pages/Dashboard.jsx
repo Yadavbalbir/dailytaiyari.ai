@@ -10,9 +10,19 @@ import {
   ArrowRight,
   Loader2,
   AlertTriangle,
+  CreditCard,
+  Gauge,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fetchStats, fetchTenants } from '../services/superadminService'
+
+const PLAN_ORDER = ['trial', 'starter', 'growth', 'enterprise']
+const PLAN_LABELS = {
+  trial: 'Trial',
+  starter: 'Starter',
+  growth: 'Growth',
+  enterprise: 'Enterprise',
+}
 
 function StatCard({ icon: Icon, label, value, tone = 'brand' }) {
   const tones = {
@@ -75,6 +85,50 @@ export default function Dashboard() {
         <StatCard icon={GraduationCap} label="Students" value={stats.total_students} tone="brand" />
         <StatCard icon={Users} label="Tenant Admins" value={stats.total_admins} tone="slate" />
         <StatCard icon={Users} label="Faculty" value={stats.total_instructors} tone="slate" />
+      </div>
+
+      {/* Plans & at-risk */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="w-4 h-4 text-brand-600" />
+            <h2 className="font-semibold text-slate-900">Plan Distribution</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {PLAN_ORDER.map((key) => (
+              <div key={key} className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                <div className="text-2xl font-bold text-slate-900">
+                  {stats.plan_distribution?.[key] ?? 0}
+                </div>
+                <div className="text-xs text-slate-500 capitalize">{PLAN_LABELS[key]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Gauge className="w-4 h-4 text-brand-600" />
+            <h2 className="font-semibold text-slate-900">Needs Attention</h2>
+          </div>
+          <ul className="space-y-2.5 text-sm">
+            <li className="flex items-center justify-between">
+              <span className="text-slate-600">Over quota</span>
+              <span className="font-semibold text-rose-600">{stats.over_quota_tenants ?? 0}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="text-slate-600">Near quota (≥80%)</span>
+              <span className="font-semibold text-amber-600">{stats.near_quota_tenants ?? 0}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="text-slate-600">Subscription inactive</span>
+              <span className="font-semibold text-rose-600">{stats.billing_frozen_tenants ?? 0}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span className="text-slate-600">Suspended</span>
+              <span className="font-semibold text-amber-600">{stats.suspended_tenants ?? 0}</span>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200">

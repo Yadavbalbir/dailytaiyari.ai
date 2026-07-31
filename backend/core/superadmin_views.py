@@ -31,12 +31,26 @@ _AUDITED_FIELDS = [
     'name', 'tagline', 'subdomain', 'theme', 'show_name', 'is_active',
     'is_suspended', 'suspension_message', 'features', 'feature_locks',
     'request_enrollment_free', 'request_enrollment_paid',
+    'plan', 'billing_status', 'trial_ends_at', 'current_period_end',
+    'max_students', 'max_courses', 'max_admins',
 ]
+
+_PLAN_FIELDS = {
+    'plan', 'billing_status', 'trial_ends_at', 'current_period_end',
+    'max_students', 'max_courses', 'max_admins',
+}
 
 
 def _snapshot(tenant):
     """Capture the audited fields of a tenant as a plain dict."""
     return {f: getattr(tenant, f) for f in _AUDITED_FIELDS}
+
+
+def _json_safe(value):
+    """Coerce a field value to something the audit JSONField can store."""
+    if hasattr(value, 'isoformat'):  # date / datetime
+        return value.isoformat()
+    return value
 
 
 def _diff(before, after):
@@ -45,7 +59,7 @@ def _diff(before, after):
     for field in _AUDITED_FIELDS:
         old, new = before.get(field), after.get(field)
         if old != new:
-            changes[field] = [old, new]
+            changes[field] = [_json_safe(old), _json_safe(new)]
     return changes
 
 
@@ -96,11 +110,52 @@ class PlatformStatsView(APIView):
         tenant_users = User.objects.filter(tenant__isnull=False)
         from exams.models import Course
 
+        # Plan distribution across tenants.
+        plan_rows = tenants.values('plan').annotate(count=Count('id'))
+        plan_distribution = {k: 0 for k in Tenant.PLAN_CHOICES}
+        for row in plan_rows:
+            plan_distribution[row['plan']] = row['count']
+
+        # Billing-frozen and near/over-quota tenants (computed in Python since
+        # the freeze + quota checks span time + related counts).
+        billing_frozen = 0
+        over_quota = 0
+        near_quota = 0
+        quota_qs = tenants.annotate(
+            _students=Count('users', filter=Q(users__role='student'), distinct=True),
+            _admins=Count('users', filter=Q(users__role='admin'), distinct=True),
+            _courses=Count('courses', distinct=True),
+        )
+        for t in quota_qs:
+            if t.is_billing_frozen:
+                billing_frozen += 1
+            usage = {'students': t._students, 'admins': t._admins, 'courses': t._courses}
+            limits = t.quota_limits()
+            is_over = False
+            is_near = False
+            for resource in Tenant.QUOTA_RESOURCES:
+                limit = limits[resource]
+                if limit is None or limit == 0:
+                    continue
+                ratio = usage[resource] / limit
+                if usage[resource] >= limit:
+                    is_over = True
+                elif ratio >= 0.8:
+                    is_near = True
+            if is_over:
+                over_quota += 1
+            elif is_near:
+                near_quota += 1
+
         return Response({
             'total_tenants': total_tenants,
             'active_tenants': active_tenants,
             'inactive_tenants': total_tenants - active_tenants,
             'suspended_tenants': suspended_tenants,
+            'billing_frozen_tenants': billing_frozen,
+            'over_quota_tenants': over_quota,
+            'near_quota_tenants': near_quota,
+            'plan_distribution': plan_distribution,
             'total_users': tenant_users.count(),
             'total_students': tenant_users.filter(role='student').count(),
             'total_admins': tenant_users.filter(role='admin').count(),
@@ -164,10 +219,13 @@ class TenantDetailView(generics.RetrieveUpdateAPIView):
         changes = _diff(before, _snapshot(tenant))
         if changes:
             action = 'tenant.update'
+            changed_keys = set(changes)
             if 'is_suspended' in changes:
                 action = 'tenant.suspend' if tenant.is_suspended else 'tenant.unsuspend'
             elif 'feature_locks' in changes and len(changes) == 1:
                 action = 'tenant.feature_locks'
+            elif changed_keys and changed_keys <= _PLAN_FIELDS:
+                action = 'tenant.plan'
             _record_audit(request, action, tenant, changes)
         return Response(TenantDetailSerializer(tenant).data)
 
