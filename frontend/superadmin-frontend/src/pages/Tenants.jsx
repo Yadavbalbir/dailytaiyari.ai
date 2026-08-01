@@ -1,8 +1,24 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Plus, Loader2, Building2, X } from 'lucide-react'
+import {
+  Search, Plus, Loader2, Building2, X,
+  Users as UsersIcon, BookOpen, GraduationCap,
+  PieChart as PieIcon, CreditCard, Trophy,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fetchTenants, createTenant } from '../services/superadminService'
+import {
+  ChartCard, MiniStat, DonutChart, BarChartCompact, HBarChart, CHART_COLORS,
+} from '../components/charts'
+
+const PLAN_ORDER = ['trial', 'starter', 'growth', 'enterprise']
+const PLAN_LABELS = { trial: 'Trial', starter: 'Starter', growth: 'Growth', enterprise: 'Enterprise' }
+const PLAN_COLORS = {
+  trial: CHART_COLORS.slate,
+  starter: CHART_COLORS.sky,
+  growth: CHART_COLORS.indigo,
+  enterprise: CHART_COLORS.violet,
+}
 
 const THEMES = [
   'sunrise', 'ocean', 'emerald', 'violet', 'rose',
@@ -122,6 +138,7 @@ function CreateTenantModal({ onClose, onCreated }) {
 
 export default function Tenants() {
   const [tenants, setTenants] = useState([])
+  const [allTenants, setAllTenants] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -134,14 +151,46 @@ export default function Tenants() {
       .finally(() => setLoading(false))
   }, [])
 
+  // A full, unfiltered snapshot powers the summary charts (search shouldn't move them).
+  const loadSnapshot = useCallback(() => {
+    fetchTenants({ page_size: 200 })
+      .then((data) => setAllTenants(data.results || data))
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     load()
-  }, [load])
+    loadSnapshot()
+  }, [load, loadSnapshot])
 
   useEffect(() => {
     const t = setTimeout(() => load(search ? { search } : {}), 300)
     return () => clearTimeout(t)
   }, [search, load])
+
+  const summary = useMemo(() => {
+    const list = allTenants
+    const active = list.filter((t) => t.is_active && !t.is_suspended).length
+    const suspended = list.filter((t) => t.is_suspended).length
+    const inactive = list.filter((t) => !t.is_active && !t.is_suspended).length
+    const students = list.reduce((n, t) => n + (t.student_count ?? 0), 0)
+    const courses = list.reduce((n, t) => n + (t.course_count ?? 0), 0)
+    const planDist = PLAN_ORDER.map((key) => ({
+      name: PLAN_LABELS[key],
+      value: list.filter((t) => t.plan === key).length,
+      color: PLAN_COLORS[key],
+    }))
+    const statusData = [
+      { name: 'Active', value: active, color: CHART_COLORS.emerald },
+      { name: 'Inactive', value: inactive, color: CHART_COLORS.slate },
+      { name: 'Suspended', value: suspended, color: CHART_COLORS.rose },
+    ]
+    const topTenants = [...list]
+      .sort((a, b) => (b.student_count ?? 0) - (a.student_count ?? 0))
+      .slice(0, 6)
+      .map((t) => ({ name: t.name, value: t.student_count ?? 0 }))
+    return { total: list.length, students, courses, planDist, statusData, topTenants }
+  }, [allTenants])
 
   return (
     <div className="space-y-6">
@@ -157,6 +206,40 @@ export default function Tenants() {
           <Plus className="w-4 h-4" /> New Tenant
         </button>
       </div>
+
+      {/* Summary snapshot */}
+      {allTenants.length > 0 && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <MiniStat icon={Building2} label="Total Tenants" value={summary.total} tone="brand" />
+            <MiniStat icon={GraduationCap} label="Total Students" value={summary.students} tone="green" />
+            <MiniStat icon={BookOpen} label="Total Courses" value={summary.courses} tone="amber" />
+            <MiniStat
+              icon={UsersIcon}
+              label="Avg Students / Tenant"
+              value={summary.total ? Math.round(summary.students / summary.total) : 0}
+              tone="slate"
+            />
+          </div>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <ChartCard title="Status" icon={PieIcon}>
+              <DonutChart data={summary.statusData} valueLabel="Tenants" centerLabel="tenants" height={170} />
+            </ChartCard>
+            <ChartCard title="Plans" icon={CreditCard}>
+              <BarChartCompact data={summary.planDist} valueLabel="Tenants" height={180} />
+            </ChartCard>
+            <ChartCard title="Top by Students" icon={Trophy} className="md:col-span-2 xl:col-span-1">
+              {summary.topTenants.some((t) => t.value > 0) ? (
+                <HBarChart data={summary.topTenants} valueLabel="Students" height={180} />
+              ) : (
+                <div className="h-[180px] flex items-center justify-center text-sm text-slate-400">
+                  No enrolled students yet.
+                </div>
+              )}
+            </ChartCard>
+          </div>
+        </>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -235,6 +318,7 @@ export default function Tenants() {
           onCreated={() => {
             setShowCreate(false)
             load(search ? { search } : {})
+            loadSnapshot()
           }}
         />
       )}

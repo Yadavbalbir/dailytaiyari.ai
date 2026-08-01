@@ -398,10 +398,13 @@ class LeadListView(APIView):
 
         items = []
         counts = {'demo': 0, 'contact': 0, 'job': 0, 'new': 0}
+        by_status = {'new': 0, 'contacted': 0, 'closed': 0}
         for key, (model, serializer_cls) in LEAD_REGISTRY.items():
             qs = model.objects.all()
             counts[key] = qs.count()
             counts['new'] += qs.filter(status='new').count()
+            for _st in by_status:
+                by_status[_st] += qs.filter(status=_st).count()
             if wanted_type and wanted_type != key:
                 continue
             if status_filter:
@@ -411,6 +414,7 @@ class LeadListView(APIView):
             items.extend(serializer_cls(qs, many=True).data)
 
         items.sort(key=lambda x: x['created_at'], reverse=True)
+        counts['by_status'] = by_status
         return Response({'results': items[:limit], 'total': len(items), 'counts': counts})
 
 
