@@ -1,11 +1,13 @@
 import { Outlet } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTenantStore } from '../../context/tenantStore'
+import { resolveAuthPanel } from '../../config/authPanel'
 
 const AuthLayout = () => {
   const { tenant } = useTenantStore()
   const tenantName = tenant?.name || 'DailyTaiyari'
   const tenantInitials = tenantName.substring(0, 2).toLowerCase()
+  const panel = resolveAuthPanel(tenant?.auth_panel)
 
   return (
     <div className="min-h-screen flex">
@@ -57,30 +59,25 @@ const AuthLayout = () => {
 
             {/* Tagline */}
             <h2 className="text-4xl font-display font-bold mb-4 leading-tight">
-              Your Daily Dose of<br />
-              <span className="text-white/90">Exam Success</span>
+              {panel.heading}<br />
+              <span className="text-white/90">{panel.heading_highlight}</span>
             </h2>
 
             <p className="text-white/80 text-lg mb-8 max-w-md">
-              Join thousands of students preparing for NEET and IIT JEE
-              with personalized study plans and AI-powered learning.
+              {panel.subtitle}
             </p>
 
             {/* Stats */}
-            <div className="flex gap-8">
-              <div>
-                <div className="text-3xl font-bold">50K+</div>
-                <div className="text-white/70">Students</div>
+            {panel.stats.length > 0 && (
+              <div className="flex gap-8">
+                {panel.stats.map((stat, i) => (
+                  <div key={i}>
+                    <div className="text-3xl font-bold">{stat.value}</div>
+                    <div className="text-white/70">{stat.label}</div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <div className="text-3xl font-bold">100K+</div>
-                <div className="text-white/70">Questions</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">95%</div>
-                <div className="text-white/70">Success Rate</div>
-              </div>
-            </div>
+            )}
           </motion.div>
         </div>
 

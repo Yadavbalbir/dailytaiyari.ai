@@ -104,6 +104,14 @@ class Tenant(models.Model):
     # When False, the frontend hides the text name and shows the logo alone
     # (full-width) — useful when the logo already contains the institution name.
     show_name = models.BooleanField(default=True)
+
+    # Editable content for the branding panel on the login/register screens
+    # (the left-hand marketing column of the auth pages). Shape:
+    #   {heading, heading_highlight, subtitle, stats: [{value, label}, ...]}
+    # An empty dict means "use the platform's generic defaults" — the frontend
+    # merges any provided keys over those defaults, so tenants only override
+    # what they care about.
+    auth_panel = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
 
     # Per-tenant feature toggles: {feature_key: bool}. Missing keys default to

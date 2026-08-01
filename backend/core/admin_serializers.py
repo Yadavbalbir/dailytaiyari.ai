@@ -13,6 +13,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
     """
 
     features = serializers.JSONField(required=False)
+    auth_panel = serializers.JSONField(required=False)
     logo = serializers.ImageField(required=False, allow_null=True)
     favicon = serializers.ImageField(required=False, allow_null=True)
 
@@ -20,7 +21,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
         model = Tenant
         fields = [
             'id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'theme',
-            'show_name', 'features',
+            'show_name', 'features', 'auth_panel',
             'request_enrollment_free', 'request_enrollment_paid',
         ]
         read_only_fields = ['id', 'subdomain']
@@ -61,7 +62,48 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             )
         return cleaned
 
-    def validate(self, attrs):
+    def validate_auth_panel(self, value):
+        """Sanitise the login/register branding panel content.
+
+        Accepts ``{heading, heading_highlight, subtitle, stats}``. Unknown keys
+        are dropped, text is trimmed, and ``stats`` is capped to a short list of
+        ``{value, label}`` pairs so a tenant can't inject arbitrary structures.
+        """
+        if not isinstance(value, dict):
+            raise serializers.ValidationError(
+                'auth_panel must be an object.'
+            )
+
+        cleaned = {}
+        for key in ('heading', 'heading_highlight', 'subtitle'):
+            if key in value:
+                text = value.get(key)
+                if text is None:
+                    text = ''
+                if not isinstance(text, str):
+                    raise serializers.ValidationError(
+                        f'{key} must be text.'
+                    )
+                cleaned[key] = text.strip()[:255]
+
+        if 'stats' in value:
+            stats = value.get('stats') or []
+            if not isinstance(stats, list):
+                raise serializers.ValidationError(
+                    'stats must be a list of {value, label} items.'
+                )
+            cleaned_stats = []
+            for item in stats[:4]:
+                if not isinstance(item, dict):
+                    continue
+                stat_value = str(item.get('value', '')).strip()[:32]
+                stat_label = str(item.get('label', '')).strip()[:48]
+                if not stat_value and not stat_label:
+                    continue
+                cleaned_stats.append({'value': stat_value, 'label': stat_label})
+            cleaned['stats'] = cleaned_stats
+
+        return cleaned
         # Paid courses may only skip the request/approve flow when an active
         # payment gateway is configured — otherwise there is no way to collect
         # payment. Free courses are independent and can be toggled freely.
@@ -116,6 +158,9 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
         features = validated_data.pop('features', None)
         if features is not None:
             instance.features = {**(instance.features or {}), **features}
+        auth_panel = validated_data.pop('auth_panel', None)
+        if auth_panel is not None:
+            instance.auth_panel = {**(instance.auth_panel or {}), **auth_panel}
         return super().update(instance, validated_data)
 
 
