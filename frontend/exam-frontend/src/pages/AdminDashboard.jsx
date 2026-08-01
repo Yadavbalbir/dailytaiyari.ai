@@ -8,6 +8,7 @@ import { tenantAdminService } from '../services/tenantAdminService'
 import { courseService } from '../services/courseService'
 import { useTenantStore } from '../context/tenantStore'
 import { THEME_LIST, applyTheme, DEFAULT_THEME } from '../config/themes'
+import { DEFAULT_AUTH_PANEL } from '../config/authPanel'
 import CourseBuilder from '../components/admin/CourseBuilder'
 import LandingBuilder from '../components/admin/LandingBuilder'
 import MarketingPromotions from '../components/admin/MarketingPromotions'
@@ -65,6 +66,7 @@ import {
     ShoppingCart,
     Megaphone,
     UserPlus,
+    Plus,
     ArrowUpRight,
     ArrowDownRight,
     Minus,
@@ -1915,6 +1917,7 @@ const TenantSettings = () => {
     const [features, setFeatures] = useState({})
     const [name, setName] = useState('')
     const [tagline, setTagline] = useState('')
+    const [authPanel, setAuthPanel] = useState({ heading: '', heading_highlight: '', subtitle: '', stats: [] })
     const [subTab, setSubTab] = useState('general')
 
     useEffect(() => {
@@ -1922,6 +1925,13 @@ const TenantSettings = () => {
         if (settings) {
             setName(settings.name || '')
             setTagline(settings.tagline || '')
+            const ap = settings.auth_panel || {}
+            setAuthPanel({
+                heading: ap.heading || '',
+                heading_highlight: ap.heading_highlight || '',
+                subtitle: ap.subtitle || '',
+                stats: Array.isArray(ap.stats) ? ap.stats.map((s) => ({ value: s.value || '', label: s.label || '' })) : [],
+            })
         }
     }, [settings])
 
@@ -1954,6 +1964,16 @@ const TenantSettings = () => {
             toast.success('Branding updated')
         },
         onError: () => toast.error('Failed to update branding'),
+    })
+
+    const authPanelMutation = useMutation({
+        mutationFn: (payload) => tenantAdminService.updateAuthPanel(payload),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['tenantSettings'], data)
+            fetchTenantConfig()
+            toast.success('Login screen updated')
+        },
+        onError: () => toast.error('Failed to update login screen'),
     })
 
     const logoMutation = useMutation({
@@ -2032,6 +2052,35 @@ const TenantSettings = () => {
 
     const brandingDirty =
         name.trim() !== (settings?.name || '') || tagline.trim() !== (settings?.tagline || '')
+
+    const updateAuthStat = (index, field, value) => {
+        setAuthPanel((prev) => {
+            const stats = prev.stats.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+            return { ...prev, stats }
+        })
+    }
+
+    const addAuthStat = () => {
+        setAuthPanel((prev) => {
+            if (prev.stats.length >= 4) return prev
+            return { ...prev, stats: [...prev.stats, { value: '', label: '' }] }
+        })
+    }
+
+    const removeAuthStat = (index) => {
+        setAuthPanel((prev) => ({ ...prev, stats: prev.stats.filter((_, i) => i !== index) }))
+    }
+
+    const saveAuthPanel = () => {
+        authPanelMutation.mutate({
+            heading: authPanel.heading.trim(),
+            heading_highlight: authPanel.heading_highlight.trim(),
+            subtitle: authPanel.subtitle.trim(),
+            stats: authPanel.stats
+                .map((s) => ({ value: (s.value || '').trim(), label: (s.label || '').trim() }))
+                .filter((s) => s.value || s.label),
+        })
+    }
 
     const handleLogoChange = (e) => {
         const file = e.target.files?.[0]
@@ -2128,6 +2177,105 @@ const TenantSettings = () => {
                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
                     >
                         {brandingMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+
+            {/* Login screen panel — heading, subtitle & stats */}
+            <div className="card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-primary-500" />
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">Login Screen</h3>
+                </div>
+                <p className="text-sm text-surface-500">Customise the welcome panel students see on the login and register pages. Leave any field blank to use the default text.</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Heading</label>
+                        <input
+                            type="text"
+                            value={authPanel.heading}
+                            onChange={(e) => setAuthPanel((p) => ({ ...p, heading: e.target.value }))}
+                            maxLength={255}
+                            placeholder={DEFAULT_AUTH_PANEL.heading}
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Highlighted heading</label>
+                        <input
+                            type="text"
+                            value={authPanel.heading_highlight}
+                            onChange={(e) => setAuthPanel((p) => ({ ...p, heading_highlight: e.target.value }))}
+                            maxLength={255}
+                            placeholder={DEFAULT_AUTH_PANEL.heading_highlight}
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Subtitle</label>
+                    <textarea
+                        value={authPanel.subtitle}
+                        onChange={(e) => setAuthPanel((p) => ({ ...p, subtitle: e.target.value }))}
+                        maxLength={255}
+                        rows={2}
+                        placeholder={DEFAULT_AUTH_PANEL.subtitle}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">Highlight stats <span className="text-surface-400 font-normal">(optional, up to 4)</span></label>
+                        {authPanel.stats.length < 4 && (
+                            <button
+                                type="button"
+                                onClick={addAuthStat}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-colors"
+                            >
+                                <Plus className="w-4 h-4" /> Add stat
+                            </button>
+                        )}
+                    </div>
+                    {authPanel.stats.length === 0 && (
+                        <p className="text-sm text-surface-400">No stats shown. Add a few (e.g. “10,000+ Students”) to display them on the login screen.</p>
+                    )}
+                    {authPanel.stats.map((stat, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={stat.value}
+                                onChange={(e) => updateAuthStat(i, 'value', e.target.value)}
+                                maxLength={32}
+                                placeholder="10,000+"
+                                className="w-32 px-3 py-2 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                            <input
+                                type="text"
+                                value={stat.label}
+                                onChange={(e) => updateAuthStat(i, 'label', e.target.value)}
+                                maxLength={48}
+                                placeholder="Students"
+                                className="flex-1 px-3 py-2 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 text-surface-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeAuthStat(i)}
+                                className="p-2 rounded-lg text-surface-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                aria-label="Remove stat"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-end">
+                    <button
+                        onClick={saveAuthPanel}
+                        disabled={authPanelMutation.isPending}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                    >
+                        {authPanelMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Save Changes
                     </button>
                 </div>

@@ -62,6 +62,12 @@ export const tenantAdminService = {
         return response.data
     },
 
+    // Login/register marketing panel content (heading, subtitle, stats).
+    updateAuthPanel: async (authPanel) => {
+        const response = await api.patch('/tenant-admin/settings/', { auth_panel: authPanel })
+        return response.data
+    },
+
     updateTheme: async (theme) => {
         const response = await api.patch('/tenant-admin/settings/', { theme })
         return response.data

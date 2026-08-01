@@ -74,6 +74,7 @@ class TenantDetailView(APIView):
                 "favicon": request.build_absolute_uri(tenant.favicon.url) if tenant.favicon else None,
                 "theme": tenant.theme or Tenant.DEFAULT_THEME,
                 "show_name": tenant.show_name,
+                "auth_panel": tenant.auth_panel or {},
                 "features": tenant.get_features(),
                 "is_suspended": tenant.is_suspended,
                 "suspension_message": tenant.suspension_message,
