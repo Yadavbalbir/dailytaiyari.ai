@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../context/authStore'
 import { useAppStore } from '../context/appStore'
 import { analyticsService } from '../services/analyticsService'
@@ -23,13 +22,16 @@ import {
   Sunset,
   Moon,
   ChevronRight,
-  LogOut
+  LogOut,
+  Eye,
+  EyeOff,
+  X
 } from 'lucide-react'
 
 const Profile = () => {
   const { user, profile, updateProfile, logout } = useAuthStore()
+  const changePassword = useAuthStore((s) => s.changePassword)
   const { darkMode, toggleDarkMode } = useAppStore()
-  const queryClient = useQueryClient()
 
   const [isEditing, setIsEditing] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
@@ -37,6 +39,15 @@ const Profile = () => {
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [showCropper, setShowCropper] = useState(false)
   const [tempImage, setTempImage] = useState(null)
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    old_password: '',
+    new_password: '',
+    confirm_password: '',
+  })
+  const [showPasswords, setShowPasswords] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
 
   const [formData, setFormData] = useState({
 
@@ -84,11 +95,6 @@ const Profile = () => {
   }, [profile, user])
 
   const handleSave = async () => {
-    // Update study goal separately if changed
-    if (formData.daily_study_goal_minutes !== profile?.daily_study_goal_minutes) {
-      await updateGoalMutation.mutateAsync(formData.daily_study_goal_minutes)
-    }
-
     const submitData = new FormData()
 
     // Add avatar if changed
@@ -174,6 +180,41 @@ const Profile = () => {
   }
 
 
+
+  const closePasswordModal = () => {
+    setShowPasswordModal(false)
+    setPasswordForm({ old_password: '', new_password: '', confirm_password: '' })
+    setShowPasswords(false)
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    const { old_password, new_password, confirm_password } = passwordForm
+
+    if (!old_password || !new_password) {
+      toast.error('Please fill in all fields')
+      return
+    }
+    if (new_password.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
+    if (new_password !== confirm_password) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    setChangingPassword(true)
+    const result = await changePassword(old_password, new_password)
+    setChangingPassword(false)
+
+    if (result.success) {
+      toast.success('Password changed successfully!')
+      closePasswordModal()
+    } else {
+      toast.error(result.error || 'Failed to change password')
+    }
+  }
 
   const startEditing = (section) => {
     setIsEditing(true)
@@ -713,9 +754,15 @@ const Profile = () => {
         </div>
 
         <div className="space-y-3">
-          <button className="w-full text-left p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors">
-            <p className="font-medium">Change Password</p>
-            <p className="text-sm text-surface-500">Update your password</p>
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="w-full text-left p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors flex items-center justify-between group"
+          >
+            <div>
+              <p className="font-medium">Change Password</p>
+              <p className="text-sm text-surface-500">Update your password</p>
+            </div>
+            <ChevronRight size={20} className="text-surface-400 group-hover:text-surface-600 transition-colors" />
           </button>
 
           <button className="w-full text-left p-4 rounded-xl border border-surface-200 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors">
@@ -748,6 +795,95 @@ const Profile = () => {
             setTempImage(null)
           }}
         />
+      )}
+
+      {showPasswordModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={closePasswordModal}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md rounded-2xl bg-white dark:bg-surface-900 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Lock size={20} className="text-primary-500" />
+                <h2 className="text-lg font-semibold">Change Password</h2>
+              </div>
+              <button
+                onClick={closePasswordModal}
+                className="p-1 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+              >
+                <X size={20} className="text-surface-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Current Password</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.old_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, old_password: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5">New Password</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.new_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  autoComplete="new-password"
+                />
+                <p className="text-xs text-surface-400 mt-1">At least 8 characters</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Confirm New Password</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={passwordForm.confirm_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPasswords(!showPasswords)}
+                className="flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors"
+              >
+                {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPasswords ? 'Hide passwords' : 'Show passwords'}
+              </button>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-surface-100 dark:bg-surface-800 font-medium hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changingPassword}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-primary-500 text-white font-medium hover:bg-primary-600 transition-colors disabled:opacity-60"
+                >
+                  {changingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
       )}
     </div>
 

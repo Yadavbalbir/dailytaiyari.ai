@@ -142,6 +142,25 @@ export const useAuthStore = create(
         }
       },
 
+      // Change password for an authenticated user
+      changePassword: async (old_password, new_password) => {
+        set({ isLoading: true, error: null })
+        try {
+          await api.post('/auth/password/change/', { old_password, new_password })
+          set({ isLoading: false })
+          return { success: true }
+        } catch (error) {
+          const data = error.response?.data
+          const message = data?.error ||
+            data?.old_password?.[0] ||
+            data?.new_password?.[0] ||
+            data?.non_field_errors?.[0] ||
+            data?.detail || 'Password change failed'
+          set({ error: message, isLoading: false })
+          return { success: false, error: message }
+        }
+      },
+
       // Complete onboarding
       completeOnboarding: async (data) => {
         set({ isLoading: true, error: null })
