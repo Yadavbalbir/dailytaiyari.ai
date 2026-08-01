@@ -104,6 +104,8 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             cleaned['stats'] = cleaned_stats
 
         return cleaned
+
+    def validate(self, attrs):
         # Paid courses may only skip the request/approve flow when an active
         # payment gateway is configured — otherwise there is no way to collect
         # payment. Free courses are independent and can be toggled freely.
