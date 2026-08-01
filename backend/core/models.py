@@ -575,9 +575,11 @@ class PlatformLead(models.Model):
 class DemoBooking(PlatformLead):
     """A 'Book a Demo' request submitted from the marketing site."""
     ORG_TYPE_CHOICES = [
+        ('creator', 'Independent Creator'),
         ('coaching', 'Coaching Institute'),
         ('school', 'School'),
         ('college', 'College'),
+        ('edtech', 'EdTech / Online Academy'),
         ('other', 'Other'),
     ]
 
