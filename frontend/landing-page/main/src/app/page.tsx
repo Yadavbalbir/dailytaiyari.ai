@@ -1,28 +1,37 @@
-import InstituteNav from "@/components/institutes/InstituteNav";
-import InstituteFooter from "@/components/institutes/InstituteFooter";
-import Hero from "@/components/institutes/Hero";
+import CreatorNav from "@/components/creators/CreatorNav";
+import CreatorHero from "@/components/creators/CreatorHero";
+import {
+  PlatformsMarquee,
+  ImpactStats,
+  StudentExperience,
+  CreatorConsole,
+  HowItWorks,
+  CourseShowcase,
+  TestimonialsMarquee,
+  Audience,
+  FinalCTA,
+} from "@/components/creators/CreatorSections";
+import Pricing from "@/components/institutes/Pricing";
 import FAQ from "@/components/institutes/FAQ";
-import ProductTour from "@/components/institutes/ProductTour";
+import InstituteFooter from "@/components/institutes/InstituteFooter";
 import JsonLd from "@/components/institutes/JsonLd";
 import LeadDialogs from "@/components/institutes/LeadDialogs";
-import Pricing from "@/components/institutes/Pricing";
-import { Audience, Pillars, Hooks, OfflineBatches, Features, HowItWorks, Grow, FinalCTA } from "@/components/institutes/Sections";
 
 export default function Home() {
   return (
     <>
       <JsonLd />
-      <InstituteNav />
+      <CreatorNav />
       <main className="flex-1 flex flex-col">
-        <Hero />
-        <Hooks />
-        <Audience />
-        <Pillars />
-        <ProductTour />
-        <OfflineBatches />
-        <Features />
+        <CreatorHero />
+        <PlatformsMarquee />
+        <ImpactStats />
+        <StudentExperience />
+        <CreatorConsole />
+        <CourseShowcase />
         <HowItWorks />
-        <Grow />
+        <TestimonialsMarquee />
+        <Audience />
         <Pricing />
         <FAQ />
         <FinalCTA />

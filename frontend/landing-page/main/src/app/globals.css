@@ -110,3 +110,20 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Seamless infinite auto-scroll marquees (see components/creators/Marquee.tsx).
+   The track holds two identical copies, so translating by -50% loops with no
+   visible seam. */
+@keyframes dt-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes dt-marquee-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="dt-marquee"] {
+    animation: none !important;
+  }
+}

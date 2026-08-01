@@ -165,7 +165,7 @@ export default function LeadDialogs() {
                   </div>
                   <p className="text-sm text-surface-500 dark:text-surface-400 mb-6 ml-[3.25rem]">
                     {isDemo
-                      ? "Tell us about your institute and we'll reach out to schedule a walkthrough."
+                      ? "Tell us a bit about you and we'll reach out to schedule a walkthrough."
                       : "Send us a message and we'll get back to you soon."}
                   </p>
 
@@ -205,16 +205,18 @@ export default function LeadDialogs() {
                             <label className={labelClass} htmlFor="lead-orgtype">Organization type</label>
                             <select id="lead-orgtype" name="organization_type" defaultValue="" className={inputClass}>
                               <option value="">Select…</option>
+                              <option value="creator">Independent Creator</option>
                               <option value="coaching">Coaching Institute</option>
                               <option value="school">School</option>
                               <option value="college">College</option>
+                              <option value="edtech">EdTech / Online Academy</option>
                               <option value="other">Other</option>
                             </select>
                           </div>
                         </div>
                         <div>
-                          <label className={labelClass} htmlFor="lead-org">Institute / organization name</label>
-                          <input id="lead-org" name="organization" className={inputClass} placeholder="e.g. Bright Future Academy" />
+                          <label className={labelClass} htmlFor="lead-org">Brand / organization name</label>
+                          <input id="lead-org" name="organization" className={inputClass} placeholder="e.g. your channel, academy or institute" />
                         </div>
                         <div>
                           <label className={labelClass} htmlFor="lead-msg">Anything you'd like us to know?</label>
