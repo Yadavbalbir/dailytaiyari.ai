@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import MobileNav from './MobileNav'
 import PromoBanner from './PromoBanner'
+import AnnouncementBanner from './AnnouncementBanner'
 import StudyTimer from '../common/StudyTimer'
 import { useAppStore } from '../../context/appStore'
 import { useAuthStore } from '../../context/authStore'
@@ -44,6 +45,9 @@ const MainLayout = () => {
       >
         {/* Sitewide promotional banner */}
         <PromoBanner />
+
+        {/* Platform announcements from the DailyTaiyari team */}
+        <AnnouncementBanner />
 
         {/* Header */}
         <Header />

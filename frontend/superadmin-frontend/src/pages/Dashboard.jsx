@@ -127,6 +127,14 @@ export default function Dashboard() {
               <span className="text-slate-600">Suspended</span>
               <span className="font-semibold text-amber-600">{stats.suspended_tenants ?? 0}</span>
             </li>
+            <li className="flex items-center justify-between border-t border-slate-100 pt-2.5">
+              <Link to="/support" className="text-slate-600 hover:text-brand-600">New leads</Link>
+              <span className="font-semibold text-brand-600">{stats.new_leads ?? 0}</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <Link to="/announcements" className="text-slate-600 hover:text-brand-600">Active announcements</Link>
+              <span className="font-semibold text-slate-700">{stats.active_announcements ?? 0}</span>
+            </li>
           </ul>
         </div>
       </div>

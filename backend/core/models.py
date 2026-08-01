@@ -158,6 +158,14 @@ class Tenant(models.Model):
     request_enrollment_free = models.BooleanField(default=True)
     request_enrollment_paid = models.BooleanField(default=True)
 
+    # ── Allowed frontend origins (self-serve CORS, Phase 3) ────────────────
+    # Exact browser origins (scheme + host [+ port]) that this tenant's own
+    # frontend is served from and which may call the public platform API
+    # cross-origin. Managed by the super admin from the dashboard so onboarding
+    # a new tenant frontend no longer needs a settings.py code deploy. Honoured
+    # dynamically by a corsheaders ``check_request_enabled`` signal handler.
+    allowed_origins = models.JSONField(default=list, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -644,3 +652,79 @@ class SuperAdminAuditLog(models.Model):
 
     def __str__(self):
         return f'{self.actor_email or "system"} {self.action} {self.target_name}'.strip()
+
+
+class PlatformAnnouncement(models.Model):
+    """A super-admin authored notice shown to tenant apps as a banner.
+
+    An announcement is either **global** (``target_tenant`` is null → shown to
+    every tenant) or scoped to a single tenant. It surfaces through the public
+    tenant-config endpoint so the tenant app / admin can render a banner. The
+    optional ``starts_at`` / ``ends_at`` window and ``is_active`` flag decide
+    whether it is currently live (see :meth:`is_live`).
+    """
+    LEVEL_INFO = 'info'
+    LEVEL_WARNING = 'warning'
+    LEVEL_CRITICAL = 'critical'
+    LEVEL_CHOICES = {
+        LEVEL_INFO: 'Info',
+        LEVEL_WARNING: 'Warning',
+        LEVEL_CRITICAL: 'Critical',
+    }
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    body = models.TextField(blank=True, default='')
+    level = models.CharField(
+        max_length=20,
+        choices=[(k, v) for k, v in LEVEL_CHOICES.items()],
+        default=LEVEL_INFO,
+    )
+    # Null target = a platform-wide announcement shown to every tenant.
+    target_tenant = models.ForeignKey(
+        Tenant, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='announcements',
+    )
+    is_active = models.BooleanField(default=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        'users.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_announcements',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Platform Announcement'
+        verbose_name_plural = 'Platform Announcements'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_active', '-created_at']),
+            models.Index(fields=['target_tenant', 'is_active']),
+        ]
+
+    def __str__(self):
+        scope = self.target_tenant.name if self.target_tenant else 'ALL'
+        return f'[{scope}] {self.title}'
+
+    def is_live(self, now=None):
+        """True when the announcement is active and within its time window."""
+        if not self.is_active:
+            return False
+        now = now or timezone.now()
+        if self.starts_at and now < self.starts_at:
+            return False
+        if self.ends_at and now > self.ends_at:
+            return False
+        return True
+
+    @classmethod
+    def live_for_tenant(cls, tenant, now=None):
+        """Active, in-window announcements for a tenant (global + tenant-scoped)."""
+        from django.db.models import Q
+        now = now or timezone.now()
+        qs = cls.objects.filter(is_active=True).filter(
+            Q(target_tenant__isnull=True) | Q(target_tenant=tenant)
+        )
+        return [a for a in qs if a.is_live(now)]

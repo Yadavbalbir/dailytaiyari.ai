@@ -14,6 +14,7 @@ import {
   History,
   CreditCard,
   Gauge,
+  Globe,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -206,6 +207,7 @@ export default function TenantDetail() {
           max_students: data.max_students ?? '',
           max_courses: data.max_courses ?? '',
           max_admins: data.max_admins ?? '',
+          origins_text: (data.allowed_origins || []).join('\n'),
           featureModes: locksToModes(data.available_features || [], data.feature_locks || {}),
         })
       })
@@ -260,6 +262,10 @@ export default function TenantDetail() {
         max_students: capOrNull(form.max_students),
         max_courses: capOrNull(form.max_courses),
         max_admins: capOrNull(form.max_admins),
+        allowed_origins: form.origins_text
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean),
       }
       const sub = form.subdomain.trim().toLowerCase()
       if (sub !== (tenant.subdomain || '')) payload.subdomain = sub
@@ -272,6 +278,7 @@ export default function TenantDetail() {
         max_students: updated.max_students ?? '',
         max_courses: updated.max_courses ?? '',
         max_admins: updated.max_admins ?? '',
+        origins_text: (updated.allowed_origins || []).join('\n'),
         featureModes: locksToModes(updated.available_features || [], updated.feature_locks || {}),
       }))
       loadLogs()
@@ -283,6 +290,7 @@ export default function TenantDetail() {
         (Array.isArray(d.name) && d.name[0]) ||
         (Array.isArray(d.plan) && d.plan[0]) ||
         (Array.isArray(d.billing_status) && d.billing_status[0]) ||
+        (Array.isArray(d.allowed_origins) && d.allowed_origins[0]) ||
         'Could not save changes'
       toast.error(msg)
     } finally {
@@ -521,6 +529,28 @@ export default function TenantDetail() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Allowed frontend origins (self-serve CORS) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Globe className="w-5 h-5 text-brand-600" />
+          <h2 className="font-semibold text-slate-900">Frontend Origins (CORS)</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Exact browser origins this tenant&apos;s own frontend is served from, allowed to call
+          the platform API cross-origin. One per line, scheme + host [+ port], no path — e.g.
+          <code className="mx-1 px-1 bg-slate-100 rounded">https://academy.netlify.app</code>.
+          Changes take effect within a minute — no code deploy needed.
+        </p>
+        <textarea
+          value={form.origins_text}
+          onChange={(e) => set('origins_text', e.target.value)}
+          placeholder={'https://academy.netlify.app\nhttps://app.academy.com'}
+          rows={3}
+          spellCheck={false}
+          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-brand-500 outline-none text-sm font-mono"
+        />
       </div>
 
       {/* Suspension */}

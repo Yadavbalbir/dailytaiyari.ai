@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Tenant, SuperAdminAuditLog
+from .models import Tenant, SuperAdminAuditLog, PlatformAnnouncement, DemoBooking, ContactMessage, JobApplication
 
 User = get_user_model()
 
@@ -128,6 +128,7 @@ class TenantDetailSerializer(serializers.ModelSerializer):
             'request_enrollment_free', 'request_enrollment_paid',
             'plan', 'billing_status', 'trial_ends_at', 'current_period_end',
             'max_students', 'max_courses', 'max_admins',
+            'allowed_origins',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
         ]
@@ -194,6 +195,35 @@ class TenantDetailSerializer(serializers.ModelSerializer):
                 + ', '.join(Tenant.BILLING_STATUS_CHOICES)
             )
         return value
+
+    def validate_allowed_origins(self, value):
+        """Normalize to a de-duplicated list of clean http(s) origins."""
+        if value in (None, ''):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                'allowed_origins must be a list of origin URLs.'
+            )
+        cleaned = []
+        seen = set()
+        for raw in value:
+            if not isinstance(raw, str):
+                raise serializers.ValidationError('Each origin must be a string.')
+            origin = raw.strip().rstrip('/')
+            if not origin:
+                continue
+            if not (origin.startswith('http://') or origin.startswith('https://')):
+                raise serializers.ValidationError(
+                    f'"{raw}" must start with http:// or https://'
+                )
+            if '/' in origin.split('://', 1)[1]:
+                raise serializers.ValidationError(
+                    f'"{raw}" must be a bare origin (scheme + host [+ port]), no path.'
+                )
+            if origin not in seen:
+                seen.add(origin)
+                cleaned.append(origin)
+        return cleaned
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -279,3 +309,161 @@ class SuperAdminAuditLogSerializer(serializers.ModelSerializer):
             'changes', 'created_at',
         ]
         read_only_fields = fields
+
+
+# ── Phase 3: cross-tenant user management ──────────────────────────────────
+class SuperAdminUserListSerializer(serializers.ModelSerializer):
+    """A user row for the platform-wide user table (read-only)."""
+
+    name = serializers.SerializerMethodField()
+    tenant_id = serializers.PrimaryKeyRelatedField(source='tenant', read_only=True)
+    tenant_name = serializers.SerializerMethodField()
+    role_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'name', 'first_name', 'last_name',
+            'role', 'role_label', 'tenant_id', 'tenant_name',
+            'is_active', 'is_suspended', 'is_email_verified',
+            'last_active', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_name(self, obj):
+        return obj.full_name or obj.email
+
+    def get_tenant_name(self, obj):
+        return obj.tenant.name if obj.tenant_id else None
+
+    def get_role_label(self, obj):
+        return dict(User.ROLE_CHOICES).get(obj.role, obj.role)
+
+
+# ── Phase 3: support inbox (platform leads) ────────────────────────────────
+class _BaseLeadSerializer(serializers.ModelSerializer):
+    """Shared representation for the three PlatformLead subclasses."""
+
+    lead_type = serializers.SerializerMethodField()
+    status_label = serializers.SerializerMethodField()
+
+    LEAD_TYPE = ''
+
+    def get_lead_type(self, obj):
+        return self.LEAD_TYPE
+
+    def get_status_label(self, obj):
+        return dict(obj.STATUS_CHOICES).get(obj.status, obj.status)
+
+
+class DemoBookingSerializer(_BaseLeadSerializer):
+    LEAD_TYPE = 'demo'
+
+    class Meta:
+        model = DemoBooking
+        fields = [
+            'id', 'lead_type', 'name', 'email', 'phone', 'organization',
+            'organization_type', 'message', 'status', 'status_label',
+            'source', 'internal_notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'lead_type', 'name', 'email', 'phone', 'organization',
+            'organization_type', 'message', 'status_label', 'source',
+            'created_at', 'updated_at',
+        ]
+
+
+class ContactMessageSerializer(_BaseLeadSerializer):
+    LEAD_TYPE = 'contact'
+
+    class Meta:
+        model = ContactMessage
+        fields = [
+            'id', 'lead_type', 'name', 'email', 'subject', 'message',
+            'status', 'status_label', 'source', 'internal_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'lead_type', 'name', 'email', 'subject', 'message',
+            'status_label', 'source', 'created_at', 'updated_at',
+        ]
+
+
+class JobApplicationSerializer(_BaseLeadSerializer):
+    LEAD_TYPE = 'job'
+
+    class Meta:
+        model = JobApplication
+        fields = [
+            'id', 'lead_type', 'name', 'email', 'phone', 'position',
+            'experience', 'portfolio_url', 'cover_letter',
+            'status', 'status_label', 'source', 'internal_notes',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'lead_type', 'name', 'email', 'phone', 'position',
+            'experience', 'portfolio_url', 'cover_letter', 'status_label',
+            'source', 'created_at', 'updated_at',
+        ]
+
+
+# Registry: lead type key -> (model, serializer). Used by the lead views.
+LEAD_REGISTRY = {
+    'demo': (DemoBooking, DemoBookingSerializer),
+    'contact': (ContactMessage, ContactMessageSerializer),
+    'job': (JobApplication, JobApplicationSerializer),
+}
+
+
+# ── Phase 3: platform announcements ────────────────────────────────────────
+class AnnouncementSerializer(serializers.ModelSerializer):
+    """Read/write a platform announcement from the super-admin dashboard."""
+
+    target_tenant = serializers.PrimaryKeyRelatedField(
+        queryset=Tenant.objects.all(), required=False, allow_null=True,
+    )
+    target_tenant_name = serializers.SerializerMethodField()
+    level_label = serializers.SerializerMethodField()
+    is_live = serializers.SerializerMethodField()
+    created_by_email = serializers.EmailField(
+        source='created_by.email', read_only=True, default='',
+    )
+
+    class Meta:
+        model = PlatformAnnouncement
+        fields = [
+            'id', 'title', 'body', 'level', 'level_label',
+            'target_tenant', 'target_tenant_name',
+            'is_active', 'starts_at', 'ends_at', 'is_live',
+            'created_by_email', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'level_label', 'target_tenant_name', 'is_live',
+            'created_by_email', 'created_at', 'updated_at',
+        ]
+
+    def get_target_tenant_name(self, obj):
+        return obj.target_tenant.name if obj.target_tenant_id else None
+
+    def get_level_label(self, obj):
+        return PlatformAnnouncement.LEVEL_CHOICES.get(obj.level, obj.level)
+
+    def get_is_live(self, obj):
+        return obj.is_live()
+
+    def validate_level(self, value):
+        if value not in PlatformAnnouncement.LEVEL_CHOICES:
+            raise serializers.ValidationError(
+                'Unknown level. Choose one of: '
+                + ', '.join(PlatformAnnouncement.LEVEL_CHOICES)
+            )
+        return value
+
+    def validate(self, attrs):
+        starts = attrs.get('starts_at', getattr(self.instance, 'starts_at', None))
+        ends = attrs.get('ends_at', getattr(self.instance, 'ends_at', None))
+        if starts and ends and ends < starts:
+            raise serializers.ValidationError(
+                {'ends_at': 'End time must be after the start time.'}
+            )
+        return attrs
