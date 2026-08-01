@@ -23,6 +23,7 @@ from .serializers import (
     EmailOTPRequestSerializer,
     EmailOTPVerifySerializer,
     PasswordResetConfirmSerializer,
+    PasswordChangeSerializer,
 )
 from .emails import create_and_send_otp, verify_otp, can_resend
 from exams.models import Course
@@ -249,6 +250,23 @@ class PasswordResetConfirmView(APIView):
             user.save(update_fields=['password'])
 
         return Response({'message': 'Password reset successful. You can now sign in.'})
+
+
+class PasswordChangeView(APIView):
+    """Change the password for the authenticated user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password'])
+
+        return Response({'message': 'Password changed successfully.'})
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):
