@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   Inbox,
   Loader2,
@@ -7,10 +7,13 @@ import {
   Building,
   Briefcase,
   ExternalLink,
+  PieChart as PieIcon,
+  Activity,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import { fetchLeads, updateLead } from '../services/superadminService'
+import { ChartCard, MiniStat, DonutChart, CHART_COLORS } from '../components/charts'
 
 const TYPE_META = {
   demo: { label: 'Demo request', icon: Building, color: 'bg-indigo-50 text-indigo-700' },
@@ -195,6 +198,24 @@ export default function Support() {
 
   const counts = data.counts || {}
 
+  const totalLeads = (counts.demo ?? 0) + (counts.contact ?? 0) + (counts.job ?? 0)
+  const typeData = useMemo(
+    () => [
+      { name: 'Demo requests', value: counts.demo ?? 0, color: CHART_COLORS.indigo },
+      { name: 'Contact messages', value: counts.contact ?? 0, color: CHART_COLORS.sky },
+      { name: 'Job applications', value: counts.job ?? 0, color: CHART_COLORS.amber },
+    ],
+    [counts.demo, counts.contact, counts.job]
+  )
+  const statusData = useMemo(() => {
+    const bs = counts.by_status || {}
+    return [
+      { name: 'New', value: bs.new ?? counts.new ?? 0, color: CHART_COLORS.indigo },
+      { name: 'Contacted', value: bs.contacted ?? 0, color: CHART_COLORS.amber },
+      { name: 'Closed', value: bs.closed ?? 0, color: CHART_COLORS.slate },
+    ]
+  }, [counts.by_status, counts.new])
+
   return (
     <div className="space-y-6">
       <div>
@@ -205,6 +226,24 @@ export default function Support() {
           Demo requests, contact messages and job applications from the marketing site.
         </p>
       </div>
+
+      {/* Analytics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MiniStat icon={Inbox} label="Total Leads" value={totalLeads} tone="brand" />
+        <MiniStat icon={Building} label="Demo Requests" value={counts.demo ?? 0} tone="brand" />
+        <MiniStat icon={Briefcase} label="Job Applications" value={counts.job ?? 0} tone="amber" />
+        <MiniStat icon={Mail} label="Awaiting Response" value={counts.new ?? 0} tone="rose" />
+      </div>
+      {totalLeads > 0 && (
+        <div className="grid md:grid-cols-2 gap-4">
+          <ChartCard title="Leads by Type" icon={PieIcon}>
+            <DonutChart data={typeData} valueLabel="Leads" centerLabel="leads" height={180} />
+          </ChartCard>
+          <ChartCard title="Leads by Status" icon={Activity}>
+            <DonutChart data={statusData} valueLabel="Leads" centerLabel="leads" height={180} />
+          </ChartCard>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="py-2 px-3 rounded-lg border border-slate-200 text-sm bg-white">
