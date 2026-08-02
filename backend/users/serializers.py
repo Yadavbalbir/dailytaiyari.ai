@@ -167,17 +167,28 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     overall_accuracy = serializers.ReadOnlyField()
     xp_for_next_level = serializers.ReadOnlyField()
-    primary_course_name = serializers.CharField(source='primary_course.name', read_only=True)
     enrolled_course_ids = serializers.SerializerMethodField()
+    enrolled_courses = serializers.SerializerMethodField()
 
     def get_enrolled_course_ids(self, obj):
         """All courses the student is enrolled in (excluding rejected requests).
 
-        Lets the admin roster filter by any course a student is associated with,
-        not just their single primary course.
+        Lets the admin roster filter by any course a student is associated with.
         """
         return [
             str(e.course_id)
+            for e in obj.enrollments.all()
+            if e.status != 'rejected'
+        ]
+
+    def get_enrolled_courses(self, obj):
+        """Course id/name/status for every non-rejected enrollment.
+
+        All of a student's courses are treated at the same level; this is the
+        single source of truth for which courses a student belongs to.
+        """
+        return [
+            {'id': str(e.course_id), 'name': e.course.name, 'status': e.status}
             for e in obj.enrollments.all()
             if e.status != 'rejected'
         ]
@@ -197,7 +208,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             # Location
             'city', 'state',
             # Course info
-            'primary_course', 'primary_course_name', 'enrolled_course_ids',
+            'enrolled_course_ids', 'enrolled_courses',
             # Study preferences
             'daily_study_goal_minutes', 'preferred_study_time', 
             # Stats

@@ -291,11 +291,11 @@ const Profile = () => {
             <div className="flex flex-wrap items-center gap-2 mt-3">
               <span className="badge-primary">Level {profile?.current_level || 1}</span>
               <span className="badge-success">{profile?.total_xp?.toLocaleString() || 0} XP</span>
-              {profile?.primary_course_name && (
-                <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
-                  {profile.primary_course_name}
+              {(profile?.enrolled_courses || []).filter((c) => c.name).map((c) => (
+                <span key={c.id || c.name} className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+                  {c.name}
                 </span>
-              )}
+              ))}
             </div>
             {formData.bio && (
               <p className="text-sm text-surface-600 dark:text-surface-400 mt-3 italic">"{formData.bio}"</p>
@@ -500,13 +500,19 @@ const Profile = () => {
             )}
           </div>
 
-          {/* Course */}
+          {/* Courses */}
           <div>
-            <label className="block text-sm font-medium text-surface-500 mb-1">Primary Course</label>
-            <p className="text-base py-2">
-              <span className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
-                {profile?.primary_course_name || '—'}
-              </span>
+            <label className="block text-sm font-medium text-surface-500 mb-1">Enrolled Courses</label>
+            <p className="text-base py-2 flex flex-wrap gap-2">
+              {(profile?.enrolled_courses || []).filter((c) => c.name).length ? (
+                profile.enrolled_courses.filter((c) => c.name).map((c) => (
+                  <span key={c.id || c.name} className="px-2 py-1 text-xs rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300">
+                    {c.name}
+                  </span>
+                ))
+              ) : (
+                <span className="text-surface-400">—</span>
+              )}
             </p>
           </div>
 

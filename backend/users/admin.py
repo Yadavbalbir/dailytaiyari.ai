@@ -31,10 +31,9 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'primary_course', 'total_xp', 'current_level']
-    list_filter = ['primary_course']
+    list_display = ['user', 'total_xp', 'current_level']
     search_fields = ['user__email', 'user__first_name']
-    raw_id_fields = ['user', 'primary_course']
+    raw_id_fields = ['user']
 
 
 @admin.register(CourseEnrollment)
