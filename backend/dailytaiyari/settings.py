@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'certificates.apps.CertificatesConfig',
     'payments.apps.PaymentsConfig',
     'marketing.apps.MarketingConfig',
+    'notifications.apps.NotificationsConfig',
 ]
 
 SILENCED_SYSTEM_CHECKS = ["auth.E003"]
@@ -364,6 +365,25 @@ elif EMAIL_PROVIDER == 'smtp':
     EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
+# ---------------------------------------------------------------------------
+# Notifications & branded email
+# ---------------------------------------------------------------------------
+# When True, in-app notification emails and announcement fan-out are enqueued to
+# Celery instead of running in the web request. Flip on only once redis + a
+# celery worker are running (same infra as CODE_JUDGE_ASYNC). The service layer
+# falls back to inline delivery if the broker is unreachable.
+NOTIFICATIONS_ASYNC = config('NOTIFICATIONS_ASYNC', default=False, cast=bool)
+
+# Absolute base URL of THIS backend, used to make relative media URLs (e.g. a
+# tenant logo stored on local disk) absolute inside emails. In production media
+# is served from Azure/S3 so URLs are already absolute and this is unused.
+BACKEND_PUBLIC_URL = config('BACKEND_PUBLIC_URL', default='')
+
+# Global fallback frontend origin for email deep links when a tenant has no
+# ``allowed_origins`` configured. Tenant-specific origins take precedence.
+FRONTEND_URL = config('FRONTEND_URL', default='')
 
 
 # Code-execution engine (Piston) for coding problems.

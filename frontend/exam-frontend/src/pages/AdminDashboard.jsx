@@ -12,6 +12,7 @@ import { DEFAULT_AUTH_PANEL } from '../config/authPanel'
 import CourseBuilder from '../components/admin/CourseBuilder'
 import LandingBuilder from '../components/admin/LandingBuilder'
 import MarketingPromotions from '../components/admin/MarketingPromotions'
+import Announcements from '../components/admin/Announcements'
 import {
     Users,
     GraduationCap,
@@ -2906,6 +2907,7 @@ const TABS = [
     { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
     { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
     { id: 'marketing', label: 'Marketing & Promotions', icon: Megaphone },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'performance', label: 'Reports', icon: BarChart3 },
     { id: 'content', label: 'Course Builder', icon: Library },
     { id: 'landing', label: 'Landing Page', icon: LayoutTemplate },
@@ -2978,6 +2980,7 @@ const AdminDashboard = () => {
                     {activeTab === 'enrollments' && <EnrollmentRequests />}
                     {activeTab === 'sales' && <SalesDashboard />}
                     {activeTab === 'marketing' && <MarketingPromotions />}
+                    {activeTab === 'announcements' && <Announcements />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
                     {activeTab === 'landing' && <LandingBuilder />}
