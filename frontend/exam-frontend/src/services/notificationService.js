@@ -39,4 +39,20 @@ export const notificationService = {
         const response = await api.post('/notifications/announcements/', payload)
         return response.data
     },
+
+    // --- Tenant-admin: editable email templates ---
+    getEmailTemplates: async () => {
+        const response = await api.get('/notifications/email-templates/')
+        return response.data?.templates ?? []
+    },
+
+    updateEmailTemplate: async (type, payload) => {
+        const response = await api.put(`/notifications/email-templates/${type}/`, payload)
+        return response.data
+    },
+
+    resetEmailTemplate: async (type) => {
+        const response = await api.delete(`/notifications/email-templates/${type}/`)
+        return response.data
+    },
 }

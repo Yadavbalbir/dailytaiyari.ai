@@ -3,6 +3,8 @@ from django.urls import path
 
 from .views import (
     AnnouncementListCreateView,
+    EmailTemplateDetailView,
+    EmailTemplateListView,
     MarkAllReadView,
     MarkReadView,
     NotificationListView,
@@ -18,4 +20,8 @@ urlpatterns = [
 
     # --- Tenant-admin: announcements ---
     path('announcements/', AnnouncementListCreateView.as_view(), name='announcement-list-create'),
+
+    # --- Tenant-admin: editable email templates ---
+    path('email-templates/', EmailTemplateListView.as_view(), name='email-template-list'),
+    path('email-templates/<str:template_type>/', EmailTemplateDetailView.as_view(), name='email-template-detail'),
 ]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Announcement, Notification
+from .models import Announcement, Notification, TenantEmailTemplate
 
 
 @admin.register(Notification)
@@ -20,3 +20,12 @@ class AnnouncementAdmin(admin.ModelAdmin):
     readonly_fields = ('recipients_count', 'status', 'sent_at', 'created_at')
     raw_id_fields = ('tenant', 'created_by')
     filter_horizontal = ('courses',)
+
+
+@admin.register(TenantEmailTemplate)
+class TenantEmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ('type', 'tenant', 'subject', 'updated_at')
+    list_filter = ('type', 'tenant')
+    search_fields = ('subject', 'heading', 'body')
+    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ('tenant',)

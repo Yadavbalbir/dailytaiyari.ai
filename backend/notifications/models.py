@@ -107,3 +107,38 @@ class Announcement(models.Model):
 
     def __str__(self):
         return f'{self.title} ({self.tenant_id})'
+
+
+class TenantEmailTemplate(models.Model):
+    """A tenant's override of a lifecycle email's subject / heading / body.
+
+    Only the templatable enrollment emails are stored here (announcement
+    content is authored per-send). A missing row — or any blank part — means
+    "use the packaged default" (see ``notifications.email_templates``). Bodies
+    are plain text with ``{placeholder}`` tokens.
+    """
+
+    TYPE_CHOICES = [
+        ('enrollment_request', 'New enrollment request (to admins)'),
+        ('enrollment_approved', 'Enrollment approved (to student)'),
+        ('enrollment_rejected', 'Enrollment declined (to student)'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        'core.Tenant', on_delete=models.CASCADE, related_name='email_templates',
+    )
+    type = models.CharField(max_length=40, choices=TYPE_CHOICES)
+    subject = models.CharField(max_length=500, blank=True, default='')
+    heading = models.CharField(max_length=255, blank=True, default='')
+    body = models.TextField(blank=True, default='')
+
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('tenant', 'type')]
+        ordering = ['type']
+
+    def __str__(self):
+        return f'{self.get_type_display()} ({self.tenant_id})'

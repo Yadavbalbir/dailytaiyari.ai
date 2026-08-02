@@ -7,10 +7,18 @@ from rest_framework.views import APIView
 from core.permissions import IsTenantAdmin
 
 from . import services
-from .models import Announcement, Notification
+from .email_templates import (
+    DEFAULT_EMAIL_TEMPLATES,
+    TEMPLATE_META,
+    TEMPLATE_TYPES,
+    get_template_parts,
+    render_email,
+)
+from .models import Announcement, Notification, TenantEmailTemplate
 from .serializers import (
     AnnouncementCreateSerializer,
     AnnouncementSerializer,
+    EmailTemplateUpdateSerializer,
     NotificationSerializer,
 )
 
@@ -98,3 +106,103 @@ class AnnouncementListCreateView(generics.ListCreateAPIView):
             AnnouncementSerializer(announcement).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+# ---------------------------------------------------------------------------
+# Admin: editable email templates
+# ---------------------------------------------------------------------------
+def _sample_context(template_type, tenant):
+    """Placeholder values used to render a live preview of a template."""
+    tenant_name = getattr(tenant, 'name', '') or 'Your Institute'
+    return {
+        'student_name': 'Jane Doe',
+        'student_email': 'jane.doe@example.com',
+        'course_name': 'Sample Course 101',
+        'reason': 'Reason: Incomplete profile',
+        'tenant_name': tenant_name,
+    }
+
+
+def _template_payload(tenant, template_type):
+    """Serialise a template's effective + default parts and its metadata."""
+    subject, heading, body = get_template_parts(tenant, template_type)
+    default = DEFAULT_EMAIL_TEMPLATES.get(template_type, {})
+    meta = TEMPLATE_META.get(template_type, {})
+    is_custom = TenantEmailTemplate.objects.filter(
+        tenant=tenant, type=template_type,
+    ).exists()
+    prev_subject, prev_heading, prev_body_html = render_email(
+        tenant, template_type, _sample_context(template_type, tenant),
+    )
+    return {
+        'type': template_type,
+        'label': meta.get('label', template_type),
+        'description': meta.get('description', ''),
+        'placeholders': meta.get('placeholders', []),
+        'subject': subject,
+        'heading': heading,
+        'body': body,
+        'default_subject': default.get('subject', ''),
+        'default_heading': default.get('heading', ''),
+        'default_body': default.get('body', ''),
+        'is_custom': is_custom,
+        'preview': {
+            'subject': prev_subject,
+            'heading': prev_heading,
+            'body_html': prev_body_html,
+        },
+    }
+
+
+class EmailTemplateListView(APIView):
+    """List every templatable email with its effective + default parts."""
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def get(self, request):
+        tenant = request.tenant
+        return Response({
+            'templates': [_template_payload(tenant, t) for t in TEMPLATE_TYPES],
+        })
+
+
+class EmailTemplateDetailView(APIView):
+    """Retrieve, upsert (PUT) or reset (DELETE) a single email template."""
+    permission_classes = [permissions.IsAuthenticated, IsTenantAdmin]
+
+    def _validate_type(self, template_type):
+        return template_type in TEMPLATE_TYPES
+
+    def get(self, request, template_type):
+        if not self._validate_type(template_type):
+            return Response({'detail': 'Unknown template type.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(_template_payload(request.tenant, template_type))
+
+    def put(self, request, template_type):
+        if not self._validate_type(template_type):
+            return Response({'detail': 'Unknown template type.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EmailTemplateUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        tenant = request.tenant
+
+        subject = (data.get('subject') or '').strip()
+        heading = (data.get('heading') or '').strip()
+        body = data.get('body') or ''
+
+        # If every part is blank the override is meaningless — reset instead.
+        if not subject and not heading and not body.strip():
+            TenantEmailTemplate.objects.filter(tenant=tenant, type=template_type).delete()
+        else:
+            TenantEmailTemplate.objects.update_or_create(
+                tenant=tenant, type=template_type,
+                defaults={'subject': subject, 'heading': heading, 'body': body},
+            )
+        return Response(_template_payload(tenant, template_type))
+
+    def delete(self, request, template_type):
+        if not self._validate_type(template_type):
+            return Response({'detail': 'Unknown template type.'}, status=status.HTTP_404_NOT_FOUND)
+        TenantEmailTemplate.objects.filter(
+            tenant=request.tenant, type=template_type,
+        ).delete()
+        return Response(_template_payload(request.tenant, template_type))

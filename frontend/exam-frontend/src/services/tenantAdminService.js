@@ -78,6 +78,13 @@ export const tenantAdminService = {
         return response.data
     },
 
+    // Address(es) where admin notification emails (e.g. enrollment requests)
+    // are delivered. Accepts a comma-separated list; blank falls back to admins.
+    updateNotificationEmail: async (notificationEmail) => {
+        const response = await api.patch('/tenant-admin/settings/', { notification_email: notificationEmail })
+        return response.data
+    },
+
     // Enrollment mode flags — request/approve vs. self-enrol (+ paid-via-payment).
     updateEnrollmentSettings: async ({ request_enrollment_free, request_enrollment_paid }) => {
         const payload = {}

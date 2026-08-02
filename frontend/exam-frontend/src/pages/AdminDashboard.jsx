@@ -13,6 +13,7 @@ import CourseBuilder from '../components/admin/CourseBuilder'
 import LandingBuilder from '../components/admin/LandingBuilder'
 import MarketingPromotions from '../components/admin/MarketingPromotions'
 import Announcements from '../components/admin/Announcements'
+import EmailSettings from '../components/admin/EmailSettings'
 import {
     Users,
     GraduationCap,
@@ -2132,6 +2133,7 @@ const TenantSettings = () => {
                 {[
                     { id: 'general', label: 'General', icon: SlidersIcon },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
+                    { id: 'email', label: 'Email & Notifications', icon: Mail },
                 ].map((st) => {
                     const active = subTab === st.id
                     return (
@@ -2150,6 +2152,8 @@ const TenantSettings = () => {
 
             {subTab === 'payments' ? (
                 <PaymentSettings settings={settings} />
+            ) : subTab === 'email' ? (
+                <EmailSettings settings={settings} />
             ) : (
             <div className="space-y-6">
             {/* Identity — name + tagline */}

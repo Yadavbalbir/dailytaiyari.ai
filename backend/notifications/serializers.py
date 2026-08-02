@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from exams.models import Course
 
-from .models import Announcement, Notification
+from .models import Announcement, Notification, TenantEmailTemplate
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -84,3 +84,20 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             valid_courses = Course.objects.filter(id__in=course_ids, tenant=tenant)
             announcement.courses.set(valid_courses)
         return announcement
+
+
+class EmailTemplateUpdateSerializer(serializers.Serializer):
+    """Validates an admin's override of an email template's parts.
+
+    All three parts are optional; a blank part means "fall back to the packaged
+    default" for that part.
+    """
+    subject = serializers.CharField(
+        max_length=500, required=False, allow_blank=True, trim_whitespace=False,
+    )
+    heading = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, trim_whitespace=False,
+    )
+    body = serializers.CharField(
+        required=False, allow_blank=True, trim_whitespace=False,
+    )

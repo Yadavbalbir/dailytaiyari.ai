@@ -1,4 +1,6 @@
 """Serializers for tenant-admin managed settings (branding + feature toggles)."""
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
 from rest_framework import serializers
 
 from .models import Tenant, PaymentGateway
@@ -23,8 +25,29 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             'id', 'name', 'tagline', 'subdomain', 'logo', 'favicon', 'theme',
             'show_name', 'features', 'auth_panel',
             'request_enrollment_free', 'request_enrollment_paid',
+            'notification_email',
         ]
         read_only_fields = ['id', 'subdomain']
+
+    def validate_notification_email(self, value):
+        """Accept a comma/newline/semicolon-separated list of email addresses."""
+        if not value or not value.strip():
+            return ''
+        raw = value.replace('\n', ',').replace(';', ',')
+        cleaned = []
+        for part in raw.split(','):
+            addr = part.strip()
+            if not addr:
+                continue
+            try:
+                validate_email(addr)
+            except DjangoValidationError:
+                raise serializers.ValidationError(
+                    f'"{addr}" is not a valid email address.'
+                )
+            if addr.lower() not in [a.lower() for a in cleaned]:
+                cleaned.append(addr)
+        return ', '.join(cleaned)
 
     def validate_theme(self, value):
         if value not in Tenant.THEME_CHOICES:

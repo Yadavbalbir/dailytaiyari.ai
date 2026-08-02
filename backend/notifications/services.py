@@ -15,6 +15,12 @@ from django.utils import timezone
 from django.utils.html import escape
 
 from . import emails
+from .email_templates import (
+    TYPE_ENROLLMENT_APPROVED,
+    TYPE_ENROLLMENT_REJECTED,
+    TYPE_ENROLLMENT_REQUEST,
+    render_email,
+)
 from .models import Announcement, Notification
 
 logger = logging.getLogger(__name__)
@@ -66,6 +72,18 @@ def notify(recipient, *, tenant, type, title, body='', link='', data=None):
 # ---------------------------------------------------------------------------
 # Enrollment lifecycle
 # ---------------------------------------------------------------------------
+def _admin_email_recipients(tenant, admins):
+    """Addresses admin-facing emails go to.
+
+    Prefers the tenant's configured ``notification_email`` list; falls back to
+    the admin accounts' own email addresses when unset.
+    """
+    configured = tenant.notification_recipient_emails() if tenant else []
+    if configured:
+        return configured
+    return [a.email for a in admins if a.email]
+
+
 def on_enrollment_requested(enrollment):
     """A student requested to join a course → alert every tenant admin."""
     try:
@@ -94,17 +112,20 @@ def on_enrollment_requested(enrollment):
                 },
             )
 
-        body_html = (
-            f'<p><strong>{escape(student_name)}</strong> '
-            f'(<a href="mailto:{escape(student_user.email)}">{escape(student_user.email)}</a>) '
-            f'has requested to enroll in <strong>{escape(course.name)}</strong>.</p>'
-            f'<p>Review the request and approve or decline it from your admin dashboard.</p>'
+        subject, heading, body_html = render_email(
+            tenant, TYPE_ENROLLMENT_REQUEST,
+            {
+                'student_name': student_name,
+                'student_email': student_user.email,
+                'course_name': course.name,
+                'tenant_name': getattr(tenant, 'name', '') or '',
+            },
         )
         _dispatch_email(
             tenant,
-            [a.email for a in admins if a.email],
-            subject=f'New enrollment request — {course.name}',
-            heading='New enrollment request',
+            _admin_email_recipients(tenant, admins),
+            subject=subject,
+            heading=heading,
             body_html=body_html,
             cta_text='Review request',
             cta_url=emails.tenant_link(tenant, review_path),
@@ -130,16 +151,19 @@ def on_enrollment_approved(enrollment):
             data={'enrollment_id': str(enrollment.id), 'course_id': str(course.id), 'course_name': course.name},
         )
 
-        body_html = (
-            f'<p>Good news! Your request to join <strong>{escape(course.name)}</strong> '
-            f'has been <strong>approved</strong>.</p>'
-            f'<p>You now have full access to the course. Jump in and start learning.</p>'
+        subject, heading, body_html = render_email(
+            tenant, TYPE_ENROLLMENT_APPROVED,
+            {
+                'student_name': student_user.full_name or student_user.email,
+                'course_name': course.name,
+                'tenant_name': getattr(tenant, 'name', '') or '',
+            },
         )
         _dispatch_email(
             tenant,
             student_user.email,
-            subject=f'You\'re enrolled in {course.name} 🎉',
-            heading='Enrollment approved',
+            subject=subject,
+            heading=heading,
             body_html=body_html,
             cta_text='Start learning',
             cta_url=emails.tenant_link(tenant, dash_path),
@@ -168,17 +192,20 @@ def on_enrollment_rejected(enrollment):
                   'course_name': course.name, 'reason': reason},
         )
 
-        reason_html = f'<p><strong>Reason:</strong> {escape(reason)}</p>' if reason else ''
-        body_html = (
-            f'<p>Your request to join <strong>{escape(course.name)}</strong> '
-            f'was not approved at this time.</p>{reason_html}'
-            f'<p>If you think this is a mistake, please reach out to your institute.</p>'
+        subject, heading, body_html = render_email(
+            tenant, TYPE_ENROLLMENT_REJECTED,
+            {
+                'student_name': student_user.full_name or student_user.email,
+                'course_name': course.name,
+                'reason': f'Reason: {reason}' if reason else '',
+                'tenant_name': getattr(tenant, 'name', '') or '',
+            },
         )
         _dispatch_email(
             tenant,
             student_user.email,
-            subject=f'Update on your enrollment request — {course.name}',
-            heading='Enrollment request declined',
+            subject=subject,
+            heading=heading,
             body_html=body_html,
             preheader=f'Update on your request to join {course.name}',
         )
