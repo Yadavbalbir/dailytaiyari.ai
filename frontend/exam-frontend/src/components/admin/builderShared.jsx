@@ -181,9 +181,9 @@ export const MATERIAL_KIND_OPTIONS = [
     { value: 'practice', label: 'Practice questions' },
 ]
 export const SUBMISSION_TYPE_OPTIONS = [
-    { value: 'either', label: 'Text or PDF' },
+    { value: 'either', label: 'Text or file (PDF/ZIP)' },
     { value: 'text', label: 'Text answer only' },
-    { value: 'pdf', label: 'PDF upload only' },
+    { value: 'pdf', label: 'File upload only (PDF/ZIP)' },
 ]
 export const CONTENT_DIFFICULTY = ['beginner', 'intermediate', 'advanced']
 export const CONTENT_STATUS = ['draft', 'published', 'archived']
@@ -314,7 +314,7 @@ export const SCHEMAS = {
             { name: 'order', label: 'Order', type: 'number', default: 0 },
             { name: 'is_timed', label: 'Timed — reject submissions after a deadline', type: 'checkbox' },
             { name: 'due_at', label: 'Due date & time', type: 'datetime-local', full: true, showIf: (v) => !!v.is_timed, hint: 'After this time, students can no longer submit.' },
-            { name: 'attachment', label: 'Question paper (PDF, optional)', type: 'file', accept: 'application/pdf', noun: 'paper', full: true, hint: 'Optional PDF shown to students in-app (view only).' },
+            { name: 'attachment', label: 'Question paper (PDF or ZIP, optional)', type: 'file', accept: 'application/pdf,application/zip,.zip', noun: 'paper', full: true, hint: 'Optional PDF (shown in-app, view only) or ZIP archive (students download it).' },
             { name: 'instructions', label: 'Instructions (supports pasted images)', type: 'textarea', full: true, rows: 8, image: true },
         ],
     },

@@ -29,6 +29,7 @@ class AdminSubmissionSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     file_stream_url = serializers.SerializerMethodField()
     file_name = serializers.SerializerMethodField()
+    file_is_pdf = serializers.SerializerMethodField()
     assignment_title = serializers.CharField(source='assignment.title', read_only=True)
     assignment_instructions = serializers.CharField(source='assignment.instructions', read_only=True)
     assignment_max_marks = serializers.IntegerField(source='assignment.max_marks', read_only=True)
@@ -42,7 +43,7 @@ class AdminSubmissionSerializer(serializers.ModelSerializer):
             'assignment_max_marks', 'assignment_submission_type', 'topic_name',
             'student', 'student_name', 'student_email',
             'submission_text', 'file_url', 'file_stream_url', 'file_name',
-            'submitted_at', 'status', 'marks', 'feedback', 'graded_at',
+            'file_is_pdf', 'submitted_at', 'status', 'marks', 'feedback', 'graded_at',
         ]
         read_only_fields = [
             'id', 'assignment', 'student', 'submission_text', 'file_url',
@@ -79,3 +80,6 @@ class AdminSubmissionSerializer(serializers.ModelSerializer):
         if not obj.submission_file:
             return None
         return obj.submission_file.name.rsplit('/', 1)[-1]
+
+    def get_file_is_pdf(self, obj):
+        return bool(obj.submission_file) and obj.submission_file.name.lower().endswith('.pdf')

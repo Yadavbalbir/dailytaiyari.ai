@@ -72,7 +72,7 @@ const AssignmentGrading = () => {
             <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-surface-500">
               <span className="px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800 capitalize">{assignment.status}</span>
               <span className="px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800">
-                {assignment.submission_type === 'pdf' ? 'PDF upload' : assignment.submission_type === 'text' ? 'Text answer' : 'Text or PDF'}
+                {assignment.submission_type === 'pdf' ? 'File upload (PDF/ZIP)' : assignment.submission_type === 'text' ? 'Text answer' : 'Text or file (PDF/ZIP)'}
               </span>
               {assignment.max_marks != null && (
                 <span className="px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-800">Max {assignment.max_marks} marks</span>
@@ -130,7 +130,7 @@ const AssignmentGrading = () => {
                   <p className="font-semibold truncate">{s.student_name || s.student_email}</p>
                   <p className="text-xs text-surface-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     <span>{new Date(s.submitted_at).toLocaleString()}</span>
-                    {s.file_stream_url && <span className="inline-flex items-center gap-1 text-surface-500"><FileText className="w-3 h-3" /> PDF</span>}
+                    {s.file_stream_url && <span className="inline-flex items-center gap-1 text-surface-500"><FileText className="w-3 h-3" /> {s.file_is_pdf === false ? 'File' : 'PDF'}</span>}
                     {s.submission_text && <span className="text-surface-500">Text answer</span>}
                   </p>
                 </div>

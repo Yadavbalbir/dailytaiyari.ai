@@ -9,6 +9,7 @@ import {
 import { contentBuilderService as svc } from '../services/contentBuilderService'
 import { formatApiError } from '../components/admin/builderShared'
 import PdfReader from '../components/content/PdfReader'
+import FileDownloadCard from '../components/content/FileDownloadCard'
 import Loading from '../components/common/Loading'
 
 /**
@@ -118,9 +119,17 @@ const SubmissionReview = () => {
           {submission.file_stream_url ? (
             <div>
               <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5 text-surface-600 dark:text-surface-300">
-                <FileText className="w-4 h-4" /> Submitted PDF
+                <FileText className="w-4 h-4" /> {submission.file_is_pdf ? 'Submitted PDF' : 'Submitted file'}
               </h3>
-              <PdfReader url={submission.file_stream_url} />
+              {submission.file_is_pdf ? (
+                <PdfReader url={submission.file_stream_url} />
+              ) : (
+                <FileDownloadCard
+                  url={submission.file_stream_url}
+                  name={submission.file_name || 'submission.zip'}
+                  label="Submitted ZIP"
+                />
+              )}
             </div>
           ) : !submission.submission_text ? (
             <div className="card p-8 text-center text-surface-500">
