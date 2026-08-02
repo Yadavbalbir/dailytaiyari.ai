@@ -25,7 +25,7 @@ const TABS = [
 
 /**
  * Shows notes and quizzes for a single topic within a chapter.
- * Flow: Study → Subject → Chapters → Topics → [this page: topic content]
+ * Flow: Course (StudyCourse) → [this page: topic content]
  */
 const StudyTopicContent = () => {
   const { chapterId, topicId } = useParams()
@@ -74,10 +74,10 @@ const StudyTopicContent = () => {
       <div className="card p-8 text-center">
         <p className="text-surface-500">Topic not found.</p>
         <button
-          onClick={() => navigate(`/study/chapter/${chapterId}`)}
+          onClick={() => navigate(chapter?.course_id ? `/study/course/${chapter.course_id}` : '/study')}
           className="btn-outline mt-4"
         >
-          Back to topics
+          Back to course
         </button>
       </div>
     )
@@ -98,10 +98,10 @@ const StudyTopicContent = () => {
           {lockedBy?.name ? <> <span className="font-semibold">“{lockedBy.name}”</span></> : ' the previous chapter'} to unlock “{topic.name}”.
         </p>
         <button
-          onClick={() => navigate(`/study/chapter/${chapterId}`)}
+          onClick={() => navigate(chapter?.course_id ? `/study/course/${chapter.course_id}` : '/study')}
           className="btn-primary inline-flex items-center gap-2"
         >
-          <ArrowLeft size={16} /> Back to topics
+          <ArrowLeft size={16} /> Back to course
         </button>
       </div>
     )
@@ -127,25 +127,13 @@ const StudyTopicContent = () => {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm flex-wrap">
         <button
-          onClick={() => navigate('/study')}
+          onClick={() => navigate(`/study/course/${chapter?.course_id}`)}
           className="text-surface-500 hover:text-primary-600 flex items-center gap-1"
         >
-          <ArrowLeft size={16} /> Study
+          <ArrowLeft size={16} /> {chapter?.course_name || 'Course'}
         </button>
         <span className="text-surface-400">/</span>
-        <button
-          onClick={() => navigate(`/study/${chapter?.subject_id}`)}
-          className="text-surface-500 hover:text-primary-600"
-        >
-          {chapter?.subject_name}
-        </button>
-        <span className="text-surface-400">/</span>
-        <button
-          onClick={() => navigate(`/study/chapter/${chapterId}`)}
-          className="text-surface-500 hover:text-primary-600"
-        >
-          {chapter?.name}
-        </button>
+        <span className="text-surface-500">{chapter?.name}</span>
         <span className="text-surface-400">/</span>
         <span className="font-medium">{topic.name}</span>
       </div>

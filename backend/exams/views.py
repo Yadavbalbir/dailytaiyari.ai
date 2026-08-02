@@ -696,6 +696,8 @@ class StudyChapterDetailView(APIView):
                 'description': chapter.description,
                 'subject_name': chapter.subject.name,
                 'subject_id': str(chapter.subject.id),
+                'course_id': str(chapter.subject.course_id),
+                'course_name': chapter.subject.course.name,
                 'estimated_hours': float(chapter.estimated_hours),
                 'locked': locked,
                 'locked_by': locked_by,
