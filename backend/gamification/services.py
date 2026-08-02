@@ -2,7 +2,7 @@
 Gamification service layer.
 """
 from django.db import transaction
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, F, Q, Case, When, Value, FloatField
 from django.utils import timezone
 from datetime import timedelta
 from .models import Badge, StudentBadge, XPTransaction, LeaderboardEntry, Challenge, ChallengeParticipation
@@ -367,136 +367,154 @@ class GamificationService:
         return len(student_stats)
     
     @staticmethod
-    def get_leaderboard(period='daily', course=None, limit=50, tenant=None):
+    def _period_bounds(period):
+        """Return (start_date, end_date) for a leaderboard period. None => all time."""
+        today = timezone.now().date()
+        if period == 'daily':
+            return today, today
+        if period == 'weekly':
+            start_date = today - timedelta(days=today.weekday())
+            return start_date, start_date + timedelta(days=6)
+        if period == 'monthly':
+            start_date = today.replace(day=1)
+            next_month = (
+                start_date.replace(month=start_date.month % 12 + 1, day=1)
+                if start_date.month < 12
+                else start_date.replace(year=start_date.year + 1, month=1, day=1)
+            )
+            return start_date, next_month - timedelta(days=1)
+        return None, None  # all_time
+
+    @staticmethod
+    def _scoped_activities(period, course=None, tenant=None):
         """
-        Get leaderboard data dynamically from DailyActivity. Scoped to tenant when provided.
+        Build a DailyActivity queryset scoped by period, tenant and course.
+
+        Course scoping uses a student-id subquery (not a join) so enrollment
+        fan-out cannot double-count a student's XP.
         """
         from analytics.models import DailyActivity
-        from users.models import StudentProfile
-        
-        today = timezone.now().date()
-        
-        if period == 'daily':
-            start_date = today
-            end_date = today
-        elif period == 'weekly':
-            start_date = today - timedelta(days=today.weekday())
-            end_date = start_date + timedelta(days=6)
-        elif period == 'monthly':
-            start_date = today.replace(day=1)
-            next_month = start_date.replace(month=start_date.month % 12 + 1, day=1) if start_date.month < 12 else start_date.replace(year=start_date.year + 1, month=1, day=1)
-            end_date = next_month - timedelta(days=1)
-        else:  # all_time
-            start_date = None
-            end_date = None
-        
-        # Get students with activity (tenant-scoped)
-        query = StudentProfile.objects.all()
+        from users.models import CourseEnrollment
+
+        start_date, end_date = GamificationService._period_bounds(period)
+
+        activities = DailyActivity.objects.all()
         if tenant:
-            query = query.filter(user__tenant=tenant)
+            activities = activities.filter(student__user__tenant=tenant)
         if course:
-            query = query.filter(enrollments__course=course)
-        
-        # Calculate stats for each student
-        leaderboard_data = []
-        
-        for student in query:
-            activities = DailyActivity.objects.filter(student=student)
-            if start_date:
-                activities = activities.filter(date__gte=start_date, date__lte=end_date)
-            
-            stats = activities.aggregate(
+            enrolled_ids = CourseEnrollment.objects.filter(
+                course=course
+            ).values_list('student_id', flat=True)
+            activities = activities.filter(student_id__in=enrolled_ids)
+        if start_date:
+            activities = activities.filter(date__gte=start_date, date__lte=end_date)
+        return activities
+
+    # SQL-computed accuracy: 100 * correct / questions, guarded against divide-by-zero.
+    _ACCURACY_EXPR = Case(
+        When(total_questions=0, then=Value(0.0)),
+        default=100.0 * F('total_correct') / F('total_questions'),
+        output_field=FloatField(),
+    )
+
+    @staticmethod
+    def get_leaderboard(period='daily', course=None, limit=50, tenant=None):
+        """
+        Get leaderboard data from DailyActivity. Scoped to tenant when provided.
+
+        Uses a single grouped aggregate query (group by student) with ordering
+        and limiting done in SQL, so it scales to very large student counts
+        instead of running one query per student.
+        """
+        activities = GamificationService._scoped_activities(period, course, tenant)
+
+        rows = (
+            activities
+            .values(
+                'student',
+                'student__user__first_name',
+                'student__user__last_name',
+                'student__user__role',
+                'student__current_level',
+            )
+            .annotate(
                 total_xp=Sum('xp_earned'),
                 total_questions=Sum('questions_attempted'),
                 total_correct=Sum('questions_correct'),
-                total_time=Sum('study_time_minutes')
+                total_time=Sum('study_time_minutes'),
             )
-            
-            xp = stats['total_xp'] or 0
-            questions = stats['total_questions'] or 0
-            correct = stats['total_correct'] or 0
-            
-            # Only include students with some activity
-            if xp > 0 or questions > 0:
-                accuracy = (correct / questions * 100) if questions > 0 else 0
-                leaderboard_data.append({
-                    'id': str(student.id),
-                    'student': student,
-                    'student_name': student.user.full_name,
-                    'role': student.user.role,
-                    'student_level': student.current_level,
-                    'xp_earned': xp,
-                    'questions_answered': questions,
-                    'accuracy': round(accuracy, 1),
-                    'study_time_minutes': stats['total_time'] or 0,
-                })
-        
-        # Sort by XP (primary) and accuracy (secondary)
-        leaderboard_data.sort(key=lambda x: (-x['xp_earned'], -x['accuracy']))
-        
-        # Add ranks and remove non-serializable fields
+            .annotate(accuracy=GamificationService._ACCURACY_EXPR)
+            .filter(Q(total_xp__gt=0) | Q(total_questions__gt=0))
+            .order_by('-total_xp', '-accuracy')[:limit]
+        )
+
         result = []
-        for i, entry in enumerate(leaderboard_data[:limit]):
-            entry['rank'] = i + 1
-            entry['rank_change'] = 0  # TODO: Calculate from previous period
-            # Remove non-serializable student object
-            entry_copy = {k: v for k, v in entry.items() if k != 'student'}
-            result.append(entry_copy)
-        
+        for i, row in enumerate(rows, 1):
+            name = f"{row['student__user__first_name']} {row['student__user__last_name']}".strip()
+            result.append({
+                'id': str(row['student']),
+                'student_name': name,
+                'role': row['student__user__role'],
+                'student_level': row['student__current_level'],
+                'xp_earned': row['total_xp'] or 0,
+                'questions_answered': row['total_questions'] or 0,
+                'accuracy': round(row['accuracy'] or 0, 1),
+                'study_time_minutes': row['total_time'] or 0,
+                'rank': i,
+                'rank_change': 0,  # TODO: Calculate from previous period
+            })
+
         return result
-    
+
     @staticmethod
     def get_student_rank(student, period='daily', course=None, tenant=None):
         """
-        Get student's rank in leaderboard dynamically. Scoped to tenant when provided.
+        Get a student's rank without materializing the whole leaderboard.
+
+        Computes the student's own totals, then counts how many students rank
+        above them (higher XP, or equal XP with higher accuracy) — two queries
+        regardless of how many students exist.
         """
-        from analytics.models import DailyActivity
-        from users.models import StudentProfile
-        
-        today = timezone.now().date()
-        
-        if period == 'daily':
-            start_date = today
-            end_date = today
-        elif period == 'weekly':
-            start_date = today - timedelta(days=today.weekday())
-            end_date = start_date + timedelta(days=6)
-        elif period == 'monthly':
-            start_date = today.replace(day=1)
-            next_month = start_date.replace(month=start_date.month % 12 + 1, day=1) if start_date.month < 12 else start_date.replace(year=start_date.year + 1, month=1, day=1)
-            end_date = next_month - timedelta(days=1)
-        else:  # all_time
-            start_date = None
-            end_date = None
-        
-        # Get students for ranking (tenant-scoped)
-        query = StudentProfile.objects.all()
-        if tenant:
-            query = query.filter(user__tenant=tenant)
-        if course:
-            query = query.filter(enrollments__course=course)
-        
-        student_scores = []
-        for s in query:
-            activities = DailyActivity.objects.filter(student=s)
-            if start_date:
-                activities = activities.filter(date__gte=start_date, date__lte=end_date)
-            
-            stats = activities.aggregate(total_xp=Sum('xp_earned'))
-            xp = stats['total_xp'] or 0
-            student_scores.append({'student_id': s.id, 'xp': xp})
-        
-        # Sort by XP descending
-        student_scores.sort(key=lambda x: -x['xp'])
-        
-        # Find current student's rank
-        for rank, score in enumerate(student_scores, 1):
-            if score['student_id'] == student.id:
-                return {
-                    'rank': rank,
-                    'xp': score['xp'],
-                    'rank_change': 0  # TODO: Calculate from previous period
-                }
-        
-        return None
+        activities = GamificationService._scoped_activities(period, course, tenant)
+
+        my = activities.filter(student=student).aggregate(
+            xp=Sum('xp_earned'),
+            questions=Sum('questions_attempted'),
+            correct=Sum('questions_correct'),
+        )
+        my_xp = my['xp'] or 0
+        my_questions = my['questions'] or 0
+        my_correct = my['correct'] or 0
+
+        # Not on the board if the student has no activity this period.
+        if my_xp == 0 and my_questions == 0:
+            return None
+
+        # Match the SQL operation order (100 * correct / questions) so the
+        # student's own accuracy compares identically to the DB-computed value.
+        my_accuracy = (100.0 * my_correct / my_questions) if my_questions else 0
+
+        grouped = (
+            activities
+            .values('student')
+            .annotate(
+                total_xp=Sum('xp_earned'),
+                total_questions=Sum('questions_attempted'),
+                total_correct=Sum('questions_correct'),
+            )
+            .annotate(accuracy=GamificationService._ACCURACY_EXPR)
+        )
+
+        # Count students strictly ahead (excluding self to avoid float-rounding
+        # ties counting the student against themselves).
+        ahead = grouped.exclude(student=student.id).filter(
+            Q(total_xp__gt=my_xp)
+            | Q(total_xp=my_xp, accuracy__gt=my_accuracy)
+        ).count()
+
+        return {
+            'rank': ahead + 1,
+            'xp': my_xp,
+            'rank_change': 0,  # TODO: Calculate from previous period
+        }
 
