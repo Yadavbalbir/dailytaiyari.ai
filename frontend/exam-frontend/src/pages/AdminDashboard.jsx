@@ -2906,16 +2906,16 @@ const PaymentSettings = ({ settings }) => {
  * AdminDashboard (root)
  * ------------------------------------------------------------------------- */
 const TABS = [
-    { id: 'overview', label: 'Overview', icon: TrendingUp },
-    { id: 'students', label: 'Student Records', icon: Users },
-    { id: 'enrollments', label: 'Enrollments', icon: GraduationCap },
-    { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart },
-    { id: 'marketing', label: 'Marketing & Promotions', icon: Megaphone },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'performance', label: 'Reports', icon: BarChart3 },
-    { id: 'content', label: 'Course Builder', icon: Library },
-    { id: 'landing', label: 'Landing Page', icon: LayoutTemplate },
-    { id: 'settings', label: 'Settings', icon: SlidersIcon },
+    { id: 'overview', label: 'Overview', icon: TrendingUp, subtitle: 'Track key metrics and institutional performance at a glance' },
+    { id: 'students', label: 'Student Records', icon: Users, subtitle: 'Search, view and manage every student on your platform' },
+    { id: 'enrollments', label: 'Enrollments', icon: GraduationCap, subtitle: 'Review and approve student enrollment requests' },
+    { id: 'sales', label: 'Sales & Orders', icon: ShoppingCart, subtitle: 'Monitor payments, orders and revenue' },
+    { id: 'marketing', label: 'Marketing & Promotions', icon: Megaphone, subtitle: 'Run promotions and grow your reach' },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone, subtitle: 'Broadcast updates to everyone or to specific courses via in-app notifications and branded email' },
+    { id: 'performance', label: 'Reports', icon: BarChart3, subtitle: 'Generate and export detailed performance reports' },
+    { id: 'content', label: 'Course Builder', icon: Library, subtitle: 'Create and organise your courses and content' },
+    { id: 'landing', label: 'Landing Page', icon: LayoutTemplate, subtitle: 'Design your public landing page' },
+    { id: 'settings', label: 'Settings', icon: SlidersIcon, subtitle: 'Manage branding, payments, email and platform settings' },
 ]
 
 const AdminDashboard = () => {
@@ -2969,7 +2969,7 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                         <h1 className="text-xl sm:text-2xl font-bold text-surface-900 dark:text-white">{activeMeta.label}</h1>
-                        <p className="text-surface-500 text-sm">Manage student records and track institutional performance</p>
+                        <p className="text-surface-500 text-sm">{activeMeta.subtitle || 'Manage student records and track institutional performance'}</p>
                     </div>
                 </div>
                 <button onClick={refreshAll} className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors text-sm font-semibold text-surface-700 dark:text-surface-200">
