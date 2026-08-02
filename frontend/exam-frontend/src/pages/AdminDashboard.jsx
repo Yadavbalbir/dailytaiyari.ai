@@ -197,7 +197,7 @@ const SelectInput = ({ options, ...props }) => (
 /* ---------------------------------------------------------------------------
  * StudentEditModal — edit ANY metadata of a student
  * ------------------------------------------------------------------------- */
-const StudentEditModal = ({ student, exams, onClose }) => {
+const StudentEditModal = ({ student, onClose }) => {
     const queryClient = useQueryClient()
 
     const [form, setForm] = useState(() => ({
@@ -218,7 +218,6 @@ const StudentEditModal = ({ student, exams, onClose }) => {
         board: student.board || '',
         medium: student.medium || 'english',
         target_year: student.target_year || '',
-        primary_course: student.primary_course || '',
         // profile — location & prefs
         city: student.city || '',
         state: student.state || '',
@@ -265,7 +264,6 @@ const StudentEditModal = ({ student, exams, onClose }) => {
             board: form.board,
             medium: form.medium,
             target_year: form.target_year === '' ? null : Number(form.target_year),
-            primary_course: form.primary_course || null,
             city: form.city,
             state: form.state,
             daily_study_goal_minutes: Number(form.daily_study_goal_minutes) || 0,
@@ -337,13 +335,6 @@ const StudentEditModal = ({ student, exams, onClose }) => {
                             <School className="w-4 h-4" /> Academic Details
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Field label="Primary Course">
-                                <SelectInput
-                                    options={[{ value: '', label: '—' }, ...exams.map((ex) => ({ value: ex.id, label: ex.name }))]}
-                                    value={form.primary_course}
-                                    onChange={set('primary_course')}
-                                />
-                            </Field>
                             <Field label="Target Year"><TextInput type="number" value={form.target_year} onChange={set('target_year')} placeholder="e.g. 2026" /></Field>
                             <Field label="Grade / Class"><SelectInput options={GRADE_OPTIONS} value={form.grade} onChange={set('grade')} /></Field>
                             <Field label="Board / University"><SelectInput options={BOARD_OPTIONS} value={form.board} onChange={set('board')} /></Field>
@@ -408,7 +399,7 @@ const StudentDetailModal = ({ student, onClose, onEdit }) => {
             title: 'Academic Details',
             icon: School,
             fields: [
-                { label: 'Primary Course', value: student.primary_course_name || 'Not set' },
+                { label: 'Enrolled Courses', value: (student.enrolled_courses || []).map((c) => c.name).filter(Boolean).join(', ') || 'None' },
                 { label: 'Target Year', value: student.target_year || 'Not set' },
                 { label: 'Grade/Level', value: student.grade || 'Not provided' },
                 { label: 'School/Institute', value: student.school || 'Not provided' },
@@ -573,7 +564,7 @@ const StudentManagement = () => {
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && !s.user.is_suspended) ||
                 (filterStatus === 'suspended' && s.user.is_suspended)
-            const matchesExam = filterExam === 'all' || String(s.primary_course) === String(filterExam) || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterExam))
+            const matchesExam = filterExam === 'all' || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterExam))
             return matchesSearch && matchesRole && matchesStatus && matchesExam
         })
 
@@ -606,7 +597,7 @@ const StudentManagement = () => {
             return
         }
         const headers = [
-            'Full Name', 'Email', 'Phone', 'Role', 'Status', 'Primary Course', 'Target Year',
+            'Full Name', 'Email', 'Phone', 'Role', 'Status', 'Enrolled Courses', 'Target Year',
             'Grade', 'School', 'Coaching', 'Board', 'Medium', 'City', 'State',
             'Level', 'Total XP', 'Accuracy %', 'Questions Attempted', 'Correct Answers', 'Study Minutes',
         ]
@@ -614,7 +605,8 @@ const StudentManagement = () => {
         const rows = filteredStudents.map((s) => [
             s.user.full_name, s.user.email, s.user.phone, s.user.role,
             s.user.is_suspended ? 'Suspended' : 'Active',
-            s.primary_course_name, s.target_year, s.grade, s.school, s.coaching, s.board, s.medium,
+            (s.enrolled_courses || []).map((c) => c.name).filter(Boolean).join('; '),
+            s.target_year, s.grade, s.school, s.coaching, s.board, s.medium,
             s.city, s.state, s.current_level, s.total_xp, s.overall_accuracy,
             s.total_questions_attempted, s.total_correct_answers, s.total_study_time_minutes,
         ].map(escape).join(','))
@@ -741,7 +733,20 @@ const StudentManagement = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-surface-600 dark:text-surface-300">
-                                        {student.primary_course_name || <span className="text-surface-400">—</span>}
+                                        {(() => {
+                                            const enrolled = student.enrolled_courses || []
+                                            const names = [...new Set(enrolled.map((c) => c.name).filter(Boolean))]
+                                            if (!names.length) return <span className="text-surface-400">—</span>
+                                            return (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {names.map((name) => (
+                                                        <span key={name} className="inline-block px-2 py-0.5 rounded-md bg-surface-100 dark:bg-surface-800 text-xs">
+                                                            {name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4">
                                         <button
@@ -824,7 +829,6 @@ const StudentManagement = () => {
                 {editingStudent && (
                     <StudentEditModal
                         student={editingStudent}
-                        exams={exams}
                         onClose={() => setEditingStudent(null)}
                     />
                 )}
@@ -871,7 +875,7 @@ const PerformanceReports = () => {
     // Roster filtered by the active course + status selectors.
     const filtered = useMemo(() => {
         return studentList.filter((s) => {
-            const matchesCourse = filterCourse === 'all' || String(s.primary_course) === String(filterCourse) || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterCourse))
+            const matchesCourse = filterCourse === 'all' || (s.enrolled_course_ids || []).some((cid) => String(cid) === String(filterCourse))
             const matchesStatus =
                 filterStatus === 'all' ||
                 (filterStatus === 'active' && !s.user.is_suspended) ||
@@ -880,12 +884,11 @@ const PerformanceReports = () => {
         })
     }, [studentList, filterCourse, filterStatus])
 
-    // Aggregate the roster into per-course performance rows.
+    // Aggregate the roster into per-course performance rows. A student counts
+    // toward every course they're enrolled in (all courses are equal level).
     const courseStats = useMemo(() => {
         const map = new Map()
-        studentList.forEach((s) => {
-            const key = s.primary_course ?? 'none'
-            const name = s.primary_course_name || 'No Course Assigned'
+        const bump = (key, name, s) => {
             if (!map.has(key)) {
                 map.set(key, { id: key, name, students: 0, active: 0, xp: 0, level: 0, accuracy: 0, questions: 0, correct: 0, minutes: 0 })
             }
@@ -898,6 +901,14 @@ const PerformanceReports = () => {
             g.questions += s.total_questions_attempted || 0
             g.correct += s.total_correct_answers || 0
             g.minutes += s.total_study_time_minutes || 0
+        }
+        studentList.forEach((s) => {
+            const enrolled = s.enrolled_courses || []
+            if (enrolled.length) {
+                enrolled.forEach((c) => bump(c.id ?? 'none', c.name || 'Unnamed Course', s))
+            } else {
+                bump('none', 'No Course Assigned', s)
+            }
         })
         return Array.from(map.values())
             .map((g) => ({
@@ -928,6 +939,7 @@ const PerformanceReports = () => {
     )
 
     const courseLabel = filterCourse === 'all' ? 'all-courses' : (courseStats.find((c) => String(c.id) === String(filterCourse))?.name || 'course')
+    const courseNames = (s) => (s.enrolled_courses || []).map((c) => c.name).filter(Boolean).join('; ')
     const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     const stamp = new Date().toISOString().slice(0, 10)
 
@@ -936,7 +948,7 @@ const PerformanceReports = () => {
         if (!filtered.length) return toast.error('No students match the current filters')
         const headers = ['Full Name', 'Email', 'Phone', 'Course', 'Status', 'Grade', 'Target Year', 'School', 'Coaching', 'Board', 'Medium', 'City', 'State', 'Level', 'Total XP', 'Accuracy %', 'Questions Attempted', 'Correct Answers', 'Study Minutes', 'Joined', 'Last Active']
         const rows = filtered.map((s) => [
-            s.user.full_name, s.user.email, s.user.phone, s.primary_course_name, s.user.is_suspended ? 'Suspended' : 'Active',
+            s.user.full_name, s.user.email, s.user.phone, courseNames(s), s.user.is_suspended ? 'Suspended' : 'Active',
             s.grade, s.target_year, s.school, s.coaching, s.board, s.medium, s.city, s.state,
             s.current_level, s.total_xp, s.overall_accuracy, s.total_questions_attempted, s.total_correct_answers, s.total_study_time_minutes,
             fmtDate(s.user.created_at), fmtDate(s.user.last_active),
@@ -957,7 +969,7 @@ const PerformanceReports = () => {
         const ranked = [...filtered].sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
         if (!ranked.length) return toast.error('No students match the current filters')
         const headers = ['Rank', 'Full Name', 'Email', 'Course', 'Level', 'Total XP', 'Accuracy %']
-        const rows = ranked.map((s, i) => [i + 1, s.user.full_name, s.user.email, s.primary_course_name, s.current_level, s.total_xp, s.overall_accuracy])
+        const rows = ranked.map((s, i) => [i + 1, s.user.full_name, s.user.email, courseNames(s), s.current_level, s.total_xp, s.overall_accuracy])
         downloadCsv(headers, rows, `leaderboard-${slug(courseLabel)}-${stamp}.csv`)
         toast.success('Exported leaderboard')
     }
@@ -966,7 +978,7 @@ const PerformanceReports = () => {
         if (!filtered.length) return toast.error('No students match the current filters')
         const headers = ['Full Name', 'Email', 'Course', 'Status', 'Study Minutes', 'Questions Attempted', 'Correct Answers', 'Accuracy %', 'Joined', 'Last Active']
         const rows = filtered.map((s) => [
-            s.user.full_name, s.user.email, s.primary_course_name, s.user.is_suspended ? 'Suspended' : 'Active',
+            s.user.full_name, s.user.email, courseNames(s), s.user.is_suspended ? 'Suspended' : 'Active',
             s.total_study_time_minutes, s.total_questions_attempted, s.total_correct_answers, s.overall_accuracy,
             fmtDate(s.user.created_at), fmtDate(s.user.last_active),
         ])

@@ -349,7 +349,8 @@ class StudySubjectsView(APIView):
     """
     Return subjects for the selected course with completion progress.
     Flow: Study tab → select course → this list of subjects.
-    Query params: course_id (optional) — if omitted, uses student's primary_course.
+    Query params: course_id (optional) — if omitted, uses the student's first
+    approved enrollment.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -367,7 +368,10 @@ class StudySubjectsView(APIView):
             except Course.DoesNotExist:
                 return Response({'error': 'Course not found'}, status=404)
         else:
-            course = getattr(student, 'primary_course', None)
+            enrollment = student.enrollments.filter(
+                status='approved', is_active=True, course__status='active'
+            ).order_by('created_at').first()
+            course = enrollment.course if enrollment else None
         if not course:
             return Response([])
 

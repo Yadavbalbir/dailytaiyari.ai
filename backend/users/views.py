@@ -413,7 +413,7 @@ class TenantStudentViewSet(TenantAwareViewSet):
 
     def get_queryset(self):
         tenant = self.request.tenant
-        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user', 'primary_course').prefetch_related('enrollments')
+        qs = StudentProfile.objects.filter(user__tenant=tenant).select_related('user').prefetch_related('enrollments__course')
 
         # Optional explicit filters (used by the admin dashboard).
         role = self.request.query_params.get('role')
@@ -426,9 +426,17 @@ class TenantStudentViewSet(TenantAwareViewSet):
         elif status_param == 'suspended':
             qs = qs.filter(user__is_suspended=True)
 
-        primary_course = self.request.query_params.get('primary_course')
-        if primary_course:
-            qs = qs.filter(primary_course_id=primary_course)
+        # Filter by any course the student is enrolled in (non-rejected).
+        # unique_together(student, course) means one enrollment per pair, so the
+        # exclude below targets exactly the matched course's enrollment.
+        course = self.request.query_params.get('course') or self.request.query_params.get('primary_course')
+        if course:
+            qs = qs.filter(
+                enrollments__course_id=course,
+            ).exclude(
+                enrollments__course_id=course,
+                enrollments__status='rejected',
+            ).distinct()
 
         return qs
 

@@ -258,9 +258,7 @@ class QuizViewSet(TenantAwareReadOnlyViewSet):
         course_id = None
         if requested and str(requested) in {str(c) for c in accessible_ids}:
             course_id = requested
-        if not course_id and student and student.primary_course_id in accessible_ids:
-            course_id = student.primary_course_id
-        if not course_id and accessible_ids:
+        if not course_id and accessible_ids and student:
             enr = student.enrollments.filter(
                 status='approved', is_active=True, course__status='active'
             ).order_by('created_at').first()

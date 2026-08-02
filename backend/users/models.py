@@ -194,15 +194,6 @@ class StudentProfile(TimeStampedModel):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     
-    # Target courses (Many-to-many through CourseEnrollment)
-    primary_course = models.ForeignKey(
-        'exams.Course', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='primary_students'
-    )
-    
     # Study preferences
     daily_study_goal_minutes = models.PositiveIntegerField(default=60)
     preferred_study_time = models.CharField(

@@ -261,21 +261,17 @@ class StudyPlanViewSet(TenantAwareViewSet):
     def _resolve_course_id(student, requested_course_id=None):
         """Resolve a usable course for the student's study plan.
 
-        Order: explicitly requested -> primary course -> first approved/active
-        enrollment. Returns None if the student has no usable course.
+        Order: explicitly requested -> first approved/active enrollment.
+        Returns None if the student has no usable course.
         """
-        candidates = [requested_course_id, student.primary_course_id]
-        for course_id in candidates:
-            if course_id and student.enrollments.filter(
-                course_id=course_id, status='approved', is_active=True
-            ).exists():
-                return course_id
+        if requested_course_id and student.enrollments.filter(
+            course_id=requested_course_id, status='approved', is_active=True
+        ).exists():
+            return requested_course_id
         enrollment = student.enrollments.filter(
             status='approved', is_active=True
         ).order_by('created_at').first()
-        return enrollment.course_id if enrollment else (
-            requested_course_id or student.primary_course_id
-        )
+        return enrollment.course_id if enrollment else requested_course_id
 
     @action(detail=False, methods=['get'])
     def today(self, request):

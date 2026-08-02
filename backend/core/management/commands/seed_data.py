@@ -1043,7 +1043,6 @@ class Command(BaseCommand):
                 defaults={
                     'grade': user_data['grade'],
                     'city': user_data['city'],
-                    'primary_course': self.courses.get('neet'),
                     'total_xp': user_data['xp'],
                     'current_level': user_data['level'],
                     'daily_study_goal_minutes': random.choice([30, 60, 90, 120]),
@@ -1073,7 +1072,6 @@ class Command(BaseCommand):
                 defaults={
                     'grade': '12',
                     'city': 'Delhi',
-                    'primary_course': self.courses.get('neet'),
                     'total_xp': 1500,
                     'current_level': 3,
                     'daily_study_goal_minutes': 60,
