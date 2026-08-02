@@ -166,6 +166,12 @@ class Tenant(models.Model):
     request_enrollment_free = models.BooleanField(default=True)
     request_enrollment_paid = models.BooleanField(default=True)
 
+    # ── Notification recipient address(es) ─────────────────────────────────
+    # Where admin-facing notification emails (e.g. new enrollment requests) are
+    # delivered. Accepts one or more comma-separated addresses. When blank, the
+    # system falls back to the email addresses of the tenant's admin accounts.
+    notification_email = models.CharField(max_length=500, blank=True, default='')
+
     # ── Allowed frontend origins (self-serve CORS, Phase 3) ────────────────
     # Exact browser origins (scheme + host [+ port]) that this tenant's own
     # frontend is served from and which may call the public platform API
@@ -184,6 +190,21 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+    def notification_recipient_emails(self):
+        """Parsed list of admin notification recipient addresses.
+
+        Reads the comma/newline-separated ``notification_email`` field and
+        returns a de-duplicated list of trimmed addresses. Empty when unset,
+        signalling callers to fall back to the tenant admins' own emails.
+        """
+        raw = (self.notification_email or '').replace('\n', ',').replace(';', ',')
+        seen = []
+        for part in raw.split(','):
+            addr = part.strip()
+            if addr and addr.lower() not in [s.lower() for s in seen]:
+                seen.append(addr)
+        return seen
 
     def get_features(self):
         """Return the full *effective* feature map.

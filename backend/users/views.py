@@ -1,6 +1,8 @@
 """
 Views for user authentication and profile management.
 """
+import logging
+
 from rest_framework import status, generics, permissions, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -32,6 +34,8 @@ from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
 
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 
 class StudentRecordsPagination(PageNumberPagination):
@@ -366,6 +370,8 @@ class CourseEnrollmentListView(generics.ListCreateAPIView):
                 existing.reviewed_at = timezone.now() if target_status == 'approved' else None
                 existing.reviewed_by = None
                 existing.save()
+                if target_status == 'pending':
+                    self._notify_enrollment_requested(existing)
                 return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
             return Response(
                 {'course': ['You have already requested or are enrolled in this course.']},
@@ -376,7 +382,18 @@ class CourseEnrollmentListView(generics.ListCreateAPIView):
             student=student, course=course, status=target_status, is_active=True,
             reviewed_at=timezone.now() if target_status == 'approved' else None,
         )
+        if target_status == 'pending':
+            self._notify_enrollment_requested(enrollment)
         return Response(self.get_serializer(enrollment).data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _notify_enrollment_requested(enrollment):
+        """Alert tenant admins about a new pending request (best-effort)."""
+        try:
+            from notifications import services as notification_services
+            notification_services.on_enrollment_requested(enrollment)
+        except Exception:  # noqa: BLE001 - never block enrolment on a notify error
+            logger.exception('Failed to notify admins of enrollment request %s', enrollment.id)
 
     def perform_create(self, serializer):
         serializer.save(student=self.request.user.profile, status='pending', is_active=True)
@@ -517,6 +534,11 @@ class TenantEnrollmentRequestViewSet(TenantAwareViewSet):
         enrollment.reviewed_at = timezone.now()
         enrollment.reviewed_by = request.user
         enrollment.save()
+        try:
+            from notifications import services as notification_services
+            notification_services.on_enrollment_approved(enrollment)
+        except Exception:  # noqa: BLE001
+            logger.exception('Failed to notify student of approval for %s', enrollment.id)
         return Response(self.get_serializer(enrollment).data)
 
     @action(detail=True, methods=['post'])
@@ -528,4 +550,9 @@ class TenantEnrollmentRequestViewSet(TenantAwareViewSet):
         enrollment.reviewed_at = timezone.now()
         enrollment.reviewed_by = request.user
         enrollment.save()
+        try:
+            from notifications import services as notification_services
+            notification_services.on_enrollment_rejected(enrollment)
+        except Exception:  # noqa: BLE001
+            logger.exception('Failed to notify student of rejection for %s', enrollment.id)
         return Response(self.get_serializer(enrollment).data)
