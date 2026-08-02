@@ -6,18 +6,22 @@ be timed (with a due date after which submissions are rejected) or timeless.
 Students submit a text answer and/or a PDF file; admins view submissions, track
 who is still pending, and grade with marks + feedback.
 """
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
 from core.models import OrderedModel
 from exams.models import Topic, Subject, Course
 
+# Uploads (question papers and student submissions) accept PDFs and ZIP archives.
+ASSIGNMENT_FILE_EXTENSIONS = ['pdf', 'zip']
+
 
 class Assignment(OrderedModel):
     SUBMISSION_TYPES = [
         ('text', 'Text answer'),
-        ('pdf', 'PDF upload'),
-        ('either', 'Text or PDF'),
+        ('pdf', 'File upload (PDF or ZIP)'),
+        ('either', 'Text or file (PDF or ZIP)'),
     ]
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -38,8 +42,12 @@ class Assignment(OrderedModel):
     instructions = models.TextField(blank=True)
     submission_type = models.CharField(max_length=10, choices=SUBMISSION_TYPES, default='either')
 
-    # Optional question paper the admin attaches (view-only PDF for students).
-    attachment = models.FileField(upload_to='assignment_papers/', blank=True, null=True)
+    # Optional question paper the admin attaches (view-only PDF, or a ZIP of
+    # resource files students can download).
+    attachment = models.FileField(
+        upload_to='assignment_papers/', blank=True, null=True,
+        validators=[FileExtensionValidator(ASSIGNMENT_FILE_EXTENSIONS)],
+    )
 
     # Timing: timeless when is_timed is False (due_at ignored).
     is_timed = models.BooleanField(default=False)
@@ -76,7 +84,10 @@ class AssignmentSubmission(OrderedModel):
     student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='assignment_submissions')
 
     submission_text = models.TextField(blank=True)
-    submission_file = models.FileField(upload_to='assignment_submissions/', blank=True, null=True)
+    submission_file = models.FileField(
+        upload_to='assignment_submissions/', blank=True, null=True,
+        validators=[FileExtensionValidator(ASSIGNMENT_FILE_EXTENSIONS)],
+    )
     submitted_at = models.DateTimeField(default=timezone.now)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')

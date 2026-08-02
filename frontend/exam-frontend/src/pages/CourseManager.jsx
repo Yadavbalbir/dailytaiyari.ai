@@ -429,7 +429,7 @@ const EmptyHint = ({ icon: Icon, text, sub }) => (
 /* ===========================================================================
  * Assignments for the selected topic
  * ========================================================================= */
-const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'PDF upload', either: 'Text or PDF' }
+const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'File upload (PDF/ZIP)', either: 'Text or file (PDF/ZIP)' }
 
 
 const AssignmentSection = ({ topic, subjectId, openModal, askDelete }) => {

@@ -1,7 +1,4 @@
 """Admin CRUD + submission review for assignments (tenant-admin only)."""
-import mimetypes
-
-from django.http import FileResponse, Http404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -13,6 +10,7 @@ from users.models import CourseEnrollment
 
 from .models import Assignment, AssignmentSubmission
 from .admin_serializers import AdminAssignmentSerializer, AdminSubmissionSerializer
+from .serving import serve_assignment_file
 
 
 class AdminAssignmentViewSet(TenantAdminModelViewSet):
@@ -122,18 +120,6 @@ class AdminSubmissionViewSet(TenantAdminModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='file')
     def file(self, request, pk=None):
-        """Stream a student's submitted file inline (view-only) for grading."""
+        """Stream a student's submitted file: PDF inline, ZIP as download."""
         submission = self.get_object()
-        if not submission.submission_file:
-            raise Http404('No file submitted.')
-        try:
-            fh = submission.submission_file.open('rb')
-        except Exception:
-            raise Http404('Submission file not found.')
-        name = submission.submission_file.name
-        content_type = mimetypes.guess_type(name)[0] or 'application/pdf'
-        response = FileResponse(fh, content_type=content_type)
-        response['Content-Disposition'] = 'inline; filename="submission.pdf"'
-        response['X-Content-Type-Options'] = 'nosniff'
-        response['Cache-Control'] = 'private, no-store'
-        return response
+        return serve_assignment_file(submission.submission_file, not_found='Submission file not found.')

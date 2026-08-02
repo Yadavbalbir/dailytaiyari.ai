@@ -1,5 +1,6 @@
 """Student-facing assignment endpoints: list, detail, submit, view paper."""
-from django.http import FileResponse, Http404
+import os
+
 from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -8,8 +9,9 @@ from rest_framework.response import Response
 
 from users.models import CourseEnrollment
 
-from .models import Assignment, AssignmentSubmission
+from .models import Assignment, AssignmentSubmission, ASSIGNMENT_FILE_EXTENSIONS
 from .serializers import AssignmentSerializer, AssignmentDetailSerializer
+from .serving import serve_assignment_file
 
 
 class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -78,13 +80,20 @@ class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
         text = (request.data.get('submission_text') or '').strip()
         upload = request.FILES.get('submission_file')
 
+        if upload:
+            ext = os.path.splitext(upload.name)[1].lower().lstrip('.')
+            if ext not in ASSIGNMENT_FILE_EXTENSIONS:
+                return Response(
+                    {'error': 'Only PDF or ZIP files are allowed.'}, status=400,
+                )
+
         stype = assignment.submission_type
         if stype == 'text' and not text:
             return Response({'error': 'A text answer is required.'}, status=400)
         if stype == 'pdf' and not upload:
-            return Response({'error': 'A PDF file is required.'}, status=400)
+            return Response({'error': 'A file (PDF or ZIP) is required.'}, status=400)
         if stype == 'either' and not text and not upload:
-            return Response({'error': 'Provide a text answer or upload a PDF.'}, status=400)
+            return Response({'error': 'Provide a text answer or upload a PDF or ZIP file.'}, status=400)
 
         sub, _ = AssignmentSubmission.objects.get_or_create(
             assignment=assignment, student=student,
@@ -107,16 +116,6 @@ class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='paper')
     def paper(self, request, pk=None):
-        """Stream the admin-attached question paper inline (view only)."""
+        """Stream the admin-attached question paper: PDF inline, ZIP as download."""
         assignment = self.get_object()
-        if not assignment.attachment:
-            raise Http404('No paper attached.')
-        try:
-            fh = assignment.attachment.open('rb')
-        except Exception:
-            raise Http404('Paper file not found.')
-        response = FileResponse(fh, content_type='application/pdf')
-        response['Content-Disposition'] = 'inline; filename="assignment.pdf"'
-        response['X-Content-Type-Options'] = 'nosniff'
-        response['Cache-Control'] = 'private, no-store'
-        return response
+        return serve_assignment_file(assignment.attachment, not_found='Paper file not found.')

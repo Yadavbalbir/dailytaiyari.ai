@@ -11,6 +11,7 @@ import { assignmentService } from '../services/assignmentService'
 import Loading from '../components/common/Loading'
 
 const PdfReader = lazy(() => import('../components/content/PdfReader'))
+const FileDownloadCard = lazy(() => import('../components/content/FileDownloadCard'))
 
 // Human-readable countdown / relative deadline label.
 const deadlineLabel = (dueAt) => {
@@ -32,7 +33,7 @@ const deadlineLabel = (dueAt) => {
   }
 }
 
-const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'PDF upload', either: 'Text or PDF' }
+const SUBMISSION_TYPE_LABEL = { text: 'Text answer', pdf: 'File upload (PDF/ZIP)', either: 'Text or file (PDF/ZIP)' }
 
 const AssignmentView = () => {
   const { assignmentId } = useParams()
@@ -93,8 +94,8 @@ const AssignmentView = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (canSubmitText && !canSubmitFile && !text.trim()) return toast.error('Please write your answer.')
-    if (canSubmitFile && !canSubmitText && !file) return toast.error('Please attach a PDF.')
-    if (stype === 'either' && !text.trim() && !file) return toast.error('Add a text answer or attach a PDF.')
+    if (canSubmitFile && !canSubmitText && !file) return toast.error('Please attach a PDF or ZIP file.')
+    if (stype === 'either' && !text.trim() && !file) return toast.error('Add a text answer or attach a PDF or ZIP file.')
     submitMutation.mutate()
   }
 
@@ -158,7 +159,15 @@ const AssignmentView = () => {
             <FileText size={15} /> Question paper
           </h2>
           <Suspense fallback={<div className="card p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-surface-400" /></div>}>
-            <PdfReader url={assignmentService.paperUrl(assignment.id)} />
+            {assignment.attachment_is_pdf ? (
+              <PdfReader url={assignmentService.paperUrl(assignment.id)} />
+            ) : (
+              <FileDownloadCard
+                url={assignmentService.paperUrl(assignment.id)}
+                name={assignment.attachment_name || 'question-paper.zip'}
+                label="Question paper (ZIP)"
+              />
+            )}
           </Suspense>
         </div>
       )}
@@ -195,7 +204,7 @@ const AssignmentView = () => {
           <CheckCircle2 size={16} />
           <span>
             Submitted on {new Date(sub.submitted_at).toLocaleString()}
-            {sub.has_file && ' · PDF attached'}
+            {sub.has_file && ' · File attached'}
             {graded ? ' · Graded' : ' · Awaiting grading'}
           </span>
         </div>
@@ -231,16 +240,16 @@ const AssignmentView = () => {
           {canSubmitFile && (
             <div>
               <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1.5">
-                {canSubmitText ? 'Or upload a PDF' : 'Upload your PDF'}
+                {canSubmitText ? 'Or upload a file (PDF or ZIP)' : 'Upload your file (PDF or ZIP)'}
               </label>
               <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-surface-200 dark:border-surface-700 cursor-pointer hover:border-primary-300 transition-colors">
                 <Upload size={18} className="text-surface-400 shrink-0" />
                 <span className="text-sm text-surface-500 truncate">
-                  {file ? file.name : sub?.has_file ? 'A PDF is already attached — choose a new file to replace it' : 'Click to select a PDF file'}
+                  {file ? file.name : sub?.has_file ? 'A file is already attached — choose a new file to replace it' : 'Click to select a PDF or ZIP file'}
                 </span>
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,application/zip,.zip"
                   className="hidden"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
