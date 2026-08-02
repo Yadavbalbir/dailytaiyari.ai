@@ -108,7 +108,7 @@ const Leaderboard = () => {
                     key={entry.id || index}
                     entry={entry}
                     rank={index + 1}
-                    isCurrentUser={entry.student_name === profile?.user?.full_name}
+                    isCurrentUser={String(entry.id) === String(profile?.id)}
                   />
                 ))}
               </div>
