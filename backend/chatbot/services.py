@@ -100,7 +100,9 @@ def build_system_prompt(session, ai_settings=None):
     allow_course_context = ai_settings is None or ai_settings.allow_course_context
     if session.course_id and allow_course_context:
         try:
-            prompt += '\n\n' + course_context_for(session.student, session.course)
+            course_block = course_context_for(session.student, session.course)
+            if course_block:
+                prompt += '\n\n' + course_block
         except Exception:  # noqa: BLE001 - context is an enhancement, never fatal
             logger.exception('Failed to build course context for session %s', session.id)
 

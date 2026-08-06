@@ -506,6 +506,14 @@ const AIDoubtSolver = () => {
     if (sessionData?.course) setCourseId(sessionData.course)
   }, [sessionData?.course])
 
+  // A course can stop being selectable after it was picked (deactivated, or the
+  // enrollment revoked). Drop the stale selection so the UI doesn't keep showing
+  // a course the server will no longer accept.
+  useEffect(() => {
+    if (!workspace || !courseId) return
+    if (!workspace.courses?.some((c) => c.id === courseId)) setCourseId(null)
+  }, [workspace, courseId])
+
   const handleNewChat = () => {
     setActiveSession(null)
     setStreamingContent('')

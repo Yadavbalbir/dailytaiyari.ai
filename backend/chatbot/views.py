@@ -23,7 +23,7 @@ from .serializers import (
     SubmitAIQuizSerializer, AILearningStatsSerializer
 )
 from . import resolver
-from .course_context import enrolled_courses, starter_prompts
+from .course_context import enrolled_course_or_none, enrolled_courses, starter_prompts
 from .services import ChatService
 from .tenancy import request_tenant
 from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
@@ -43,6 +43,7 @@ class AIWorkspaceView(APIView):
         student = request.user.profile
         tenant = request_tenant(request, required=False)
 
+        enrollments = list(enrolled_courses(student, tenant=tenant))
         courses = [
             {
                 'id': str(e.course.id),
@@ -51,14 +52,13 @@ class AIWorkspaceView(APIView):
                 'color': e.course.color,
                 'course_type': e.course.get_course_type_display(),
             }
-            for e in enrolled_courses(student)
+            for e in enrollments
         ]
 
-        course = None
-        course_id = request.query_params.get('course_id')
-        if course_id:
-            match = next((e.course for e in enrolled_courses(student) if str(e.course.id) == course_id), None)
-            course = match
+        requested = request.query_params.get('course_id')
+        course = next(
+            (e.course for e in enrollments if str(e.course.id) == str(requested)), None
+        ) if requested else None
 
         try:
             resolution = resolver.resolve(tenant, student=None)
@@ -99,18 +99,26 @@ class ChatSessionViewSet(TenantAwareViewSet):
         return ChatSessionSerializer
 
     def _enrolled_course(self, course_id):
-        """Resolve a course id to one the student is actually enrolled in.
+        """Resolve a course id to one the student may actually use.
 
-        Scoping a chat to a course exposes that course's progress data to the
-        model, so only approved enrollments are accepted.
+        Scoping a chat to a course feeds that course's syllabus and the
+        student's own progress to the model, so this rejects anything they are
+        not approved for, anything no longer active, and anything outside the
+        tenant they are signed in to.
         """
         if not course_id:
             return None
-        student = self.request.user.profile
-        for enrollment in enrolled_courses(student):
-            if str(enrollment.course.id) == str(course_id):
-                return enrollment.course
-        raise ValidationError({'course_id': 'You are not enrolled in this course.'})
+
+        course = enrolled_course_or_none(
+            self.request.user.profile,
+            course_id,
+            tenant=request_tenant(self.request, required=False),
+        )
+        if course is None:
+            raise ValidationError(
+                {'course_id': 'You are not enrolled in this course, or it is no longer available.'}
+            )
+        return course
 
     def create(self, request, *args, **kwargs):
         """Create a new chat session."""
