@@ -147,8 +147,8 @@ export const XP_EARNING_RULES = [
     {
         Icon: Users,
         title: 'Help out in the community',
-        detail: 'Posting, answering and receiving likes or a best-answer mark. Each is awarded only once.',
-        value: 'varies',
+        detail: 'Asking 5 · polls 5 · quizzes 8 · answering 8 · best answer 20 · each like received 2. Counted in the same total, and each is awarded only once.',
+        value: '2–20 XP',
     },
     {
         Icon: Award,
