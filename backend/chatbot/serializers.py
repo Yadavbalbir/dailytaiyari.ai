@@ -25,12 +25,14 @@ class ChatSessionSerializer(serializers.ModelSerializer):
     """Serializer for chat sessions."""
     topic_name = serializers.CharField(source='topic.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
+    course_name = serializers.CharField(source='course.name', read_only=True)
     last_message = serializers.SerializerMethodField()
     
     class Meta:
         model = ChatSession
         fields = [
             'id', 'title', 'topic', 'topic_name', 'subject', 'subject_name',
+            'course', 'course_name',
             'is_active', 'message_count', 'was_helpful', 'rating',
             'last_message', 'created_at', 'updated_at'
         ]
@@ -65,6 +67,7 @@ class CreateSessionSerializer(serializers.Serializer):
     """Serializer for creating a new session."""
     topic_id = serializers.UUIDField(required=False, allow_null=True)
     subject_id = serializers.UUIDField(required=False, allow_null=True)
+    course_id = serializers.UUIDField(required=False, allow_null=True)
     title = serializers.CharField(required=False, max_length=200)
     initial_message = serializers.CharField(required=False)
 

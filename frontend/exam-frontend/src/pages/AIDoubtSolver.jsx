@@ -1,839 +1,881 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { chatService } from '../services/chatService'
-import Loading from '../components/common/Loading'
-import MathRenderer from '../components/chat/MathRenderer'
-import ChatQuiz from '../components/chat/ChatQuiz'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  Bot,
-  MessageSquare,
-  Send,
-  Plus,
-  X,
-  Maximize2,
-  Minimize2,
-  Menu,
+  AlertTriangle,
+  BookOpen,
+  Check,
+  ChevronDown,
   Copy,
-  ThumbsUp,
-  ThumbsDown,
-  User,
   GraduationCap,
-  Lightbulb,
-  FileText,
+  ListChecks,
+  Loader2,
+  Maximize2,
+  MessageSquarePlus,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
-  ChevronLeft
+  Send,
+  Sparkles,
+  Square,
+  Target,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  TrendingUp,
+  X,
 } from 'lucide-react'
 
-/**
- * Detects if the message contains a quiz format and extracts it
- */
-const parseQuizFromMessage = (content) => {
-  if (!content) return null
+import { chatService } from '../services/chatService'
+import { useAuthStore } from '../context/authStore'
+import MathRenderer from '../components/chat/MathRenderer'
+import ChatQuiz from '../components/chat/ChatQuiz'
+import { looksLikeQuiz, parseQuizFromMessage } from '../components/chat/quizParser'
 
-  // Try to find JSON quiz block
-  const jsonMatch = content.match(/```json\s*(\{[\s\S]*?"type"\s*:\s*"quiz"[\s\S]*?\})\s*```/i)
-  if (jsonMatch) {
-    try {
-      const quiz = JSON.parse(jsonMatch[1])
-      if (quiz.type === 'quiz' && quiz.questions) {
-        return {
-          quiz,
-          remainingContent: content.replace(jsonMatch[0], '').trim()
-        }
-      }
-    } catch (e) {
-      // JSON parse failed, continue to other detection methods
-    }
-  }
+/* ---------------------------------------------------------------------------
+ * Small helpers
+ * ------------------------------------------------------------------------- */
 
-  // Parse structured quiz format
-  const lines = content.split('\n')
-  const questions = []
-  let currentQuestion = null
-  let currentOptions = []
-  let currentExplanation = ''
-  let correctAnswer = null
-  let introText = []
-  let isInQuiz = false
-
-  const saveCurrentQuestion = () => {
-    if (currentQuestion && currentOptions.length >= 2) {
-      let correctIndex = -1
-      if (correctAnswer) {
-        correctIndex = correctAnswer.toUpperCase().charCodeAt(0) - 65
-      }
-      if (correctIndex === -1 || correctIndex >= currentOptions.length) {
-        correctIndex = currentOptions.findIndex(o => o.isCorrect)
-      }
-      if (correctIndex === -1) correctIndex = 0
-
-      questions.push({
-        question: currentQuestion,
-        options: currentOptions.map(o => o.text),
-        correct_option: correctIndex,
-        explanation: currentExplanation.trim() || null,
-        difficulty: 'medium'
-      })
-    }
-    currentQuestion = null
-    currentOptions = []
-    currentExplanation = ''
-    correctAnswer = null
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    const questionMatch = line.match(/^\*{0,2}Q(?:uestion)?\.?\s*(\d+)[\.\):\s]+\*{0,2}\s*(.+)/i) ||
-      line.match(/^(\d+)[\.\)]\s+(.+)/)
-
-    if (questionMatch && !line.match(/^[A-Da-d][\.\)]/)) {
-      saveCurrentQuestion()
-      isInQuiz = true
-      currentQuestion = questionMatch[2].trim().replace(/\*+/g, '')
-      continue
-    }
-
-    const optionMatch = line.match(/^\*{0,2}([A-Da-d])[\.\):\s]+\*{0,2}\s*(.+)/i)
-    if (optionMatch && currentQuestion) {
-      const optionLetter = optionMatch[1].toUpperCase()
-      let optionText = optionMatch[2].trim()
-
-      const isCorrect = optionText.includes('✓') ||
-        optionText.toLowerCase().includes('(correct)') ||
-        optionText.includes('✔') ||
-        /\*{2}correct\*{2}/i.test(optionText)
-
-      optionText = optionText
-        .replace(/[✓✔]/g, '')
-        .replace(/\*{0,2}\(correct\)\*{0,2}/gi, '')
-        .replace(/\*{2}correct\*{2}/gi, '')
-        .trim()
-
-      currentOptions.push({
-        letter: optionLetter,
-        text: optionText,
-        isCorrect
-      })
-      continue
-    }
-
-    const answerMatch = line.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]+\*{0,2}([A-Da-d])\)?/i)
-    if (answerMatch && currentQuestion) {
-      correctAnswer = answerMatch[1].toUpperCase()
-      continue
-    }
-
-    const explanationMatch = line.match(/^\*{0,2}(?:Explanation|Solution|Reason)\*{0,2}[:\s]+(.+)/i)
-    if (explanationMatch && currentQuestion) {
-      currentExplanation = explanationMatch[1].trim()
-      while (i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim()
-        if (!nextLine ||
-          nextLine.match(/^\*{0,2}Q(?:uestion)?\.?\s*\d+/i) ||
-          nextLine.match(/^\d+[\.\)]\s+/) ||
-          nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i)) {
-          break
-        }
-        i++
-        currentExplanation += ' ' + nextLine
-      }
-      continue
-    }
-
-    if (!isInQuiz) {
-      introText.push(line)
-    }
-  }
-
-  saveCurrentQuestion()
-
-  if (questions.length >= 1) {
-    return {
-      quiz: {
-        type: 'quiz',
-        title: 'Practice Quiz',
-        questions
-      },
-      remainingContent: introText.join('\n').trim()
-    }
-  }
-
-  return null
+// Icons for the backend-generated starter prompts, keyed by their `kind`.
+const PROMPT_ICONS = {
+  progress: TrendingUp,
+  pending: ListChecks,
+  mistakes: Target,
+  quiz: GraduationCap,
+  plan: BookOpen,
+  idea: Sparkles,
 }
+
+const greeting = () => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+// Groups conversations the way ChatGPT/Claude do, so long histories stay scannable.
+const groupSessions = (sessions) => {
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
+  const weekAgo = new Date(startOfToday.getTime() - 7 * 86400000)
+
+  const groups = { Today: [], Yesterday: [], 'Previous 7 days': [], Older: [] }
+  sessions.forEach((s) => {
+    const when = new Date(s.updated_at || s.created_at)
+    if (when >= startOfToday) groups.Today.push(s)
+    else if (when >= startOfYesterday) groups.Yesterday.push(s)
+    else if (when >= weekAgo) groups['Previous 7 days'].push(s)
+    else groups.Older.push(s)
+  })
+  return Object.entries(groups).filter(([, items]) => items.length > 0)
+}
+
+/* ---------------------------------------------------------------------------
+ * Course selector
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Scopes the conversation to one enrolled course. Once selected, the backend
+ * feeds the AI that course's syllabus and the student's own progress, so it can
+ * answer "what's pending?", "where am I weak?" and course-specific doubts.
+ */
+const CourseSelector = ({ courses, value, onChange, compact = false }) => {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const onClickAway = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickAway)
+    return () => document.removeEventListener('mousedown', onClickAway)
+  }, [])
+
+  const selected = courses.find((c) => c.id === value)
+
+  if (!courses.length) return null
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center gap-2 rounded-full border transition-colors ${compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
+          } ${selected
+            ? 'border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/25 text-primary-700 dark:text-primary-300'
+            : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 hover:border-surface-300 dark:hover:border-surface-600'
+          }`}
+      >
+        <BookOpen className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+        <span className="font-medium max-w-[180px] truncate">
+          {selected ? selected.name : 'All courses'}
+        </span>
+        <ChevronDown className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} opacity-60`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute z-30 mt-2 w-72 rounded-2xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-xl p-1.5"
+          >
+            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-surface-400">
+              Answer using my course data
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null)
+                setOpen(false)
+              }}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm hover:bg-surface-100 dark:hover:bg-surface-800 text-left"
+            >
+              <span>
+                <span className="font-medium text-surface-900 dark:text-white">All courses</span>
+                <span className="block text-xs text-surface-500">General doubts, no progress data</span>
+              </span>
+              {!value && <Check className="w-4 h-4 text-primary-500 shrink-0" />}
+            </button>
+            {courses.map((course) => (
+              <button
+                key={course.id}
+                type="button"
+                onClick={() => {
+                  onChange(course.id)
+                  setOpen(false)
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm hover:bg-surface-100 dark:hover:bg-surface-800 text-left"
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: course.color || '#6366f1' }}
+                  />
+                  <span className="min-w-0">
+                    <span className="font-medium text-surface-900 dark:text-white block truncate">
+                      {course.name}
+                    </span>
+                    <span className="block text-xs text-surface-500">{course.course_type}</span>
+                  </span>
+                </span>
+                {value === course.id && <Check className="w-4 h-4 text-primary-500 shrink-0" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * Conversation list
+ * ------------------------------------------------------------------------- */
+
+const ConversationList = ({
+  sessions,
+  activeSession,
+  onSelect,
+  onNewChat,
+  onDelete,
+  isLoading,
+}) => {
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return sessions
+    return sessions.filter((s) => (s.title || '').toLowerCase().includes(q))
+  }, [sessions, query])
+
+  const grouped = useMemo(() => groupSessions(filtered), [filtered])
+
+  return (
+    <div className="h-full flex flex-col bg-surface-50 dark:bg-surface-950/60">
+      <div className="p-3 space-y-3">
+        <button
+          onClick={onNewChat}
+          className="w-full inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 hover:border-primary-300 dark:hover:border-primary-700 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors text-sm font-semibold text-surface-800 dark:text-surface-100"
+        >
+          <MessageSquarePlus className="w-4 h-4 text-primary-500" />
+          New chat
+        </button>
+
+        {sessions.length > 4 && (
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search chats"
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 pb-3">
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-surface-400" />
+          </div>
+        ) : grouped.length === 0 ? (
+          <p className="text-center text-sm text-surface-400 py-8 px-3">
+            {query ? 'No chats match your search.' : 'Your conversations will appear here.'}
+          </p>
+        ) : (
+          grouped.map(([label, items]) => (
+            <div key={label} className="mb-4">
+              <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-surface-400">
+                {label}
+              </p>
+              <div className="space-y-0.5">
+                {items.map((session) => {
+                  const active = activeSession === session.id
+                  return (
+                    <div
+                      key={session.id}
+                      className={`group relative rounded-xl transition-colors ${active
+                        ? 'bg-white dark:bg-surface-800 shadow-sm'
+                        : 'hover:bg-white/70 dark:hover:bg-surface-800/60'
+                        }`}
+                    >
+                      <button
+                        onClick={() => onSelect(session.id)}
+                        className="w-full text-left px-3 py-2.5 pr-9"
+                      >
+                        <p
+                          className={`text-sm truncate ${active
+                            ? 'font-semibold text-surface-900 dark:text-white'
+                            : 'text-surface-700 dark:text-surface-300'
+                            }`}
+                        >
+                          {session.title || 'New chat'}
+                        </p>
+                        {session.course_name && (
+                          <p className="text-[11px] text-surface-400 truncate mt-0.5">
+                            {session.course_name}
+                          </p>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => onDelete(session)}
+                        title="Delete chat"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-surface-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * Message rendering
+ * ------------------------------------------------------------------------- */
+
+const AssistantAvatar = () => (
+  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shrink-0 shadow-sm shadow-primary-500/25">
+    <Sparkles className="w-4 h-4 text-white" />
+  </div>
+)
+
+const TypingDots = () => (
+  <div className="flex items-center gap-1.5 h-6">
+    {[0, 150, 300].map((delay) => (
+      <span
+        key={delay}
+        className="w-1.5 h-1.5 rounded-full bg-primary-500/70 animate-bounce"
+        style={{ animationDelay: `${delay}ms` }}
+      />
+    ))}
+  </div>
+)
+
+const AssistantMessage = ({ content, isStreaming, sessionId, onCopy, onFeedback, messageId }) => {
+  const [copied, setCopied] = useState(false)
+  const [feedback, setFeedback] = useState(null)
+
+  // While streaming we deliberately avoid the quiz parser: it would reveal the
+  // correct answers as the model types them out.
+  if (isStreaming) {
+    return (
+      <div className="text-[15px] leading-relaxed text-surface-800 dark:text-surface-200">
+        {looksLikeQuiz(content) ? (
+          <div className="flex items-center gap-3 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/60 dark:bg-primary-900/20 px-4 py-3">
+            <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
+            <div>
+              <p className="text-sm font-medium text-surface-800 dark:text-surface-100">
+                Building your practice quiz…
+              </p>
+              <p className="text-xs text-surface-500">Answers stay hidden until it's ready.</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <MathRenderer content={content} />
+            <span className="inline-block w-1.5 h-4 bg-primary-500 animate-pulse ml-0.5 align-middle" />
+          </>
+        )}
+      </div>
+    )
+  }
+
+  const quizData = parseQuizFromMessage(content)
+
+  const copy = () => {
+    navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+    onCopy?.()
+  }
+
+  const rate = (helpful) => {
+    setFeedback(helpful)
+    onFeedback?.(messageId, helpful)
+  }
+
+  return (
+    <div className="group">
+      <div className="text-[15px] leading-relaxed text-surface-800 dark:text-surface-200">
+        {quizData ? (
+          <div className="space-y-4">
+            {quizData.remainingContent && <MathRenderer content={quizData.remainingContent} />}
+            <ChatQuiz quiz={quizData.quiz} sessionId={sessionId} />
+          </div>
+        ) : (
+          <MathRenderer content={content} />
+        )}
+      </div>
+
+      {messageId && (
+        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={copy}
+            title="Copy"
+            className="p-1.5 rounded-lg text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => rate(true)}
+            title="Helpful"
+            className={`p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 ${feedback === true ? 'text-emerald-500' : 'text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'
+              }`}
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => rate(false)}
+            title="Not helpful"
+            className={`p-1.5 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 ${feedback === false ? 'text-rose-500' : 'text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'
+              }`}
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const UserMessage = ({ content }) => (
+  <div className="flex justify-end">
+    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary-500 text-white px-4 py-2.5 shadow-sm shadow-primary-500/20">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
+    </div>
+  </div>
+)
+
+/* ---------------------------------------------------------------------------
+ * Page
+ * ------------------------------------------------------------------------- */
 
 const AIDoubtSolver = () => {
   const queryClient = useQueryClient()
+  const { profile } = useAuthStore()
+
   const [input, setInput] = useState('')
   const [activeSession, setActiveSession] = useState(null)
+  const [courseId, setCourseId] = useState(null)
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [pendingUserMessage, setPendingUserMessage] = useState(null) // For optimistic UI
+  const [pendingUserMessage, setPendingUserMessage] = useState(null)
   const [showSidebar, setShowSidebar] = useState(true)
+  const [mobileSidebar, setMobileSidebar] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const messagesEndRef = useRef(null)
-  const messagesContainerRef = useRef(null)
-  const inputRef = useRef(null)
-  const textareaRef = useRef(null)
 
-  // Fetch sessions
+  const scrollRef = useRef(null)
+  const textareaRef = useRef(null)
+  const abortStreamRef = useRef(false)
+
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ['chatSessions'],
     queryFn: () => chatService.getSessions(),
   })
 
-  // Fetch FAQ suggestions
-  const { data: faqSuggestions } = useQuery({
-    queryKey: ['faqSuggestions'],
-    queryFn: () => chatService.getFAQSuggestions(),
+  // Enrolled courses + progress-aware starter prompts + availability status.
+  const { data: workspace } = useQuery({
+    queryKey: ['chatWorkspace', courseId],
+    queryFn: () => chatService.getWorkspace(courseId),
   })
 
-  // Fetch active session messages
-  const { data: sessionData, isLoading: messagesLoading, refetch: refetchSession } = useQuery({
+  const { data: sessionData, refetch: refetchSession } = useQuery({
     queryKey: ['chatSession', activeSession],
     queryFn: () => chatService.getSession(activeSession),
     enabled: !!activeSession,
   })
 
-  // Create new session mutation
   const createSessionMutation = useMutation({
     mutationFn: (data) => chatService.createSession(data),
     onSuccess: (data) => {
       setActiveSession(data.id)
-      queryClient.invalidateQueries(['chatSessions'])
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
     },
   })
 
-  // Smooth scroll to bottom (only scroll container, not the page)
-  const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-    }
-  }, [])
+  const deleteSessionMutation = useMutation({
+    mutationFn: (sessionId) => chatService.deleteSession(sessionId),
+    onSuccess: (_data, sessionId) => {
+      if (activeSession === sessionId) setActiveSession(null)
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      toast.success('Chat deleted')
+    },
+    onError: () => toast.error('Could not delete the chat'),
+  })
 
-  // Auto-scroll on new messages (debounced to prevent flickering)
-  useEffect(() => {
-    const timeout = setTimeout(scrollToBottom, 50)
-    return () => clearTimeout(timeout)
-  }, [sessionData?.messages, streamingContent, scrollToBottom])
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
-    }
-  }, [input])
-
-  // Focus input on session change
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [activeSession])
-
-  // Handle ESC key to exit fullscreen
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen])
-
-  const handleNewChat = async () => {
-    setActiveSession(null)
-    setStreamingContent('')
-    setInput('')
-    inputRef.current?.focus()
-  }
-
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isStreaming) return
-
-    const message = input.trim()
-    setInput('')
-    setStreamingContent('')
-    setIsStreaming(true)
-
-    // Optimistically show user message immediately
-    setPendingUserMessage({
-      id: 'pending-user-' + Date.now(),
-      role: 'user',
-      content: message,
-      created_at: new Date().toISOString()
-    })
-
-    let sessionId = activeSession
-
-    if (!sessionId) {
-      try {
-        const session = await createSessionMutation.mutateAsync({
-          title: message.slice(0, 50),
-        })
-        sessionId = session.id
-      } catch (error) {
-        toast.error('Failed to create chat session')
-        setIsStreaming(false)
-        setPendingUserMessage(null)
-        return
-      }
-    }
-
-    try {
-      await chatService.sendMessageStream(
-        sessionId,
-        message,
-        (chunk, fullContent) => {
-          setStreamingContent(fullContent)
-        },
-        async (data) => {
-          setIsStreaming(false)
-          setStreamingContent('')
-          setPendingUserMessage(null) // Clear pending message
-          await refetchSession()
-          queryClient.invalidateQueries(['chatSessions'])
-        },
-        (error) => {
-          setIsStreaming(false)
-          setStreamingContent('')
-          setPendingUserMessage(null)
-          toast.error('Failed to get response. Please try again.')
-          refetchSession()
-        }
-      )
-    } catch (error) {
-      setIsStreaming(false)
-      setStreamingContent('')
-      setPendingUserMessage(null)
-      toast.error('Failed to send message')
-    }
-  }, [input, activeSession, isStreaming, refetchSession, queryClient, createSessionMutation])
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  const handleFAQClick = async (question) => {
-    setInput(question)
-    setTimeout(() => handleSend(), 100)
-  }
-
-  const handleCopyMessage = (content) => {
-    navigator.clipboard.writeText(content)
-    toast.success('Copied to clipboard!')
-  }
-
-  const handleMarkHelpful = async (messageId, isHelpful) => {
-    try {
-      await chatService.markHelpful(messageId, isHelpful)
-      toast.success(isHelpful ? 'Marked as helpful!' : 'Thanks for feedback')
-    } catch (error) {
-      toast.error('Failed to submit feedback')
-    }
-  }
-
-  const renderMessageContent = (content, isStreamingMsg = false) => {
-    // Don't parse quiz during streaming - just show a loading placeholder
-    if (isStreamingMsg) {
-      // Check if content looks like it might be a quiz (to show appropriate loading state)
-      const looksLikeQuiz = /^\*{0,2}Q(?:uestion)?\.?\s*\d+/im.test(content) ||
-        /^\d+[\.\)]\s+.+\n.*[A-D][\.\)]/m.test(content)
-
-      if (looksLikeQuiz) {
-        // Show a quiz loading indicator instead of revealing answers
-        return (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <span className="font-medium">Generating quiz questions...</span>
-            </div>
-            <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
-              <div className="flex items-center gap-3 text-sm text-violet-700 dark:text-violet-300">
-                <FileText size={24} />
-                <div>
-                  <p className="font-medium">Interactive quiz loading</p>
-                  <p className="text-xs opacity-70">Questions will appear shortly...</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      // For non-quiz content during streaming, render normally
-      return <MathRenderer content={content} />
-    }
-
-    // After streaming is complete, parse and render quiz if present
-    const quizData = parseQuizFromMessage(content)
-
-    if (quizData) {
-      return (
-        <div className="space-y-4">
-          {quizData.remainingContent && (
-            <MathRenderer content={quizData.remainingContent} />
-          )}
-          <ChatQuiz
-            quiz={quizData.quiz}
-            sessionId={activeSession}
-            onComplete={(result) => {
-              // Refresh queries when quiz is completed
-              queryClient.invalidateQueries(['dashboardStats'])
-            }}
-          />
-        </div>
-      )
-    }
-
-    return <MathRenderer content={content} />
-  }
+  const courses = workspace?.courses || []
+  const starters = workspace?.starter_prompts || []
+  const aiAvailable = workspace?.is_available !== false
 
   const messages = sessionData?.messages || []
-
-  // Filter out any message that matches the pending user message to prevent duplicates
-  // This handles the case where the server returns the user message before we clear pendingUserMessage
-  const filteredMessages = pendingUserMessage
-    ? messages.filter(m => !(m.role === 'user' && m.content === pendingUserMessage.content))
-    : messages
-
   const sessionsList = sessions?.results || sessions || []
 
-  const suggestedQuestions = faqSuggestions?.length > 0 ? faqSuggestions : [
-    { question: "Explain Newton's laws of motion with examples" },
-    { question: "How to solve quadratic equations step by step?" },
-    { question: "What is the structure and function of DNA?" },
-    { question: "Give me 5 practice questions on thermodynamics" },
-    { question: "Quiz me on electromagnetic induction" },
-    { question: "Create a practice test on periodic table trends" },
-  ]
+  // The server echoes the user message back once it is persisted; drop our
+  // optimistic copy so it never renders twice.
+  const visibleMessages = pendingUserMessage
+    ? messages.filter((m) => !(m.role === 'user' && m.content === pendingUserMessage.content))
+    : messages
 
-  // Container classes for fullscreen/normal mode
-  const containerClasses = isFullscreen
-    ? 'fixed inset-0 z-50 bg-white dark:bg-surface-900 flex'
-    : 'flex h-[calc(100vh-8rem)] lg:h-[calc(100vh-6rem)] gap-4'
+  const isEmpty = visibleMessages.length === 0 && !pendingUserMessage && !isStreaming
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(scrollToBottom, 50)
+    return () => clearTimeout(t)
+  }, [visibleMessages.length, streamingContent, scrollToBottom])
+
+  // Grow the composer with its content, up to a comfortable ceiling.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }, [input])
+
+  useEffect(() => {
+    textareaRef.current?.focus()
+  }, [activeSession])
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreen) setIsFullscreen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isFullscreen])
+
+  // Keep the picker in sync when opening an older, course-scoped conversation.
+  useEffect(() => {
+    if (sessionData?.course) setCourseId(sessionData.course)
+  }, [sessionData?.course])
+
+  const handleNewChat = () => {
+    setActiveSession(null)
+    setStreamingContent('')
+    setPendingUserMessage(null)
+    setInput('')
+    setMobileSidebar(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleSelectCourse = async (nextCourseId) => {
+    setCourseId(nextCourseId)
+    if (activeSession) {
+      try {
+        await chatService.setSessionCourse(activeSession, nextCourseId)
+        queryClient.invalidateQueries({ queryKey: ['chatSession', activeSession] })
+        queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      } catch {
+        toast.error('Could not switch the course for this chat')
+      }
+    }
+  }
+
+  const send = useCallback(
+    async (text) => {
+      const message = (text ?? input).trim()
+      if (!message || isStreaming) return
+
+      setInput('')
+      setStreamingContent('')
+      setIsStreaming(true)
+      abortStreamRef.current = false
+      setPendingUserMessage({ role: 'user', content: message })
+
+      let sessionId = activeSession
+      if (!sessionId) {
+        try {
+          const session = await createSessionMutation.mutateAsync({
+            title: message.slice(0, 80),
+            course_id: courseId || undefined,
+          })
+          sessionId = session.id
+        } catch {
+          toast.error('Could not start the conversation')
+          setIsStreaming(false)
+          setPendingUserMessage(null)
+          return
+        }
+      }
+
+      try {
+        await chatService.sendMessageStream(
+          sessionId,
+          message,
+          (_chunk, fullContent) => {
+            if (!abortStreamRef.current) setStreamingContent(fullContent)
+          },
+          async () => {
+            setIsStreaming(false)
+            setStreamingContent('')
+            setPendingUserMessage(null)
+            await refetchSession()
+            queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+          },
+          () => {
+            setIsStreaming(false)
+            setStreamingContent('')
+            setPendingUserMessage(null)
+            toast.error('Could not get a response. Please try again.')
+            refetchSession()
+          },
+        )
+      } catch {
+        setIsStreaming(false)
+        setStreamingContent('')
+        setPendingUserMessage(null)
+        toast.error('Could not send your message')
+      }
+    },
+    [input, activeSession, isStreaming, courseId, refetchSession, queryClient, createSessionMutation],
+  )
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      send()
+    }
+  }
+
+  const handleFeedback = async (messageId, isHelpful) => {
+    try {
+      await chatService.markHelpful(messageId, isHelpful)
+      toast.success(isHelpful ? 'Thanks — glad it helped!' : 'Thanks for the feedback')
+    } catch {
+      toast.error('Could not send your feedback')
+    }
+  }
+
+  const handleDeleteSession = (session) => {
+    if (window.confirm(`Delete "${session.title || 'this chat'}"?`)) {
+      deleteSessionMutation.mutate(session.id)
+    }
+  }
+
+  const shellClasses = isFullscreen
+    ? 'fixed inset-0 z-50 bg-white dark:bg-surface-900 flex overflow-hidden'
+    : 'flex h-[calc(100vh-8rem)] lg:h-[calc(100vh-6rem)] overflow-hidden rounded-2xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 shadow-sm'
+
+  const conversationList = (
+    <ConversationList
+      sessions={sessionsList}
+      activeSession={activeSession}
+      onSelect={(id) => {
+        setActiveSession(id)
+        setMobileSidebar(false)
+      }}
+      onNewChat={handleNewChat}
+      onDelete={handleDeleteSession}
+      isLoading={sessionsLoading}
+    />
+  )
 
   return (
-    <div className={containerClasses}>
-      {/* Sidebar Toggle for Mobile */}
-      {!isFullscreen && (
-        <button
-          onClick={() => setShowSidebar(!showSidebar)}
-          className="lg:hidden fixed left-4 top-20 z-50 btn-secondary p-2"
-        >
-          <Menu size={20} />
-        </button>
-      )}
-
-      {/* Sidebar - Chat History */}
-      <AnimatePresence>
-        {showSidebar && !isFullscreen && (
-          <motion.div
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-            className="fixed lg:relative left-0 top-0 h-full w-72 flex-shrink-0 z-40 lg:z-0"
+    <div className={shellClasses}>
+      {/* Desktop rail */}
+      <AnimatePresence initial={false}>
+        {showSidebar && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 272, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="hidden lg:block shrink-0 border-r border-surface-200 dark:border-surface-800 overflow-hidden"
           >
-            <div className="card h-full flex flex-col bg-white dark:bg-surface-900 shadow-xl lg:shadow-none">
-              <div className="p-4 border-b border-surface-200 dark:border-surface-700">
-                <button
-                  onClick={handleNewChat}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  <Plus size={18} />
-                  New Chat
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-2">
-                {sessionsLoading ? (
-                  <div className="flex justify-center p-4">
-                    <Loading />
-                  </div>
-                ) : sessionsList.length === 0 ? (
-                  <div className="text-center p-4 text-surface-500">
-                    <p className="text-sm">No previous chats</p>
-                    <p className="text-xs mt-1">Start a new conversation!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {sessionsList.map((session) => (
-                      <button
-                        key={session.id}
-                        onClick={() => {
-                          setActiveSession(session.id)
-                          setShowSidebar(false)
-                        }}
-                        className={`w-full text-left p-3 rounded-xl transition-all group ${activeSession === session.id
-                          ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                          : 'hover:bg-surface-100 dark:hover:bg-surface-800'
-                          }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <MessageSquare size={18} className="mt-1" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{session.title || 'New Chat'}</p>
-                            <p className="text-xs text-surface-500 truncate mt-0.5">
-                              {session.message_count || 0} messages
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => setShowSidebar(false)}
-                className="lg:hidden absolute top-4 right-4 p-2 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </motion.div>
+            <div className="w-[272px] h-full">{conversationList}</div>
+          </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* Mobile Overlay */}
-      {showSidebar && !isFullscreen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
-
-      {/* Main Chat Area */}
-      <div className={`flex-1 flex flex-col overflow-hidden ${isFullscreen ? '' : 'card'}`}>
-        {/* Header - Fixed height */}
-        <div className="flex-shrink-0 h-[72px] p-4 border-b border-surface-200 dark:border-surface-700 flex items-center gap-3 bg-white dark:bg-surface-900">
-          {isFullscreen && (
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="btn-icon mr-2"
-            >
-              <Menu size={20} />
-            </button>
-          )}
-
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 flex-shrink-0">
-            <Bot size={24} className="text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-base truncate">AI Doubt Solver</h2>
-            <p className="text-xs text-surface-500 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse"></span>
-              GPT-4 • Ask doubts or request quizzes
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {activeSession && (
-              <button
-                onClick={handleNewChat}
-                className="btn-secondary text-sm hidden sm:flex items-center gap-1"
-              >
-                <Plus size={16} />
-                New
-              </button>
-            )}
-
-            {/* Fullscreen Toggle */}
-            <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="btn-icon"
-              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
-            >
-              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Messages Area - Flex grow with fixed overflow */}
-        <div
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overscroll-contain"
-          style={{ minHeight: 0 }} // Important for flex child scrolling
-        >
-          <div className="p-4 space-y-6">
-            {filteredMessages.length === 0 && !isStreaming && !pendingUserMessage ? (
-              <div className="flex flex-col items-center justify-center text-center px-4 py-12">
-                {/* Hero Icon */}
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-6 shadow-xl shadow-violet-500/30"
-                >
-                  <GraduationCap size={40} className="text-white" />
-                </motion.div>
-
-                <motion.h3
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="text-xl font-bold mb-2"
-                >
-                  How can I help you today?
-                </motion.h3>
-
-                <motion.p
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-surface-500 max-w-md mb-8 text-sm"
-                >
-                  Ask about NEET or JEE topics, or say{' '}
-                  <span className="font-semibold text-violet-600">"Quiz me on..."</span> for interactive practice!
-                </motion.p>
-
-                {/* Suggested Questions */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="w-full max-w-xl"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {suggestedQuestions.slice(0, 6).map((faq, index) => (
-                      <motion.button
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 + index * 0.05 }}
-                        onClick={() => handleFAQClick(faq.question)}
-                        className="p-3 text-left text-sm rounded-xl border border-surface-200 dark:border-surface-700 hover:border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all"
-                      >
-                        <span className="flex items-start gap-2">
-                          <span className="text-violet-500 mt-1 flex-shrink-0">
-                            {faq.question.toLowerCase().includes('quiz') || faq.question.toLowerCase().includes('practice') ? <FileText size={16} /> : <Lightbulb size={16} />}
-                          </span>
-                          <span className="line-clamp-2">{faq.question}</span>
-                        </span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
-            ) : (
-              <>
-                {/* Render existing messages */}
-                {filteredMessages.map((message, index) => (
-                  <div
-                    key={message.id || index}
-                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
-                  >
-                    {message.role === 'assistant' && (
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                        <Bot size={18} className="text-white" />
-                      </div>
-                    )}
-
-                    <div
-                      className={`max-w-[85%] lg:max-w-[75%] rounded-2xl ${message.role === 'user'
-                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3'
-                        : 'bg-surface-100 dark:bg-surface-800 px-4 py-3'
-                        }`}
-                    >
-                      {message.role === 'assistant' ? (
-                        <>
-                          {renderMessageContent(message.content)}
-                          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-surface-200 dark:border-surface-700">
-                            <button
-                              onClick={() => handleMarkHelpful(message.id, true)}
-                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-success-500 transition-colors"
-                            >
-                              <ThumbsUp size={14} /> Helpful
-                            </button>
-                            <button
-                              onClick={() => handleMarkHelpful(message.id, false)}
-                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-error-500 transition-colors"
-                            >
-                              <ThumbsDown size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleCopyMessage(message.content)}
-                              className="flex items-center gap-1 text-xs text-surface-500 hover:text-primary-500 transition-colors"
-                            >
-                              <Copy size={14} /> Copy
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
-                      )}
-                    </div>
-
-                    {message.role === 'user' && (
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                        <User size={18} className="text-white" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Render pending user message (optimistic UI) */}
-                {pendingUserMessage && (
-                  <div className="flex gap-3 justify-end">
-                    <div className="max-w-[85%] lg:max-w-[75%] rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white px-4 py-3">
-                      <p className="whitespace-pre-wrap text-sm">{pendingUserMessage.content}</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <User size={18} className="text-white" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Streaming Response */}
-                {isStreaming && (
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <Bot size={18} className="text-white" />
-                    </div>
-                    <div className="max-w-[85%] lg:max-w-[75%] bg-surface-100 dark:bg-surface-800 rounded-2xl px-4 py-3">
-                      {streamingContent ? (
-                        <div>
-                          {renderMessageContent(streamingContent, true)}
-                          <span className="inline-block w-1.5 h-4 bg-violet-500 animate-pulse ml-0.5 align-middle"></span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 py-1">
-                          <span className="text-surface-500 text-sm">Thinking</span>
-                          <div className="flex gap-1">
-                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} className="h-4" />
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Input Area - Fixed height */}
-        <div className="flex-shrink-0 p-4 border-t border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900">
-          <div className="relative">
-            <textarea
-              ref={(el) => {
-                textareaRef.current = el
-                inputRef.current = el
-              }}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your doubt or 'Quiz me on [topic]'..."
-              rows={1}
-              disabled={isStreaming}
-              className="input resize-none pr-12 min-h-[44px] max-h-[150px] py-3 text-sm"
-              style={{ height: 'auto' }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
-              className="absolute right-2 bottom-2 w-8 h-8 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-violet-500/25 transition-all"
-            >
-              {isStreaming ? (
-                <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
-              ) : (
-                <Send size={16} />
-              )}
-            </button>
-          </div>
-          <div className="flex items-center justify-between mt-1.5 text-xs text-surface-400">
-            <p className="flex items-center gap-1"><Lightbulb size={12} /> "Quiz me on [topic]" for practice</p>
-            <p className="hidden sm:block">Enter to send • Shift+Enter for new line</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Fullscreen Sidebar */}
+      {/* Mobile drawer */}
       <AnimatePresence>
-        {isFullscreen && showSidebar && (
+        {mobileSidebar && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-40"
-              onClick={() => setShowSidebar(false)}
+              onClick={() => setMobileSidebar(false)}
+              className="lg:hidden fixed inset-0 bg-black/40 z-40"
             />
             <motion.div
-              initial={{ x: -300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -300, opacity: 0 }}
-              className="fixed left-0 top-0 h-full w-72 z-50 bg-white dark:bg-surface-900 shadow-2xl flex flex-col"
+              initial={{ x: -300 }}
+              animate={{ x: 0 }}
+              exit={{ x: -300 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="lg:hidden fixed left-0 top-0 h-full w-[280px] z-50 shadow-2xl"
             >
-              <div className="p-4 border-b border-surface-200 dark:border-surface-700 flex items-center justify-between">
-                <h3 className="font-semibold">Chat History</h3>
-                <button
-                  onClick={() => setShowSidebar(false)}
-                  className="btn-icon"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="p-4 border-b border-surface-200 dark:border-surface-700">
-                <button
-                  onClick={() => { handleNewChat(); setShowSidebar(false); }}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  <Plus size={18} />
-                  New Chat
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-2">
-                {sessionsList.length === 0 ? (
-                  <div className="text-center p-4 text-surface-500">
-                    <p className="text-sm">No previous chats</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {sessionsList.map((session) => (
-                      <button
-                        key={session.id}
-                        onClick={() => {
-                          setActiveSession(session.id)
-                          setShowSidebar(false)
-                        }}
-                        className={`w-full text-left p-3 rounded-xl transition-all ${activeSession === session.id
-                          ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                          : 'hover:bg-surface-100 dark:hover:bg-surface-800'
-                          }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className="text-lg">💬</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{session.title || 'New Chat'}</p>
-                            <p className="text-xs text-surface-500 mt-0.5">
-                              {session.message_count || 0} messages
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setMobileSidebar(false)}
+                className="absolute right-2 top-3 p-2 rounded-lg text-surface-500 hover:bg-surface-200/60 dark:hover:bg-surface-800 z-10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              {conversationList}
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      {/* Main column */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="shrink-0 h-14 px-3 sm:px-4 flex items-center gap-2 border-b border-surface-200 dark:border-surface-800">
+          <button
+            onClick={() => setShowSidebar((v) => !v)}
+            title={showSidebar ? 'Hide chats' : 'Show chats'}
+            className="hidden lg:inline-flex p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
+          >
+            {showSidebar ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setMobileSidebar(true)}
+            className="lg:hidden p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
+          >
+            <PanelLeftOpen className="w-4 h-4" />
+          </button>
+
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="font-semibold text-surface-900 dark:text-white truncate">
+              {sessionData?.title && activeSession ? sessionData.title : 'AI Study Assistant'}
+            </h1>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:block">
+              <CourseSelector courses={courses} value={courseId} onChange={handleSelectCourse} compact />
+            </div>
+            <button
+              onClick={handleNewChat}
+              title="New chat"
+              className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
+            >
+              <MessageSquarePlus className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsFullscreen((v) => !v)}
+              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+              className="p-2 rounded-lg text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
+        </header>
+
+        {!aiAvailable && (
+          <div className="shrink-0 px-4 py-3 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              {workspace?.unavailable_message || 'The AI assistant is not available right now.'}
+            </p>
+          </div>
+        )}
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ minHeight: 0 }}>
+          {isEmpty ? (
+            <div className="min-h-full flex flex-col items-center justify-center px-4 py-10">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-2xl text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/25 mb-5">
+                  <Sparkles className="w-7 h-7 text-white" />
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white">
+                  {greeting()}, {profile?.user?.first_name || 'there'}
+                </h2>
+                <p className="text-surface-500 mt-2 max-w-md mx-auto">
+                  {courses.length
+                    ? 'Pick a course to get answers about your own progress, mistakes and what’s left — or just ask any doubt.'
+                    : 'Ask any doubt and I’ll explain it step by step.'}
+                </p>
+
+                {courses.length > 0 && (
+                  <div className="flex justify-center mt-5">
+                    <CourseSelector courses={courses} value={courseId} onChange={handleSelectCourse} />
+                  </div>
+                )}
+
+                {starters.length > 0 && (
+                  <div className="grid gap-2.5 sm:grid-cols-2 mt-8 text-left">
+                    {starters.map((prompt, index) => {
+                      const Icon = PROMPT_ICONS[prompt.kind] || Sparkles
+                      return (
+                        <motion.button
+                          key={prompt.text}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.05 * index }}
+                          onClick={() => send(prompt.text)}
+                          disabled={!aiAvailable}
+                          className="group flex items-start gap-3 p-3.5 rounded-2xl border border-surface-200 dark:border-surface-800 hover:border-primary-300 dark:hover:border-primary-700 hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="w-8 h-8 rounded-xl bg-surface-100 dark:bg-surface-800 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 flex items-center justify-center shrink-0 transition-colors">
+                            <Icon className="w-4 h-4 text-primary-500" />
+                          </span>
+                          <span className="text-sm text-surface-700 dark:text-surface-200 leading-snug pt-1">
+                            {prompt.text}
+                          </span>
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+              {visibleMessages.map((message, index) =>
+                message.role === 'user' ? (
+                  <UserMessage key={message.id || index} content={message.content} />
+                ) : (
+                  <div key={message.id || index} className="flex gap-3">
+                    <AssistantAvatar />
+                    <div className="min-w-0 flex-1">
+                      <AssistantMessage
+                        content={message.content}
+                        messageId={message.id}
+                        sessionId={activeSession}
+                        onFeedback={handleFeedback}
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+
+              {pendingUserMessage && <UserMessage content={pendingUserMessage.content} />}
+
+              {isStreaming && (
+                <div className="flex gap-3">
+                  <AssistantAvatar />
+                  <div className="min-w-0 flex-1">
+                    {streamingContent ? (
+                      <AssistantMessage content={streamingContent} isStreaming />
+                    ) : (
+                      <TypingDots />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="h-2" />
+            </div>
+          )}
+        </div>
+
+        {/* Composer */}
+        <div className="shrink-0 px-4 sm:px-6 pb-4 pt-2 bg-gradient-to-t from-white dark:from-surface-900 to-transparent">
+          <div className="max-w-3xl mx-auto">
+            <div className="rounded-2xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800/60 shadow-sm focus-within:border-primary-400 dark:focus-within:border-primary-600 focus-within:ring-2 focus-within:ring-primary-500/15 transition-all">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={!aiAvailable}
+                placeholder={
+                  aiAvailable
+                    ? courseId
+                      ? 'Ask about your progress, a pending chapter, or any doubt…'
+                      : 'Ask a doubt, or say “quiz me on…”'
+                    : 'The AI assistant is unavailable right now'
+                }
+                className="w-full bg-transparent resize-none px-4 pt-3.5 pb-1 text-sm leading-relaxed text-surface-900 dark:text-surface-100 placeholder:text-surface-400 focus:outline-none max-h-[200px] disabled:cursor-not-allowed"
+              />
+              <div className="flex items-center gap-2 px-3 pb-2.5">
+                <div className="sm:hidden">
+                  <CourseSelector courses={courses} value={courseId} onChange={handleSelectCourse} compact />
+                </div>
+                <p className="hidden sm:block text-xs text-surface-400">
+                  Enter to send · Shift+Enter for a new line
+                </p>
+                <button
+                  onClick={() => {
+                    if (isStreaming) {
+                      abortStreamRef.current = true
+                      setIsStreaming(false)
+                      setStreamingContent('')
+                      setPendingUserMessage(null)
+                      refetchSession()
+                    } else {
+                      send()
+                    }
+                  }}
+                  disabled={!isStreaming && (!input.trim() || !aiAvailable)}
+                  title={isStreaming ? 'Stop' : 'Send'}
+                  className="ml-auto w-9 h-9 rounded-xl bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isStreaming ? <Square className="w-3.5 h-3.5 fill-current" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <p className="text-center text-[11px] text-surface-400 mt-2">
+              AI can make mistakes — always double-check important answers against your study material.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

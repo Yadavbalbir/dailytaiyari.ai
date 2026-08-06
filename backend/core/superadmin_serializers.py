@@ -118,6 +118,7 @@ class TenantDetailSerializer(serializers.ModelSerializer):
     student_count = serializers.SerializerMethodField()
     admin_count = serializers.SerializerMethodField()
     course_count = serializers.SerializerMethodField()
+    ai_usage = serializers.SerializerMethodField()
 
     class Meta:
         model = Tenant
@@ -128,6 +129,7 @@ class TenantDetailSerializer(serializers.ModelSerializer):
             'request_enrollment_free', 'request_enrollment_paid',
             'plan', 'billing_status', 'trial_ends_at', 'current_period_end',
             'max_students', 'max_courses', 'max_admins',
+            'ai_platform_monthly_tokens', 'ai_usage',
             'allowed_origins',
             'user_count', 'student_count', 'admin_count', 'course_count',
             'created_at', 'updated_at',
@@ -135,6 +137,7 @@ class TenantDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'created_at', 'updated_at',
             'user_count', 'student_count', 'admin_count', 'course_count',
+            'ai_usage',
         ]
 
     def get_user_count(self, obj):
@@ -148,6 +151,38 @@ class TenantDetailSerializer(serializers.ModelSerializer):
 
     def get_course_count(self, obj):
         return obj.courses.count()
+
+    def get_ai_usage(self, obj):
+        """Whether this tenant runs on its own LLM key, and what the platform key cost.
+
+        ``platform_*`` numbers are the only ones the platform pays for, so this
+        is what the super admin watches before raising a grant.
+        """
+        from django.db.models import Sum
+
+        from chatbot.models import AIProviderConfig, AIUsageRecord
+        from chatbot.resolver import month_start, platform_allowance, tokens_used
+
+        active = (
+            AIProviderConfig.objects.filter(tenant=obj, is_active=True)
+            .values_list('provider', flat=True)
+            .first()
+        )
+        granted, used, remaining = platform_allowance(obj)
+        platform_cost = AIUsageRecord.objects.filter(
+            tenant=obj,
+            source=AIUsageRecord.SOURCE_PLATFORM,
+            created_at__gte=month_start(),
+        ).aggregate(total=Sum('estimated_cost_usd'))['total'] or 0
+        return {
+            'own_provider': active,
+            'has_own_key': bool(active),
+            'platform_granted_tokens': granted,
+            'platform_used_tokens': used,
+            'platform_remaining_tokens': remaining,
+            'month_total_tokens': tokens_used(obj, month_start()),
+            'month_platform_cost_usd': float(platform_cost),
+        }
 
     def validate_theme(self, value):
         if value and value not in Tenant.THEME_CHOICES:

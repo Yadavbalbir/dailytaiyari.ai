@@ -1,0 +1,36 @@
+"""Authoritative tenant resolution for the AI feature.
+
+``TenantMiddleware`` sets ``request.tenant`` purely from the client-supplied
+``X-Tenant-ID`` header; it never checks that the header matches the tenant the
+authenticated user actually belongs to. That is tolerable for read-mostly
+endpoints, but the AI feature guards encrypted provider credentials and a
+spend budget, so anchoring on the header alone would let a user of tenant A
+spend (or read the configuration of) tenant B by swapping one header value.
+
+Everything here therefore derives the tenant from the **user**, and treats a
+mismatching header as an attempt to cross tenants.
+"""
+from rest_framework.exceptions import NotFound, PermissionDenied
+
+
+def request_tenant(request, required=True):
+    """The tenant that owns ``request.user``, validated against the header."""
+    user = getattr(request, 'user', None)
+    user_tenant = getattr(user, 'tenant', None)
+    header_tenant = getattr(request, 'tenant', None)
+
+    if header_tenant is not None and user_tenant is not None:
+        if str(header_tenant.id) != str(user_tenant.id):
+            raise PermissionDenied('This account does not belong to the requested tenant.')
+
+    # Superusers carry no tenant of their own, so they act on the header.
+    tenant = user_tenant or (header_tenant if getattr(user, 'is_superuser', False) else None)
+
+    if tenant is None and required:
+        raise NotFound('No tenant is associated with this request.')
+    return tenant
+
+
+def tenant_of_student(student):
+    """The tenant owning a student profile, from their user account."""
+    return getattr(getattr(student, 'user', None), 'tenant', None)

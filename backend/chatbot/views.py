@@ -3,6 +3,7 @@ Views for Chatbot app.
 """
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import StreamingHttpResponse
@@ -21,8 +22,61 @@ from .serializers import (
     AIQuizAttemptSerializer, AIQuizAttemptListSerializer,
     SubmitAIQuizSerializer, AILearningStatsSerializer
 )
-from .services import ChatService, AIDoubtSolver
+from . import resolver
+from .course_context import enrolled_courses, starter_prompts
+from .services import ChatService
+from .tenancy import request_tenant
 from core.views import TenantAwareViewSet, TenantAwareReadOnlyViewSet
+
+
+class AIWorkspaceView(APIView):
+    """Everything the AI Doubt Solver needs to render its empty state.
+
+    Returns the student's enrolled courses (the only ones they may scope a chat
+    to), starter prompts tailored to their real progress, and whether the AI is
+    actually usable right now — so the UI can explain *why* it is unavailable
+    instead of failing on the first message.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        student = request.user.profile
+        tenant = request_tenant(request, required=False)
+
+        courses = [
+            {
+                'id': str(e.course.id),
+                'name': e.course.name,
+                'code': e.course.code,
+                'color': e.course.color,
+                'course_type': e.course.get_course_type_display(),
+            }
+            for e in enrolled_courses(student)
+        ]
+
+        course = None
+        course_id = request.query_params.get('course_id')
+        if course_id:
+            match = next((e.course for e in enrolled_courses(student) if str(e.course.id) == course_id), None)
+            course = match
+
+        try:
+            resolution = resolver.resolve(tenant, student=None)
+            available, reason, message = True, '', ''
+            model_label = resolution.provider.model
+        except resolver.AIUnavailable as exc:
+            available, reason, message, model_label = False, exc.reason, exc.message, ''
+
+        return Response({
+            'courses': courses,
+            'selected_course_id': str(course.id) if course else None,
+            'starter_prompts': starter_prompts(student, course),
+            'is_available': available,
+            'unavailable_reason': reason,
+            'unavailable_message': message,
+            'model_label': model_label,
+        })
+
 
 
 class ChatSessionViewSet(TenantAwareViewSet):
@@ -31,18 +85,32 @@ class ChatSessionViewSet(TenantAwareViewSet):
     """
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['topic', 'subject', 'is_active']
+    filterset_fields = ['topic', 'subject', 'course', 'is_active']
     search_fields = ['title']
 
     def get_queryset(self):
         return ChatSession.objects.filter(
             student=self.request.user.profile
-        ).select_related('topic', 'subject')
+        ).select_related('topic', 'subject', 'course')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ChatSessionDetailSerializer
         return ChatSessionSerializer
+
+    def _enrolled_course(self, course_id):
+        """Resolve a course id to one the student is actually enrolled in.
+
+        Scoping a chat to a course exposes that course's progress data to the
+        model, so only approved enrollments are accepted.
+        """
+        if not course_id:
+            return None
+        student = self.request.user.profile
+        for enrollment in enrolled_courses(student):
+            if str(enrollment.course.id) == str(course_id):
+                return enrollment.course
+        raise ValidationError({'course_id': 'You are not enrolled in this course.'})
 
     def create(self, request, *args, **kwargs):
         """Create a new chat session."""
@@ -60,12 +128,16 @@ class ChatSessionViewSet(TenantAwareViewSet):
         if data.get('subject_id'):
             from exams.models import Subject
             subject = Subject.objects.filter(id=data['subject_id']).first()
-        
+
+        course = self._enrolled_course(data.get('course_id'))
+
         session = ChatService.create_session(
             request.user.profile,
             topic=topic,
             subject=subject,
-            title=data.get('title')
+            course=course,
+            title=data.get('title'),
+            tenant=request_tenant(request, required=False),
         )
         
         # Process initial message if provided
@@ -76,6 +148,14 @@ class ChatSessionViewSet(TenantAwareViewSet):
             ChatSessionDetailSerializer(session).data,
             status=status.HTTP_201_CREATED
         )
+
+    @action(detail=True, methods=['post'])
+    def set_course(self, request, pk=None):
+        """Re-scope an existing conversation to a different enrolled course."""
+        session = self.get_object()
+        session.course = self._enrolled_course(request.data.get('course_id'))
+        session.save(update_fields=['course', 'updated_at'])
+        return Response(ChatSessionSerializer(session).data)
 
     @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):

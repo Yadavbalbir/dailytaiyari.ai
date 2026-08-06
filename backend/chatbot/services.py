@@ -1,29 +1,31 @@
+"""AI doubt-solver services: prompt assembly, streaming, and session handling.
+
+The actual model call is delegated to :mod:`chatbot.providers` via
+:mod:`chatbot.resolver`, so the tenant's configured LLM (OpenAI, Azure, Gemini,
+Claude, Groq/OpenRouter/Ollama open-source models…) is used transparently and
+every call is metered for cost control.
 """
-AI Chatbot service using OpenAI/LLM with streaming support.
-"""
-import time
 import json
 import logging
-from django.conf import settings
-from django.http import StreamingHttpResponse
+import time
+
+from . import resolver
+from .course_context import course_context_for
+from .providers import AIProviderError, Usage
+from .tenancy import tenant_of_student
 
 logger = logging.getLogger(__name__)
 
 
-class AIDoubtSolver:
-    """
-    AI-powered doubt solver using LLM with streaming support.
-    """
-    
-    SYSTEM_PROMPT = """You are an expert tutor for Indian competitive courses including NEET and IIT JEE (Main & Advanced).
+BASE_SYSTEM_PROMPT = """You are an expert tutor inside an online learning platform, helping a student with the course they are enrolled in.
 
 Your role is to:
 1. Answer doubts clearly and concisely
 2. Explain concepts step-by-step with clear reasoning
 3. Provide examples and real-world analogies
 4. Give tips for remembering formulas and concepts
-5. Mention if a concept is frequently asked in courses (PYQ)
-6. Suggest related topics to study
+5. Point out what is important for the student's exams
+6. Suggest related topics to study next
 7. Be encouraging, patient, and supportive
 8. Create practice quizzes when asked
 
@@ -31,9 +33,8 @@ Guidelines:
 - Use simple language that a student can understand
 - For math/physics, show step-by-step solutions with numbered steps
 - For chemistry, explain reactions with proper equations
-- For biology, use diagrams descriptions when helpful
+- For biology, describe diagrams when helpful
 - For formulas, explain what each variable/symbol means
-- Mention the importance of the topic for specific courses (NEET/JEE)
 - If a question is unclear, ask for clarification
 - Use markdown formatting for better readability:
   - **Bold** for important terms
@@ -46,7 +47,6 @@ Guidelines:
   - Inline math: $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$
   - Display math (own line): $$E = mc^2$$
 - Always use $...$ for inline formulas and $$...$$ for block formulas
-- Examples: $\\frac{a}{b}$, $\\sqrt{x}$, $\\sum_{i=1}^{n}$, $\\int_a^b f(x)dx$
 
 **IMPORTANT - Quiz Format:**
 When a student asks for practice questions, a quiz, or says "quiz me", format the quiz EXACTLY like this:
@@ -69,320 +69,314 @@ Explanation: [Brief explanation]
 
 (Continue for all questions)
 
-Remember: You're helping students prepare for competitive exams. Be patient, helpful, and motivating. Every small concept matters! 💪"""
+Remember: you are helping a real student make progress. Be patient, helpful, and motivating. Every small concept matters!"""
 
-    def __init__(self):
-        self.api_key = settings.OPENAI_API_KEY
-        self.model = "gpt-4o-mini"
-        self._client = None
-        
-    def _get_client(self):
-        """Get OpenAI client (singleton)."""
-        if self._client:
-            return self._client
-            
-        if not self.api_key:
-            logger.error("OpenAI API key not configured")
-            return None
-        
+
+NO_QUIZ_CLAUSE = (
+    '\n\nQuiz generation is disabled on this platform. If the student asks for a quiz, '
+    'politely explain that practice quizzes are available in the Practice Quiz section '
+    'instead, and offer to explain the concept or give worked examples.'
+)
+
+
+def build_system_prompt(session, ai_settings=None):
+    """Assemble the system prompt: base rules + tenant tweaks + course context."""
+    prompt = BASE_SYSTEM_PROMPT
+
+    if ai_settings is not None and not ai_settings.allow_quiz_generation:
+        prompt += NO_QUIZ_CLAUSE
+
+    context_parts = []
+    if session.subject_id:
+        context_parts.append(f'Subject: {session.subject.name}')
+    if session.topic_id:
+        context_parts.append(f'Topic: {session.topic.name}')
+    if context_parts:
+        prompt += (
+            f"\n\nCurrent Context: {', '.join(context_parts)}. "
+            'Focus your answers on this context.'
+        )
+
+    allow_course_context = ai_settings is None or ai_settings.allow_course_context
+    if session.course_id and allow_course_context:
         try:
-            from openai import OpenAI
-            self._client = OpenAI(api_key=self.api_key)
-            return self._client
-        except ImportError:
-            logger.error("OpenAI package not installed")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to initialize OpenAI client: {e}")
-            return None
-    
-    def _build_messages(self, messages, topic=None, subject=None):
-        """Build the message list for the API."""
-        # Build context-aware system prompt
-        system_prompt = self.SYSTEM_PROMPT
-        if topic or subject:
-            context_parts = []
-            if subject:
-                context_parts.append(f"Subject: {subject}")
-            if topic:
-                context_parts.append(f"Topic: {topic}")
-            system_prompt += f"\n\nCurrent Context: {', '.join(context_parts)}. Focus your answers on this context."
-        
-        # Prepare messages for API
-        api_messages = [{"role": "system", "content": system_prompt}]
-        
-        # Add conversation history (limit to last 20 messages for context)
-        for msg in messages[-20:]:
-            api_messages.append({
-                "role": msg['role'],
-                "content": msg['content']
-            })
-        
-        return api_messages
-    
-    def get_response(self, messages, topic=None, subject=None):
-        """
-        Get AI response for a conversation (non-streaming).
-        
-        Args:
-            messages: List of message dicts with 'role' and 'content'
-            topic: Optional topic context
-            subject: Optional subject context
-        
-        Returns:
-            dict with response content and metadata
-        """
-        client = self._get_client()
-        
-        if not client:
-            return self._get_fallback_response(messages[-1]['content'] if messages else '')
-        
-        api_messages = self._build_messages(messages, topic, subject)
-        start_time = time.time()
-        
-        try:
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=api_messages,
-                max_tokens=2000,
-                temperature=0.7,
-            )
-            
-            response_time = int((time.time() - start_time) * 1000)
-            
-            return {
-                'content': response.choices[0].message.content,
-                'model': self.model,
-                'tokens': response.usage.total_tokens,
-                'response_time_ms': response_time,
-                'success': True
-            }
-            
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            return self._get_fallback_response(messages[-1]['content'] if messages else '')
-    
-    def get_streaming_response(self, messages, topic=None, subject=None):
-        """
-        Get AI response as a stream for real-time updates.
-        
-        Yields:
-            str: JSON encoded chunks with 'content' or 'done' flag
-        """
-        client = self._get_client()
-        
-        if not client:
-            fallback = self._get_fallback_response(messages[-1]['content'] if messages else '')
-            yield json.dumps({'content': fallback['content'], 'done': True, 'success': False}) + '\n'
-            return
-        
-        api_messages = self._build_messages(messages, topic, subject)
-        
-        try:
-            stream = client.chat.completions.create(
-                model=self.model,
-                messages=api_messages,
-                max_tokens=2000,
-                temperature=0.7,
-                stream=True,
-            )
-            
-            full_content = ""
-            
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_content += content
-                    yield json.dumps({'content': content, 'done': False}) + '\n'
-            
-            # Send final chunk
-            yield json.dumps({
-                'content': '',
-                'done': True,
-                'success': True,
-                'full_content': full_content,
-                'model': self.model
-            }) + '\n'
-            
-        except Exception as e:
-            logger.error(f"OpenAI streaming error: {e}")
-            fallback = self._get_fallback_response(messages[-1]['content'] if messages else '')
-            yield json.dumps({'content': fallback['content'], 'done': True, 'success': False, 'error': str(e)}) + '\n'
-    
-    def _get_fallback_response(self, question):
-        """
-        Provide a fallback response when API is not available.
-        """
-        return {
-            'content': """I apologize, but I'm currently unable to process your question due to a technical issue.
+            prompt += '\n\n' + course_context_for(session.student, session.course)
+        except Exception:  # noqa: BLE001 - context is an enhancement, never fatal
+            logger.exception('Failed to build course context for session %s', session.id)
 
-**Here's what you can do:**
+    if ai_settings is not None and ai_settings.custom_instructions:
+        prompt += (
+            '\n\n## Additional instructions from this institute\n'
+            + ai_settings.custom_instructions.strip()
+        )
 
-1. **Try again in a few moments** - The issue might be temporary
-2. **Check our FAQ section** - Your question might already be answered
-3. **Use the revision notes** - The topic notes might have the answer
+    return prompt
 
-**If you're stuck on a specific problem:**
-- Review the relevant chapter in your textbook
-- Check solved examples for similar problems
-- Discuss with your teachers or peers
 
-> 💡 **Tip:** Make sure to note down your doubt and revisit it later!
+def build_messages(session, history, ai_settings=None):
+    """System prompt + the last 20 turns, in provider-neutral form."""
+    messages = [{'role': 'system', 'content': build_system_prompt(session, ai_settings)}]
+    for msg in history[-20:]:
+        if msg['role'] in ('user', 'assistant'):
+            messages.append({'role': msg['role'], 'content': msg['content']})
+    return messages
 
-We're working to resolve this issue. Thank you for your patience! 📚""",
-            'model': 'fallback',
-            'tokens': 0,
-            'response_time_ms': 0,
-            'success': False
-        }
-    
-    def suggest_related_questions(self, topic):
-        """
-        Suggest related questions for a topic.
-        """
-        from .models import FrequentQuestion
-        
-        faqs = FrequentQuestion.objects.filter(
-            topic=topic,
-            is_active=True
-        ).order_by('-views_count')[:5]
-        
-        return [{'question': faq.question, 'id': str(faq.id)} for faq in faqs]
+
+UNAVAILABLE_TEMPLATE = """I can't answer right now.
+
+{reason}
+
+**In the meantime you can:**
+- Review the topic's study notes and revision material
+- Try a practice quiz on the topic
+- Post your doubt in the Community for a peer or mentor to answer"""
+
+PROVIDER_ERROR_REASON = (
+    'The AI provider configured for your institute returned an error. '
+    'Please try again in a moment.'
+)
+
+
+def unavailable_message(exc):
+    return UNAVAILABLE_TEMPLATE.format(reason=exc.message)
 
 
 class ChatService:
-    """
-    Service for managing chat sessions and messages.
-    """
-    
+    """Service for managing chat sessions and messages."""
+
     @staticmethod
-    def create_session(student, topic=None, subject=None, title=None):
+    def create_session(student, topic=None, subject=None, title=None, course=None, tenant=None):
         """Create a new chat session."""
         from .models import ChatSession
-        
-        session = ChatSession.objects.create(
+
+        return ChatSession.objects.create(
             student=student,
+            tenant=tenant,
             topic=topic,
             subject=subject,
-            title=title or "New Chat"
+            course=course,
+            title=title or 'New Chat',
         )
-        return session
-    
+
     @staticmethod
     def add_message(session, role, content, **kwargs):
         """Add a message to a session."""
         from .models import ChatMessage
-        
+
         message = ChatMessage.objects.create(
-            session=session,
-            role=role,
-            content=content,
-            **kwargs
+            session=session, tenant=session.tenant, role=role, content=content, **kwargs
         )
-        
-        # Update session
+
         session.message_count += 1
-        if not session.title or session.title == "New Chat":
-            # Set title from first user message
-            if role == 'user':
-                session.title = content[:100]
+        if role == 'user' and (not session.title or session.title == 'New Chat'):
+            session.title = content[:100]
         session.save()
-        
         return message
-    
+
     @staticmethod
     def get_session_history(session, limit=50):
         """Get message history for a session."""
         messages = session.messages.order_by('created_at')[:limit]
         return [
-            {'role': msg.role, 'content': msg.content, 'id': str(msg.id)}
-            for msg in messages
+            {'role': msg.role, 'content': msg.content, 'id': str(msg.id)} for msg in messages
         ]
-    
+
+    @staticmethod
+    def _tenant_of(session):
+        """Whose AI key/budget this conversation spends.
+
+        The student's own account is the authority here — never the stored
+        ``session.tenant``, which originated from a client-supplied header and
+        would otherwise let a user bill a tenant they don't belong to.
+        """
+        return (
+            tenant_of_student(session.student)
+            or session.tenant
+            or getattr(session.course, 'tenant', None)
+        )
+
     @staticmethod
     def process_question(session, question, image=None):
-        """
-        Process a user question and get AI response (non-streaming).
-        """
-        # Add user message
+        """Answer a question without streaming (used by the simple endpoint)."""
+        from .providers import complete
+
         user_message = ChatService.add_message(session, 'user', question)
         if image:
             user_message.image = image
             user_message.save()
-        
-        # Get conversation history
+
+        tenant = ChatService._tenant_of(session)
+        try:
+            resolution = resolver.resolve(tenant, session.student)
+        except resolver.AIUnavailable as exc:
+            return {
+                'message': ChatService.add_message(
+                    session, 'assistant', unavailable_message(exc), model_used='unavailable'
+                ),
+                'success': False,
+                'reason': exc.reason,
+            }
+
         history = ChatService.get_session_history(session)
-        
-        # Get AI response
-        solver = AIDoubtSolver()
-        response = solver.get_response(
-            history,
-            topic=session.topic.name if session.topic else None,
-            subject=session.subject.name if session.subject else None
+        messages = build_messages(session, history, resolution.settings_obj)
+
+        try:
+            content, usage, elapsed = complete(resolution.provider, messages)
+        except AIProviderError as exc:
+            resolver.record_usage(
+                tenant=tenant,
+                student=session.student,
+                session=session,
+                resolved=resolution.provider,
+                usage=Usage(),
+                was_successful=False,
+                error_message=str(exc),
+            )
+            return {
+                'message': ChatService.add_message(
+                    session,
+                    'assistant',
+                    UNAVAILABLE_TEMPLATE.format(reason=PROVIDER_ERROR_REASON),
+                    model_used='error',
+                ),
+                'success': False,
+                'reason': 'provider_error',
+            }
+
+        resolver.record_usage(
+            tenant=tenant,
+            student=session.student,
+            session=session,
+            resolved=resolution.provider,
+            usage=usage,
+            response_time_ms=elapsed,
         )
-        
-        # Add AI response
+
         ai_message = ChatService.add_message(
             session,
             'assistant',
-            response['content'],
-            model_used=response['model'],
-            tokens_used=response['tokens'],
-            response_time_ms=response['response_time_ms']
+            content,
+            model_used=resolution.provider.model[:50],
+            tokens_used=usage.total_tokens,
+            response_time_ms=elapsed,
         )
-        
-        return {
-            'message': ai_message,
-            'success': response['success']
-        }
-    
+        return {'message': ai_message, 'success': True}
+
     @staticmethod
     def process_question_streaming(session, question, image=None):
+        """Answer a question as a newline-delimited JSON stream.
+
+        Yields ``{'content': delta, 'done': False}`` chunks and a terminal
+        ``{'done': True, ...}`` object carrying the saved message id.
         """
-        Process a user question with streaming response.
-        Returns a generator that yields response chunks.
-        """
-        # Add user message
+        from .providers import stream
+
         user_message = ChatService.add_message(session, 'user', question)
         if image:
             user_message.image = image
             user_message.save()
-        
-        # Get conversation history
-        history = ChatService.get_session_history(session)
-        
-        # Get AI streaming response
-        solver = AIDoubtSolver()
-        
-        full_response = ""
-        
-        def stream_generator():
-            nonlocal full_response
-            
-            for chunk in solver.get_streaming_response(
-                history,
-                topic=session.topic.name if session.topic else None,
-                subject=session.subject.name if session.subject else None
-            ):
-                data = json.loads(chunk)
-                
-                if not data.get('done'):
-                    full_response += data.get('content', '')
-                else:
-                    # Save the complete message when done
-                    ai_message = ChatService.add_message(
-                        session,
-                        'assistant',
-                        data.get('full_content', full_response),
-                        model_used=data.get('model', 'gpt-4o-mini'),
-                        tokens_used=0,  # Tokens not available in streaming
-                        response_time_ms=0
+
+        tenant = ChatService._tenant_of(session)
+
+        def generator():
+            try:
+                resolution = resolver.resolve(tenant, session.student)
+            except resolver.AIUnavailable as exc:
+                text = unavailable_message(exc)
+                message = ChatService.add_message(
+                    session, 'assistant', text, model_used='unavailable'
+                )
+                yield json.dumps(
+                    {
+                        'content': text,
+                        'done': True,
+                        'success': False,
+                        'full_content': text,
+                        'reason': exc.reason,
+                        'message_id': str(message.id),
+                    }
+                ) + '\n'
+                return
+
+            history = ChatService.get_session_history(session)
+            messages = build_messages(session, history, resolution.settings_obj)
+
+            started = time.time()
+            full_content = ''
+            usage = Usage()
+
+            try:
+                for delta, chunk_usage in stream(resolution.provider, messages):
+                    if chunk_usage is not None:
+                        usage = chunk_usage
+                    if delta:
+                        full_content += delta
+                        yield json.dumps({'content': delta, 'done': False}) + '\n'
+            except AIProviderError as exc:
+                resolver.record_usage(
+                    tenant=tenant,
+                    student=session.student,
+                    session=session,
+                    resolved=resolution.provider,
+                    usage=Usage(),
+                    was_successful=False,
+                    error_message=str(exc),
+                )
+                if not full_content:
+                    text = UNAVAILABLE_TEMPLATE.format(reason=PROVIDER_ERROR_REASON)
+                    message = ChatService.add_message(
+                        session, 'assistant', text, model_used='error'
                     )
-                    # Add message ID to final chunk
-                    data['message_id'] = str(ai_message.id)
-                    yield json.dumps(data) + '\n'
+                    yield json.dumps(
+                        {
+                            'content': text,
+                            'done': True,
+                            'success': False,
+                            'full_content': text,
+                            'reason': 'provider_error',
+                            'message_id': str(message.id),
+                        }
+                    ) + '\n'
                     return
-                
-                yield chunk
-        
-        return stream_generator()
+
+            elapsed = int((time.time() - started) * 1000)
+
+            # Streaming APIs often omit usage; approximate so budgets still move.
+            if not usage.total_tokens and full_content:
+                approx_out = max(1, len(full_content) // 4)
+                approx_in = max(1, sum(len(m['content']) for m in messages) // 4)
+                usage = Usage(
+                    prompt_tokens=approx_in,
+                    completion_tokens=approx_out,
+                    total_tokens=approx_in + approx_out,
+                )
+
+            resolver.record_usage(
+                tenant=tenant,
+                student=session.student,
+                session=session,
+                resolved=resolution.provider,
+                usage=usage,
+                response_time_ms=elapsed,
+            )
+
+            ai_message = ChatService.add_message(
+                session,
+                'assistant',
+                full_content,
+                model_used=resolution.provider.model[:50],
+                tokens_used=usage.total_tokens,
+                response_time_ms=elapsed,
+            )
+            yield json.dumps(
+                {
+                    'content': '',
+                    'done': True,
+                    'success': True,
+                    'full_content': full_content,
+                    'model': resolution.provider.model,
+                    'message_id': str(ai_message.id),
+                }
+            ) + '\n'
+
+        return generator()

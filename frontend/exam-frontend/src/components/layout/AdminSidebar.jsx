@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Megaphone,
   Bell,
+  Sparkles,
 } from 'lucide-react'
 
 // Admin navigation sections. `tab` items drive the in-page section shown by
@@ -33,6 +34,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'landing', label: 'Landing Page', icon: LayoutTemplate },
   { path: '/admin/mock-tests', label: 'Mock Tests', icon: ClipboardList },
   { path: '/admin/jobs', label: 'Jobs', icon: Briefcase },
+  { tab: 'ai', label: 'AI Features', icon: Sparkles },
   { tab: 'settings', label: 'Settings', icon: SlidersHorizontal },
 ]
 
