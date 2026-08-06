@@ -72,6 +72,29 @@ Explanation: [Brief explanation]
 Remember: you are helping a real student make progress. Be patient, helpful, and motivating. Every small concept matters!"""
 
 
+# Appended whenever a course is selected, so the model knows the data below is
+# real and how it is expected to use it.
+COURSE_DATA_CLAUSE = """
+
+**Using the student's own course data**
+The context below is real data from this student's account — their progress, their
+wrong answers, their submissions. Use it directly and specifically:
+- When they ask about mistakes, quote the actual questions they got wrong, what they
+  picked, and why the correct answer is right. Then name the underlying concept, since
+  repeated mistakes usually share a root cause.
+- When they ask about assignments, use the real titles, due dates and teacher feedback.
+  Flag anything overdue or unsubmitted plainly, without nagging.
+- When their code is failing, reason from the actual verdict and error output. "Wrong
+  answer" on some cases usually means an edge case or off-by-one; a timeout usually means
+  the approach is too slow; a compile error is a syntax or type problem. Suggest what to
+  check, and ask to see their code when that would help more than guessing.
+- Prefer naming one concrete next action over a generic list of options.
+- Never invent a question, score, assignment, deadline or test case that is not listed.
+  If the data does not cover something, say so plainly and offer what you can do instead.
+- Refer back to what has already been discussed in this conversation instead of repeating
+  yourself or asking again for something the student has already told you."""
+
+
 NO_QUIZ_CLAUSE = (
     '\n\nQuiz generation is disabled on this platform. If the student asks for a quiz, '
     'politely explain that practice quizzes are available in the Practice Quiz section '
@@ -102,7 +125,7 @@ def build_system_prompt(session, ai_settings=None):
         try:
             course_block = course_context_for(session.student, session.course)
             if course_block:
-                prompt += '\n\n' + course_block
+                prompt += COURSE_DATA_CLAUSE + '\n\n' + course_block
         except Exception:  # noqa: BLE001 - context is an enhancement, never fatal
             logger.exception('Failed to build course context for session %s', session.id)
 
@@ -115,11 +138,19 @@ def build_system_prompt(session, ai_settings=None):
     return prompt
 
 
+HISTORY_TURNS = 30
+
+
 def build_messages(session, history, ai_settings=None):
-    """System prompt + the last 20 turns, in provider-neutral form."""
+    """System prompt + recent conversation, in provider-neutral form.
+
+    The window is what gives the assistant its memory of the exchange, so it
+    can resolve "these quizzes", "that chapter" or "explain it again" against
+    what was actually said earlier.
+    """
     messages = [{'role': 'system', 'content': build_system_prompt(session, ai_settings)}]
-    for msg in history[-20:]:
-        if msg['role'] in ('user', 'assistant'):
+    for msg in history[-HISTORY_TURNS:]:
+        if msg['role'] in ('user', 'assistant') and msg['content']:
             messages.append({'role': msg['role'], 'content': msg['content']})
     return messages
 
@@ -176,9 +207,16 @@ class ChatService:
         return message
 
     @staticmethod
-    def get_session_history(session, limit=50):
-        """Get message history for a session."""
-        messages = session.messages.order_by('created_at')[:limit]
+    def get_session_history(session, limit=60):
+        """The most recent ``limit`` messages, oldest first.
+
+        Note the ordering: slicing ``order_by('created_at')[:limit]`` would take
+        the *oldest* messages, so a long conversation would freeze its context
+        at the opening exchanges and appear to forget everything said since.
+        We take the newest and flip them back into reading order.
+        """
+        messages = list(session.messages.order_by('-created_at')[:limit])
+        messages.reverse()
         return [
             {'role': msg.role, 'content': msg.content, 'id': str(msg.id)} for msg in messages
         ]

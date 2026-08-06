@@ -12,10 +12,13 @@ message in the conversation, so verbosity here is a recurring cost.
 """
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 # How much detail to include before truncating, keeping the prompt small.
 MAX_SUBJECTS = 12
@@ -270,9 +273,22 @@ def course_context_for(student, course):
     weeks later — and we should stop feeding that course's data to the model
     the moment that happens, not just when the chat was first scoped.
     """
+    from .work_context import work_context_for
+
     if enrolled_course_or_none(student, course.id) is None:
         return ''
-    return render_course_context(build_course_snapshot(student, course))
+
+    block = render_course_context(build_course_snapshot(student, course))
+
+    # Question-, assignment- and code-level detail, so the assistant can talk
+    # about actual mistakes and failures rather than just percentages.
+    try:
+        work = work_context_for(student, course)
+    except Exception:  # noqa: BLE001 - detail is a bonus, never break the chat
+        logger.exception('Failed to build work context for course %s', course.id)
+        work = ''
+
+    return f'{block}\n{work}' if work else block
 
 
 def starter_prompts(student, course=None):
@@ -322,15 +338,51 @@ def starter_prompts(student, course=None):
         prompts.append({'text': f'What should I revise in {course.name}?', 'kind': 'pending'})
 
     weak = snapshot['performance']['weak_topics']
+    quiz_prompt = None
     if weak:
         prompts.append(
             {'text': f"Why do I keep getting {weak[0]['topic']} wrong?", 'kind': 'mistakes'}
         )
-        prompts.append({'text': f"Quiz me on {weak[0]['topic']}", 'kind': 'quiz'})
+        quiz_prompt = {'text': f"Quiz me on {weak[0]['topic']}", 'kind': 'quiz'}
     else:
         prompts.append({'text': 'Where am I making the most mistakes?', 'kind': 'mistakes'})
         if snapshot['subjects']:
-            prompts.append({'text': f"Quiz me on {snapshot['subjects'][0]}", 'kind': 'quiz'})
+            quiz_prompt = {'text': f"Quiz me on {snapshot['subjects'][0]}", 'kind': 'quiz'}
 
+    # Only offer these when the student actually has such work — a prompt that
+    # leads to "you have no assignments" is worse than no prompt at all.
+    try:
+        from .work_context import assignment_status, coding_status
+
+        assignments = assignment_status(student, course)
+        missing = [r for r in assignments['rows'] if r['state'] == 'not_submitted']
+        if missing:
+            overdue = [r for r in missing if r['overdue']]
+            prompts.append(
+                {
+                    'text': (
+                        'Which assignments am I overdue on?'
+                        if overdue
+                        else 'What assignments do I still owe?'
+                    ),
+                    'kind': 'pending',
+                }
+            )
+
+        coding = coding_status(student, course)
+        if coding['rows']:
+            prompts.append(
+                {
+                    'text': f"Why is my {coding['rows'][0]['title']} solution failing?",
+                    'kind': 'mistakes',
+                }
+            )
+    except Exception:  # pragma: no cover - suggestions must never break the page
+        logger.exception('starter_prompts: work context lookup failed')
+
+    # Concrete outstanding work beats a generic quiz suggestion, so the quiz and
+    # study-plan prompts are only added once the actionable ones are in.
+    if quiz_prompt:
+        prompts.append(quiz_prompt)
     prompts.append({'text': f'Build me a 7-day study plan for {course.name}', 'kind': 'plan'})
     return prompts[:6]
