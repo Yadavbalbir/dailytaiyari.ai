@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 # How much detail to include before truncating, keeping the prompt small.
@@ -22,15 +23,48 @@ MAX_CHAPTERS_LISTED = 8
 MAX_WEAK_TOPICS = 6
 
 
-def enrolled_courses(student):
-    """Approved, active course enrollments for this student (newest first)."""
+def enrolled_courses(student, tenant=None):
+    """Courses this student may actually use as AI context.
+
+    Deliberately stricter than "has an enrollment row". A course only qualifies
+    when the enrollment is approved and live *and* the course itself is still
+    active — an inactive or "coming soon" course has no meaningful syllabus or
+    progress to reason about, so offering it in the picker just invites the
+    assistant to answer from an empty snapshot.
+
+    Passing ``tenant`` additionally pins the result to that tenant, so a stale
+    enrollment pointing at another tenant's course can never leak its content.
+    """
     from users.models import CourseEnrollment
 
-    return (
-        CourseEnrollment.objects.filter(student=student, is_active=True, status='approved')
-        .select_related('course')
-        .order_by('-enrolled_at')
+    qs = CourseEnrollment.objects.filter(
+        student=student,
+        is_active=True,
+        status='approved',
+        course__status='active',
     )
+    if tenant is not None:
+        qs = qs.filter(course__tenant=tenant)
+
+    return qs.select_related('course').order_by('-enrolled_at')
+
+
+def enrolled_course_or_none(student, course_id, tenant=None):
+    """Resolve ``course_id`` to a usable enrolled course, else ``None``.
+
+    One indexed query rather than iterating the student's enrollments, and the
+    single place that decides whether a given course is fair game for this
+    student — used by both the course picker and the session endpoints.
+    """
+    if not course_id:
+        return None
+
+    try:
+        enrollment = enrolled_courses(student, tenant=tenant).filter(course_id=course_id).first()
+    except (ValueError, ValidationError):
+        # A malformed uuid is simply "no such course" rather than a 500.
+        return None
+    return enrollment.course if enrollment else None
 
 
 def _content_progress(student, course):
@@ -229,7 +263,15 @@ def render_course_context(snapshot):
 
 
 def course_context_for(student, course):
-    """Convenience wrapper: snapshot → rendered prompt block."""
+    """Convenience wrapper: snapshot → rendered prompt block.
+
+    Re-checks eligibility at send time. A conversation can outlive the access
+    that created it — the course may be deactivated or the enrollment revoked
+    weeks later — and we should stop feeding that course's data to the model
+    the moment that happens, not just when the chat was first scoped.
+    """
+    if enrolled_course_or_none(student, course.id) is None:
+        return ''
     return render_course_context(build_course_snapshot(student, course))
 
 
