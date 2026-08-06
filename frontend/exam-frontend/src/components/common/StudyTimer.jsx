@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Flame, CheckCircle2, Zap, Timer } from 'lucide-react'
 import { analyticsService } from '../../services/analyticsService'
 import toast from 'react-hot-toast'
 import confetti from 'canvas-confetti'
@@ -207,13 +208,14 @@ const StudyTimer = () => {
 
   // Get status info
   const getStatus = () => {
-    if (exceededGoal) return { emoji: '🔥', color: 'success', label: 'Excellent!' }
-    if (timerData.goal_achieved) return { emoji: '✅', color: 'success', label: 'Done!' }
-    if (remainingSeconds < 300) return { emoji: '⚡', color: 'warning', label: 'Almost!' }
-    return { emoji: '⏱️', color: 'primary', label: 'Study' }
+    if (exceededGoal) return { Icon: Flame, color: 'success', label: 'Excellent!' }
+    if (timerData.goal_achieved) return { Icon: CheckCircle2, color: 'success', label: 'Done!' }
+    if (remainingSeconds < 300) return { Icon: Zap, color: 'warning', label: 'Almost!' }
+    return { Icon: Timer, color: 'primary', label: 'Study' }
   }
 
   const status = getStatus()
+  const StatusIcon = status.Icon
 
   const handleDragEnd = (event, info) => {
     setPosition({ x: info.point.x, y: info.point.y })
@@ -274,9 +276,9 @@ const StudyTimer = () => {
             >
               <button
                 onClick={() => setViewMode('expanded')}
-                className={`w-10 h-10 rounded-full ${colors.bg} shadow-lg flex items-center justify-center text-lg hover:scale-110 transition-transform ring-4 ${colors.ring}`}
+                className={`w-10 h-10 rounded-full ${colors.bg} shadow-lg flex items-center justify-center hover:scale-110 transition-transform ring-4 ${colors.ring}`}
               >
-                {status.emoji}
+                <StatusIcon className="w-5 h-5 text-white" strokeWidth={2} />
               </button>
 
               {/* Progress ring */}
@@ -355,10 +357,10 @@ const StudyTimer = () => {
               {/* Minimize button */}
               <button
                 onClick={() => setViewMode('minimal')}
-                className="text-sm hover:scale-110 transition-transform"
+                className="hover:scale-110 transition-transform"
                 title="Minimize"
               >
-                {status.emoji}
+                <StatusIcon className={`w-4 h-4 ${colors.textDark}`} strokeWidth={2} />
               </button>
 
               {/* Time - click to expand */}
@@ -410,7 +412,7 @@ const StudyTimer = () => {
                 className={`px-4 py-3 ${exceededGoal ? 'bg-success-500' : timerData.goal_achieved ? 'bg-success-100 dark:bg-success-900/50' : 'bg-primary-50 dark:bg-primary-900/20'} flex items-center justify-between`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{status.emoji}</span>
+                  <StatusIcon className={`w-5 h-5 ${exceededGoal ? 'text-white' : colors.textDark}`} strokeWidth={2} />
                   <span className={`font-semibold text-sm ${exceededGoal ? 'text-white' : colors.textDark}`}>
                     {status.label}
                   </span>

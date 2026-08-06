@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../../context/authStore'
 import { useAppStore } from '../../context/appStore'
-import { analyticsService } from '../../services/analyticsService'
 import NotificationBell from './NotificationBell'
+import StreakChip from './StreakChip'
+import XPChip from './XPChip'
 
 const Header = () => {
   const navigate = useNavigate()
@@ -18,14 +18,6 @@ const Header = () => {
   const isAdmin = profile?.user?.role === 'admin'
   const isAdminView = location.pathname.startsWith('/admin-dashboard')
 
-
-  // Fetch current streak
-  const { data: streakData } = useQuery({
-    queryKey: ['currentStreak'],
-    queryFn: () => analyticsService.getCurrentStreak(),
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    enabled: isAuthenticated,
-  })
 
   return (
     <header className="sticky top-0 z-30 bg-white/80 dark:bg-surface-900/80 backdrop-blur-lg border-b border-surface-200 dark:border-surface-800">
@@ -96,24 +88,11 @@ const Header = () => {
         {/* Right Section */}
         <div className="flex items-center gap-2 lg:gap-4">
           {/* Streak Indicator */}
-          {(streakData?.current_streak > 0) && (
-            <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-900/30">
-              <span className="text-lg">🔥</span>
-              <span className="font-semibold text-primary-600 dark:text-primary-400">
-                {streakData?.current_streak || 0}
-              </span>
-            </div>
-          )}
+          <StreakChip enabled={isAuthenticated} />
 
           {/* XP */}
-          {isAuthenticated && (
-            <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent-50 dark:bg-accent-900/30">
-              <span className="text-lg">⚡</span>
-              <span className="font-semibold text-accent-600 dark:text-accent-400">
-                {profile?.total_xp?.toLocaleString() || 0}
-              </span>
-            </div>
-          )}
+          <XPChip enabled={isAuthenticated} />
+
 
           {/* Dark Mode Toggle */}
           <button
