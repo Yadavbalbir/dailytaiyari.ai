@@ -1,7 +1,44 @@
+import logging
+import uuid
+
 from django.utils.deprecation import MiddlewareMixin
 from django.http import JsonResponse
 from core.models import Tenant
-import uuid
+
+logger = logging.getLogger(__name__)
+
+_USER_CACHE_ATTR = '_resolved_api_user'
+
+
+def resolve_request_user(request):
+    """The authenticated user for an API request, or ``None``.
+
+    Middleware runs before DRF, so ``request.user`` is still anonymous for
+    token-authenticated calls. We decode the JWT here and cache the result on
+    the request so the tenant and suspension checks don't each pay for it.
+    """
+    if hasattr(request, _USER_CACHE_ATTR):
+        return getattr(request, _USER_CACHE_ATTR)
+
+    user = None
+
+    # Session auth (Django admin, browsable API) is already resolved upstream.
+    session_user = getattr(request, 'user', None)
+    if session_user is not None and getattr(session_user, 'is_authenticated', False):
+        user = session_user
+    else:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+
+        try:
+            result = JWTAuthentication().authenticate(request)
+        except Exception:
+            # Invalid/expired/malformed token — let the normal auth flow answer.
+            result = None
+        if result is not None:
+            user, _token = result
+
+    setattr(request, _USER_CACHE_ATTR, user)
+    return user
 
 # Paths that don't require a tenant header
 TENANT_EXEMPT_PATHS = [
@@ -29,10 +66,13 @@ TENANT_SUSPENSION_BYPASS_PATHS = [
 ]
 
 class TenantMiddleware(MiddlewareMixin):
-    """
-    Middleware to extract and enforce the tenant from request headers.
-    All API requests must include a valid X-Tenant-ID header,
-    except for whitelisted paths like admin and tenant config endpoints.
+    """Resolve and enforce the tenant for every API request.
+
+    All API requests must carry a valid ``X-Tenant-ID`` header (except the
+    whitelisted paths above), *and* the authenticated caller must belong to
+    that tenant. Validating only that the tenant exists is not enough — the
+    header is client-supplied, so without the ownership check it is a
+    self-service cross-tenant access grant.
     """
     def process_request(self, request):
         # Check if this path is exempt from tenant requirement
@@ -66,6 +106,13 @@ class TenantMiddleware(MiddlewareMixin):
 
         request.tenant = tenant
 
+        # The header alone proves nothing: anyone can send any tenant's UUID.
+        # Bind it to the caller's own account, or a logged-in user of tenant A
+        # could read and write tenant B's data simply by editing one header.
+        mismatch = self._tenant_mismatch(request, tenant)
+        if mismatch is not None:
+            return mismatch
+
         # A suspended or billing-frozen tenant stays active (so its public
         # config + notice still load) but is frozen: every authenticated API
         # call is rejected. Auth-bootstrap paths are allowed through so the
@@ -80,6 +127,38 @@ class TenantMiddleware(MiddlewareMixin):
                 },
                 status=403,
             )
+
+    @staticmethod
+    def _tenant_mismatch(request, tenant):
+        """403 when the caller does not belong to the tenant they asked for.
+
+        Anonymous requests are left alone — public endpoints (registration, the
+        course catalogue, landing config) legitimately have no user to check.
+        Django superusers are platform operators and are tenant-less by design,
+        so they are exempt; every other account is pinned to its own tenant.
+        """
+        user = resolve_request_user(request)
+        if user is None or getattr(user, 'is_superuser', False):
+            return None
+
+        user_tenant_id = getattr(user, 'tenant_id', None)
+        if user_tenant_id is None or user_tenant_id == tenant.id:
+            return None
+
+        logger.warning(
+            'Tenant mismatch: user %s (tenant %s) requested tenant %s on %s',
+            getattr(user, 'id', '?'),
+            user_tenant_id,
+            tenant.id,
+            request.path,
+        )
+        return JsonResponse(
+            {
+                'detail': 'You do not have access to this tenant.',
+                'code': 'tenant_mismatch',
+            },
+            status=403,
+        )
 
     @staticmethod
     def _is_suspension_bypass(path):
@@ -117,14 +196,11 @@ class BlockSuspendedUsersMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        # Import lazily-safe: simplejwt is already an installed app.
-        from rest_framework_simplejwt.authentication import JWTAuthentication
-        self._authenticator = JWTAuthentication()
 
     def __call__(self, request):
         path = request.path
         if path.startswith('/api/') and not self._is_exempt(path):
-            user = self._get_user(request)
+            user = resolve_request_user(request)
             if user is not None and getattr(user, 'is_suspended', False):
                 return JsonResponse(
                     {
@@ -138,14 +214,3 @@ class BlockSuspendedUsersMiddleware:
     @staticmethod
     def _is_exempt(path):
         return any(path.startswith(p) for p in SUSPENSION_EXEMPT_PATHS)
-
-    def _get_user(self, request):
-        try:
-            result = self._authenticator.authenticate(request)
-        except Exception:
-            # Invalid/expired token — let the normal auth flow handle it.
-            return None
-        if result is None:
-            return None
-        user, _token = result
-        return user
