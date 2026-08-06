@@ -79,7 +79,7 @@ const XPHistory = () => {
                         <div>
                             <h1 className="text-2xl font-bold tabular-nums">{totalXP.toLocaleString()} XP</h1>
                             <p className="text-sm text-surface-500">
-                                Level {level} · combined total from courses and community
+                                Level {level} · combined total from courses, AI learning and community
                             </p>
                         </div>
                     </div>
@@ -159,8 +159,8 @@ const XPHistory = () => {
             <div className="card p-6">
                 <h2 className="text-lg font-semibold">How XP is earned</h2>
                 <p className="text-sm text-surface-500 mt-1">
-                    Your XP is a single running total across every course <em>and</em> the community —
-                    each point below is awarded automatically the moment you complete the activity.
+                    Your XP is a single running total across every course, AI learning <em>and</em> the
+                    community — each point below is awarded automatically the moment you complete the activity.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-3 mt-4">

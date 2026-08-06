@@ -79,7 +79,7 @@ const XPChip = ({ enabled = true }) => {
                                         {totalXP.toLocaleString()} XP earned
                                     </p>
                                     <p className="text-xs text-surface-500 mt-0.5">
-                                        Your combined total from courses and community
+                                        Your combined total from courses, AI learning and community
                                     </p>
                                 </div>
                             </div>

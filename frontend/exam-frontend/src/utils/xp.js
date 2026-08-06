@@ -135,7 +135,7 @@ export const XP_EARNING_RULES = [
     {
         Icon: Brain,
         title: 'Complete an AI quiz',
-        detail: 'Includes an accuracy bonus. Capped at 25 XP per attempt and 75 XP per day.',
+        detail: 'From AI Learning / the doubt solver. Questions × 5 scaled by accuracy, plus an accuracy bonus (+10 at 100%, +5 at 80%, +2 at 60%). Capped at 25 XP per attempt and 75 XP per day.',
         value: 'up to 25 XP',
     },
     {

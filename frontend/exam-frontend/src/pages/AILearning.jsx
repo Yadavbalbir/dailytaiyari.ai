@@ -94,9 +94,13 @@ const AILearning = () => {
         >
           <div className="text-3xl font-bold text-primary-600">{stats?.total_xp_earned || 0}</div>
           <div className="text-sm text-surface-500 mt-1">AI XP Earned</div>
-          <div className="text-xs text-primary-500 mt-1 flex items-center justify-center gap-1">
-            <Zap size={12} /> From AI quizzes
-          </div>
+          <button
+            onClick={() => navigate('/xp')}
+            className="text-xs text-primary-500 hover:text-primary-600 hover:underline mt-1 flex items-center justify-center gap-1 mx-auto"
+            title="AI quiz XP is added to the same total XP shown in the header"
+          >
+            <Zap size={12} /> Counted in your total XP
+          </button>
         </motion.div>
 
         <motion.div
