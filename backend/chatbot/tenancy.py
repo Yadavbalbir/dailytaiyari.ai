@@ -1,14 +1,14 @@
 """Authoritative tenant resolution for the AI feature.
 
-``TenantMiddleware`` sets ``request.tenant`` purely from the client-supplied
-``X-Tenant-ID`` header; it never checks that the header matches the tenant the
-authenticated user actually belongs to. That is tolerable for read-mostly
-endpoints, but the AI feature guards encrypted provider credentials and a
-spend budget, so anchoring on the header alone would let a user of tenant A
-spend (or read the configuration of) tenant B by swapping one header value.
+``TenantMiddleware`` now rejects any request whose ``X-Tenant-ID`` header does
+not match the authenticated caller's own tenant, so this module is no longer
+the only thing standing between tenants. It is kept as defence in depth: the AI
+feature guards encrypted provider credentials and a real spend budget, and a
+view that resolves its tenant from the **user** cannot be compromised by a
+future change to the middleware or its exempt-path list.
 
-Everything here therefore derives the tenant from the **user**, and treats a
-mismatching header as an attempt to cross tenants.
+Everything here derives the tenant from the user, and treats a mismatching
+header as an attempt to cross tenants.
 """
 from rest_framework.exceptions import NotFound, PermissionDenied
 
