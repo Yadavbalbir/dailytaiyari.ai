@@ -577,11 +577,11 @@ const AIDoubtSolver = () => {
             await refetchSession()
             queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
           },
-          () => {
+          (error) => {
             setIsStreaming(false)
             setStreamingContent('')
             setPendingUserMessage(null)
-            toast.error('Could not get a response. Please try again.')
+            toast.error(error?.message || 'Could not get a response. Please try again.')
             refetchSession()
           },
         )
