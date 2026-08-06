@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Zap } from 'lucide-react'
 import MathRenderer from './MathRenderer'
 import { chatService } from '../../services/chatService'
 import confetti from 'canvas-confetti'
@@ -257,7 +258,7 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
               transition={{ delay: 0.3 }}
               className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-full font-semibold"
             >
-              <span>⚡</span>
+              <Zap className="w-4 h-4" fill="currentColor" strokeWidth={1.5} />
               <span>+{xpEarned} XP Earned!</span>
             </motion.div>
           )}

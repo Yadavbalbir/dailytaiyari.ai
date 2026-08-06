@@ -39,6 +39,7 @@ import MockTestAttempt from './pages/MockTestAttempt'
 import MockTestReview from './pages/MockTestReview'
 import Analytics from './pages/Analytics'
 import Leaderboard from './pages/Leaderboard'
+import XPHistory from './pages/XPHistory'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import AIDoubtSolver from './pages/AIDoubtSolver'
@@ -266,6 +267,7 @@ function App() {
           <Route path="/leaderboard" element={<LoginGate><FeatureRoute feature="leaderboard"><Leaderboard /></FeatureRoute></LoginGate>} />
           <Route path="/profile" element={<LoginGate><Profile /></LoginGate>} />
           <Route path="/notifications" element={<LoginGate><Notifications /></LoginGate>} />
+          <Route path="/xp" element={<LoginGate><XPHistory /></LoginGate>} />
           <Route path="/doubt-solver" element={<LoginGate><FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute></LoginGate>} />
           <Route path="/ai-doubt-solver" element={<LoginGate><FeatureRoute feature="ai"><AIDoubtSolver /></FeatureRoute></LoginGate>} />
           <Route path="/ai-learning" element={<LoginGate><FeatureRoute feature="ai"><AILearning /></FeatureRoute></LoginGate>} />
