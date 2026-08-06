@@ -1,4 +1,4 @@
-import api from './api'
+import api, { TENANT_ID } from './api'
 
 // For streaming endpoints that need direct fetch instead of axios
 const getStreamingBaseUrl = () => {
@@ -6,6 +6,33 @@ const getStreamingBaseUrl = () => {
     return import.meta.env.VITE_API_URL
   }
   return import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '/api/v1'
+}
+
+/**
+ * Headers for the streaming endpoints.
+ *
+ * These use raw fetch() so they bypass the axios instance entirely — including
+ * its default X-Tenant-ID header. TenantMiddleware rejects any API call without
+ * it, so omitting it here makes streaming fail with a 403 while every other
+ * request succeeds.
+ */
+const streamingHeaders = () => {
+  const headers = { 'Content-Type': 'application/json' }
+
+  if (TENANT_ID) headers['X-Tenant-ID'] = TENANT_ID
+
+  try {
+    const authData = localStorage.getItem('auth-storage')
+    if (authData) {
+      const { state } = JSON.parse(authData)
+      if (state?.tokens?.access) headers.Authorization = `Bearer ${state.tokens.access}`
+    }
+  } catch {
+    // Corrupt auth storage — send the request unauthenticated and let the
+    // server's 401 drive the normal re-login flow.
+  }
+
+  return headers
 }
 
 export const chatService = {
@@ -65,29 +92,27 @@ export const chatService = {
 
   // Streaming message send
   sendMessageStream: async (sessionId, content, onChunk, onComplete, onError) => {
-    // Get token from auth storage (same way api.js does)
-    let token = null
-    const authData = localStorage.getItem('auth-storage')
-    if (authData) {
-      const { state } = JSON.parse(authData)
-      token = state?.tokens?.access
-    }
-    
     try {
       const response = await fetch(
         `${getStreamingBaseUrl()}/chatbot/sessions/${sessionId}/send_message_stream/`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: streamingHeaders(),
           body: JSON.stringify({ content }),
         }
       )
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Surface the server's own explanation (missing tenant, quota reached,
+        // provider not configured) rather than a bare status code.
+        let detail = ''
+        try {
+          const body = await response.json()
+          detail = body.error || body.detail || ''
+        } catch {
+          // Non-JSON error body; the status code alone will have to do.
+        }
+        throw new Error(detail || `Request failed with status ${response.status}`)
       }
 
       const reader = response.body.getReader()

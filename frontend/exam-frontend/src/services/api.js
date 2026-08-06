@@ -3,6 +3,10 @@ import axios from 'axios'
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
 const TENANT_ID = import.meta.env.VITE_TENANT_ID
 
+// Exported for the streaming endpoints, which use raw fetch() and therefore
+// can't rely on the axios instance's default headers / interceptors below.
+export { API_BASE_URL, TENANT_ID }
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
