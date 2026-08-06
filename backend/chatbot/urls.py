@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ChatSessionViewSet, ChatMessageViewSet,
     SavedResponseViewSet, FrequentQuestionViewSet,
-    AIQuizAttemptViewSet
+    AIQuizAttemptViewSet, AIWorkspaceView
 )
 
 router = DefaultRouter()
@@ -17,6 +17,7 @@ router.register(r'faq', FrequentQuestionViewSet, basename='faq')
 router.register(r'ai-quizzes', AIQuizAttemptViewSet, basename='ai-quiz')
 
 urlpatterns = [
+    path('workspace/', AIWorkspaceView.as_view(), name='chat-workspace'),
     path('', include(router.urls)),
 ]
 

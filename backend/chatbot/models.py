@@ -1,6 +1,8 @@
 """
 Chatbot models for AI doubt solver.
 """
+import uuid
+
 from django.db import models
 from core.models import TimeStampedModel
 from exams.models import Topic, Subject
@@ -22,6 +24,15 @@ class ChatSession(TimeStampedModel):
     
     # Context
     title = models.CharField(max_length=200, blank=True)
+    # The enrolled course this conversation is scoped to. When set, the AI is
+    # given that course's syllabus + the student's progress/mistakes so it can
+    # answer "what's pending?", "where did I go wrong?" style questions.
+    course = models.ForeignKey(
+        'exams.Course',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='chat_sessions'
+    )
     topic = models.ForeignKey(
         Topic,
         on_delete=models.SET_NULL,
@@ -363,3 +374,237 @@ class AILearningStats(TimeStampedModel):
         self.last_quiz_date = today
         self.save()
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bring-your-own-LLM configuration (tenant admin → "AI Features")
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AIProviderConfig(models.Model):
+    """A tenant's LLM provider credentials for the AI Doubt Solver.
+
+    A tenant may store several providers but exactly one is ``is_active`` — that
+    is the one used to answer students. API keys are encrypted at rest via
+    :mod:`core.encryption` and are never serialized back to API clients.
+
+    Every supported provider except Anthropic speaks the OpenAI chat-completions
+    protocol, so they share one client path and only differ by ``base_url``:
+
+    * ``openai``            — api.openai.com
+    * ``azure_openai``      — an Azure OpenAI deployment
+    * ``gemini``            — Google's OpenAI-compatible endpoint
+    * ``anthropic``         — Claude (native Messages API)
+    * ``groq``              — free/fast hosting of open-source models
+    * ``openrouter``        — includes several ``:free`` open-source models
+    * ``together``          — open-source model hosting
+    * ``ollama``            — self-hosted open models (fully free, your server)
+    * ``custom``            — any other OpenAI-compatible endpoint (vLLM, LM Studio…)
+    """
+
+    PROVIDER_OPENAI = 'openai'
+    PROVIDER_AZURE = 'azure_openai'
+    PROVIDER_GEMINI = 'gemini'
+    PROVIDER_ANTHROPIC = 'anthropic'
+    PROVIDER_GROQ = 'groq'
+    PROVIDER_OPENROUTER = 'openrouter'
+    PROVIDER_TOGETHER = 'together'
+    PROVIDER_OLLAMA = 'ollama'
+    PROVIDER_CUSTOM = 'custom'
+
+    PROVIDER_CHOICES = [
+        (PROVIDER_OPENAI, 'OpenAI'),
+        (PROVIDER_AZURE, 'Azure OpenAI'),
+        (PROVIDER_GEMINI, 'Google Gemini'),
+        (PROVIDER_ANTHROPIC, 'Anthropic Claude'),
+        (PROVIDER_GROQ, 'Groq (open-source models)'),
+        (PROVIDER_OPENROUTER, 'OpenRouter (free open-source models)'),
+        (PROVIDER_TOGETHER, 'Together AI (open-source models)'),
+        (PROVIDER_OLLAMA, 'Self-hosted Ollama'),
+        (PROVIDER_CUSTOM, 'Custom OpenAI-compatible endpoint'),
+    ]
+
+    # Default endpoint per provider. ``None`` means "the SDK default" (OpenAI)
+    # or "the admin must supply one" (Azure / Ollama / custom).
+    DEFAULT_BASE_URLS = {
+        PROVIDER_OPENAI: '',
+        PROVIDER_GEMINI: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        PROVIDER_GROQ: 'https://api.groq.com/openai/v1',
+        PROVIDER_OPENROUTER: 'https://openrouter.ai/api/v1',
+        PROVIDER_TOGETHER: 'https://api.together.xyz/v1',
+        PROVIDER_OLLAMA: 'http://localhost:11434/v1',
+        PROVIDER_ANTHROPIC: 'https://api.anthropic.com',
+    }
+
+    # A sensible default model so a tenant only has to paste a key.
+    DEFAULT_MODELS = {
+        PROVIDER_OPENAI: 'gpt-4o-mini',
+        PROVIDER_AZURE: '',  # = the deployment name, tenant-specific
+        PROVIDER_GEMINI: 'gemini-2.0-flash',
+        PROVIDER_ANTHROPIC: 'claude-3-5-haiku-latest',
+        PROVIDER_GROQ: 'llama-3.3-70b-versatile',
+        PROVIDER_OPENROUTER: 'meta-llama/llama-3.3-70b-instruct:free',
+        PROVIDER_TOGETHER: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        PROVIDER_OLLAMA: 'llama3.1',
+        PROVIDER_CUSTOM: '',
+    }
+
+    # Providers that do not need an API key (self-hosted, open weights).
+    KEYLESS_PROVIDERS = {PROVIDER_OLLAMA, PROVIDER_CUSTOM}
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        'core.Tenant', on_delete=models.CASCADE, related_name='ai_providers'
+    )
+    provider = models.CharField(max_length=32, choices=PROVIDER_CHOICES)
+
+    api_key_encrypted = models.TextField(blank=True, default='')
+    # Endpoint override. Required for Azure ("https://<res>.openai.azure.com"),
+    # Ollama and custom endpoints; defaulted for the rest.
+    base_url = models.CharField(max_length=500, blank=True, default='')
+    # Model name, or the *deployment name* for Azure OpenAI.
+    model = models.CharField(max_length=200, blank=True, default='')
+    # Azure only — the REST API version of the deployment.
+    api_version = models.CharField(max_length=50, blank=True, default='2024-10-21')
+
+    # Generation controls, exposed to the admin so they can trade cost/quality.
+    temperature = models.FloatField(default=0.7)
+    max_tokens = models.PositiveIntegerField(default=2000)
+
+    is_active = models.BooleanField(default=False)
+
+    # Result of the last "Test connection" run, surfaced in the admin UI.
+    last_tested_at = models.DateTimeField(null=True, blank=True)
+    last_test_ok = models.BooleanField(null=True, blank=True)
+    last_test_error = models.CharField(max_length=500, blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'AI Provider Config'
+        verbose_name_plural = 'AI Provider Configs'
+        ordering = ['provider']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'provider'], name='uniq_tenant_ai_provider'
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tenant.name} — {self.get_provider_display()}'
+
+    @property
+    def api_key(self):
+        """Decrypted API key (empty string when not set)."""
+        from core.encryption import decrypt
+        return decrypt(self.api_key_encrypted)
+
+    @api_key.setter
+    def api_key(self, raw):
+        from core.encryption import encrypt
+        self.api_key_encrypted = encrypt(raw or '')
+
+    @property
+    def effective_base_url(self):
+        return self.base_url or self.DEFAULT_BASE_URLS.get(self.provider, '')
+
+    @property
+    def effective_model(self):
+        return self.model or self.DEFAULT_MODELS.get(self.provider, '')
+
+    @property
+    def is_configured(self):
+        """True once everything needed to actually call the provider is present."""
+        if not self.effective_model:
+            return False
+        if self.provider in self.KEYLESS_PROVIDERS:
+            return bool(self.effective_base_url)
+        if self.provider == self.PROVIDER_AZURE:
+            return bool(self.api_key_encrypted and self.base_url)
+        return bool(self.api_key_encrypted)
+
+
+class AISettings(TimeStampedModel):
+    """Per-tenant AI behaviour and spend guardrails.
+
+    One row per tenant, created lazily. ``student_daily_message_limit`` and
+    ``monthly_token_budget`` are the tenant's own guardrails on their own key;
+    the platform-key allowance is granted separately by the super admin via
+    :pyattr:`core.Tenant.ai_platform_monthly_tokens`.
+    """
+
+    # Master switch — lets an admin pause the AI without deleting credentials.
+    is_enabled = models.BooleanField(default=True)
+
+    # 0 = unlimited.
+    student_daily_message_limit = models.PositiveIntegerField(default=50)
+    monthly_token_budget = models.PositiveIntegerField(default=0)
+
+    # Feature toggles inside the assistant.
+    allow_quiz_generation = models.BooleanField(default=True)
+    allow_course_context = models.BooleanField(default=True)
+
+    # Appended to the built-in system prompt — tone, syllabus notes, language.
+    custom_instructions = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'AI Settings'
+        verbose_name_plural = 'AI Settings'
+
+    def __str__(self):
+        return f'AI settings — {self.tenant.name if self.tenant else "unassigned"}'
+
+
+class AIUsageRecord(TimeStampedModel):
+    """One metered LLM call, used for cost reporting and quota enforcement.
+
+    ``source`` distinguishes calls billed to the tenant's own key from calls
+    that fell back to the platform key (which cost the platform owner money and
+    are therefore capped by the super-admin grant).
+    """
+
+    SOURCE_TENANT = 'tenant'
+    SOURCE_PLATFORM = 'platform'
+    SOURCE_CHOICES = [
+        (SOURCE_TENANT, "Tenant's own key"),
+        (SOURCE_PLATFORM, 'Platform key (granted)'),
+    ]
+
+    student = models.ForeignKey(
+        'users.StudentProfile',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='ai_usage_records',
+    )
+    session = models.ForeignKey(
+        ChatSession,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='usage_records',
+    )
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_TENANT)
+    provider = models.CharField(max_length=32, blank=True, default='')
+    model = models.CharField(max_length=200, blank=True, default='')
+
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    total_tokens = models.PositiveIntegerField(default=0)
+
+    # Best-effort USD estimate from a static price table; 0 when unknown/free.
+    estimated_cost_usd = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+
+    response_time_ms = models.PositiveIntegerField(default=0)
+    was_successful = models.BooleanField(default=True)
+    error_message = models.CharField(max_length=500, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'AI Usage Record'
+        verbose_name_plural = 'AI Usage Records'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['tenant', 'created_at']),
+            models.Index(fields=['tenant', 'source', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.provider}/{self.model} — {self.total_tokens} tokens'

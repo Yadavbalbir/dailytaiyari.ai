@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/v1/superadmin/', include('core.superadmin_urls')),
     path('api/v1/landing/', include('core.landing_urls')),
     path('api/v1/tenant-admin/', include('core.admin_urls')),
+    path('api/v1/tenant-admin/ai/', include('chatbot.admin_urls')),
     path('api/v1/auth/', include('users.urls')),
     path('api/v1/courses/', include('exams.urls')),
     path('api/v1/content/', include('content.urls')),

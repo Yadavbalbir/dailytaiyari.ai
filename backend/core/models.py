@@ -180,6 +180,15 @@ class Tenant(models.Model):
     # dynamically by a corsheaders ``check_request_enabled`` signal handler.
     allowed_origins = models.JSONField(default=list, blank=True)
 
+    # ── AI platform-key allowance (super-admin controlled) ─────────────────
+    # Tenants normally bring their own LLM key (see chatbot.AIProviderConfig).
+    # When a tenant has no working key of its own, the AI assistant is simply
+    # unavailable — *unless* the super admin grants an allowance here, in which
+    # case the platform's own key answers up to this many tokens per calendar
+    # month. 0 (the default) means "no platform spend for this tenant", which
+    # keeps the platform's LLM bill at zero unless it is deliberately gifted.
+    ai_platform_monthly_tokens = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -9,6 +9,15 @@ const getStreamingBaseUrl = () => {
 }
 
 export const chatService = {
+  // Everything the chat empty-state needs: enrolled courses, tailored starter
+  // prompts, and whether the AI is actually configured for this tenant.
+  getWorkspace: async (courseId = null) => {
+    const response = await api.get('/chatbot/workspace/', {
+      params: courseId ? { course_id: courseId } : {},
+    })
+    return response.data
+  },
+
   // Sessions
   getSessions: async () => {
     const response = await api.get('/chatbot/sessions/')
@@ -22,6 +31,17 @@ export const chatService = {
 
   createSession: async (data = {}) => {
     const response = await api.post('/chatbot/sessions/', data)
+    return response.data
+  },
+
+  deleteSession: async (sessionId) => {
+    await api.delete(`/chatbot/sessions/${sessionId}/`)
+  },
+
+  setSessionCourse: async (sessionId, courseId) => {
+    const response = await api.post(`/chatbot/sessions/${sessionId}/set_course/`, {
+      course_id: courseId,
+    })
     return response.data
   },
 

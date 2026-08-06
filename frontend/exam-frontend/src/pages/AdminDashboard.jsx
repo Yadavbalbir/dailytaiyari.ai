@@ -14,6 +14,7 @@ import LandingBuilder from '../components/admin/LandingBuilder'
 import MarketingPromotions from '../components/admin/MarketingPromotions'
 import Announcements from '../components/admin/Announcements'
 import EmailSettings from '../components/admin/EmailSettings'
+import AIFeatures from '../components/admin/AIFeatures'
 import {
     Users,
     GraduationCap,
@@ -72,6 +73,7 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     Minus,
+    Sparkles,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -2915,6 +2917,7 @@ const TABS = [
     { id: 'performance', label: 'Reports', icon: BarChart3, subtitle: 'Generate and export detailed performance reports' },
     { id: 'content', label: 'Course Builder', icon: Library, subtitle: 'Create and organise your courses and content' },
     { id: 'landing', label: 'Landing Page', icon: LayoutTemplate, subtitle: 'Design your public landing page' },
+    { id: 'ai', label: 'AI Features', icon: Sparkles, subtitle: 'Connect your AI provider, tune the assistant and track usage & cost' },
     { id: 'settings', label: 'Settings', icon: SlidersIcon, subtitle: 'Manage branding, payments, email and platform settings' },
 ]
 
@@ -2988,6 +2991,7 @@ const AdminDashboard = () => {
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
                     {activeTab === 'landing' && <LandingBuilder />}
+                    {activeTab === 'ai' && <AIFeatures />}
                     {activeTab === 'settings' && <TenantSettings />}
                 </motion.div>
             </AnimatePresence>
