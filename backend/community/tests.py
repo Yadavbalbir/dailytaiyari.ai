@@ -1,9 +1,11 @@
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 from core.models import Tenant
-from users.models import User, StudentProfile
+from exams.models import Course
+from users.models import User, StudentProfile, CourseEnrollment
 from community.models import Post, Like
 from community.views import PostViewSet
 
@@ -83,3 +85,87 @@ class PostTenantIsolationTests(TestCase):
         ids = [p['id'] for p in response.data.get('results', response.data)]
         self.assertIn(str(self.post_a.id), ids)
 
+
+class CoursePreviewTests(TestCase):
+    """The course-level community teaser powering course landing pages."""
+
+    def setUp(self):
+        self.tenant = Tenant.objects.create(name='P', subdomain='p')
+        self.other_tenant = Tenant.objects.create(name='Q', subdomain='q')
+        self.course = Course.objects.create(
+            tenant=self.tenant, name='Physics 101', code='PHY101',
+        )
+
+        self.author_user = User.objects.create_user(
+            email='author@p.com', tenant=self.tenant, password='x'
+        )
+        self.author, _ = StudentProfile.objects.get_or_create(user=self.author_user)
+
+        self.outsider_user = User.objects.create_user(
+            email='outsider@p.com', tenant=self.tenant, password='x'
+        )
+        self.outsider, _ = StudentProfile.objects.get_or_create(user=self.outsider_user)
+
+        self.post = Post.objects.create(
+            author=self.author, tenant=self.tenant, post_type='question',
+            title='How do I solve projectile motion?',
+            content='<p>I keep getting the range formula wrong, any tips?</p>',
+            comments_count=3,
+        )
+        self.post.courses.add(self.course)
+
+        # Hidden posts must never surface in the teaser.
+        hidden = Post.objects.create(
+            author=self.author, tenant=self.tenant, post_type='question',
+            title='This one was moderated away',
+            content='Hidden content that should not be exposed.',
+            status='hidden',
+        )
+        hidden.courses.add(self.course)
+
+        self.factory = APIRequestFactory()
+        self.view = PostViewSet.as_view({'get': 'course_preview'})
+
+    def _preview(self, user, tenant=None):
+        request = self.factory.get('/posts/course_preview/', {'course': str(self.course.id)})
+        if user is not None:
+            force_authenticate(request, user=user)
+        request.tenant = tenant or self.tenant
+        return self.view(request)
+
+    def test_anonymous_visitor_gets_locked_teaser(self):
+        response = self._preview(AnonymousUser())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['can_participate'])
+        self.assertEqual(response.data['stats']['posts'], 1)
+        titles = [p['title'] for p in response.data['posts']]
+        self.assertIn('How do I solve projectile motion?', titles)
+        self.assertNotIn('This one was moderated away', titles)
+
+    def test_excerpt_is_plain_text_and_body_is_not_exposed(self):
+        response = self._preview(AnonymousUser())
+        post = response.data['posts'][0]
+        self.assertNotIn('content', post)
+        self.assertNotIn('<p>', post['excerpt'])
+        self.assertIn('range formula', post['excerpt'])
+
+    def test_enrolled_student_can_participate(self):
+        CourseEnrollment.objects.create(
+            student=self.outsider, course=self.course, status='approved', is_active=True,
+        )
+        response = self._preview(self.outsider_user)
+        self.assertTrue(response.data['is_enrolled'])
+        self.assertTrue(response.data['can_participate'])
+        self.assertEqual(response.data['stats']['members'], 1)
+
+    def test_answers_are_not_double_counted_for_dual_linked_posts(self):
+        # Legacy FK + M2M pointing at the same course must not inflate stats.
+        self.post.course = self.course
+        self.post.save(update_fields=['course'])
+        response = self._preview(AnonymousUser())
+        self.assertEqual(response.data['stats']['posts'], 1)
+        self.assertEqual(response.data['stats']['answers'], 3)
+
+    def test_course_from_another_tenant_is_not_found(self):
+        response = self._preview(self.author_user, tenant=self.other_tenant)
+        self.assertEqual(response.status_code, 404)

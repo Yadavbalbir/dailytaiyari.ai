@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, Plus, Trash2, HelpCircle, BarChart3, Zap, Image as ImageIcon, Camera, Users, BookOpen, Calendar, Video } from 'lucide-react'
@@ -8,7 +8,7 @@ import { useAuthStore } from '../../context/authStore'
 import SearchableSelect from '../common/SearchableSelect'
 import toast from 'react-hot-toast'
 
-const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
+const CreatePostModal = ({ isOpen, onClose, postType = 'question', defaultCourseId = null }) => {
     const queryClient = useQueryClient()
     const { user, profile } = useAuthStore()
     const role = user?.role || profile?.user?.role
@@ -52,6 +52,7 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
             toast.success('Post created successfully! +XP earned 🎉')
             queryClient.invalidateQueries(['communityPosts'])
             queryClient.invalidateQueries(['communityStats'])
+            queryClient.invalidateQueries(['courseCommunityPreview'])
             resetForm()
             onClose()
         },
@@ -91,8 +92,17 @@ const CreatePostModal = ({ isOpen, onClose, postType = 'question' }) => {
         setSelectedCourses([])
     }
 
-    const toggleCourse = (courseId) => {
-        setSelectedCourses((prev) =>
+    // The modal stays mounted, so sync the requested post type (and the course
+    // the user came from) every time it is opened.
+    useEffect(() => {
+        if (!isOpen) return
+        setType(postType)
+        if (defaultCourseId) {
+            setSelectedCourses((prev) => (prev.length ? prev : [defaultCourseId]))
+        }
+    }, [isOpen, postType, defaultCourseId])
+
+    const toggleCourse = (courseId) => {        setSelectedCourses((prev) =>
             prev.includes(courseId)
                 ? prev.filter((id) => id !== courseId)
                 : [...prev, courseId]
