@@ -107,7 +107,7 @@ class AIQuizQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIQuizQuestion
         fields = [
-            'id', 'question_index', 'question_text', 'options',
+            'id', 'question_index', 'question_text', 'topic', 'options',
             'correct_option', 'user_answer', 'is_correct',
             'explanation', 'time_spent_seconds'
         ]
@@ -175,34 +175,44 @@ class AILearningStatsSerializer(serializers.ModelSerializer):
         ]
     
     def get_weak_topics(self, obj):
-        """Get topics with accuracy below 60%."""
+        """Concepts to fix: accuracy below 60%, worst (and most wrong) first."""
         weak = []
         for topic, data in obj.topic_performance.items():
-            if data['attempted'] > 0:
-                accuracy = (data['correct'] / data['attempted']) * 100
-                if accuracy < 60:
-                    weak.append({
-                        'topic': topic,
-                        'accuracy': round(accuracy, 1),
-                        'attempted': data['attempted'],
-                        'quizzes': data.get('quizzes', 0)
-                    })
-        return sorted(weak, key=lambda x: x['accuracy'])[:5]
+            attempted = data.get('attempted', 0)
+            if attempted <= 0:
+                continue
+            correct = data.get('correct', 0)
+            accuracy = (correct / attempted) * 100
+            if accuracy < 60:
+                weak.append({
+                    'topic': topic,
+                    'accuracy': round(accuracy, 1),
+                    'attempted': attempted,
+                    'correct': correct,
+                    'wrong': attempted - correct,
+                    'quizzes': data.get('quizzes', 0)
+                })
+        return sorted(weak, key=lambda x: (x['accuracy'], -x['wrong']))[:5]
     
     def get_strong_topics(self, obj):
-        """Get topics with accuracy above 80%."""
+        """Concepts the student has shown mastery of: >=80% over >=3 questions."""
         strong = []
         for topic, data in obj.topic_performance.items():
-            if data['attempted'] >= 5:  # Minimum attempts for strong
-                accuracy = (data['correct'] / data['attempted']) * 100
-                if accuracy >= 80:
-                    strong.append({
-                        'topic': topic,
-                        'accuracy': round(accuracy, 1),
-                        'attempted': data['attempted'],
-                        'quizzes': data.get('quizzes', 0)
-                    })
-        return sorted(strong, key=lambda x: -x['accuracy'])[:5]
+            attempted = data.get('attempted', 0)
+            if attempted < 3:  # Minimum attempts before calling it a strength
+                continue
+            correct = data.get('correct', 0)
+            accuracy = (correct / attempted) * 100
+            if accuracy >= 80:
+                strong.append({
+                    'topic': topic,
+                    'accuracy': round(accuracy, 1),
+                    'attempted': attempted,
+                    'correct': correct,
+                    'wrong': attempted - correct,
+                    'quizzes': data.get('quizzes', 0)
+                })
+        return sorted(strong, key=lambda x: (-x['accuracy'], -x['attempted']))[:5]
     
     def get_recent_activity(self, obj):
         """Get recent 7 days of AI quiz activity."""

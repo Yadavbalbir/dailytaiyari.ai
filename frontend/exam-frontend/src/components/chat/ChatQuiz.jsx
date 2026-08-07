@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Zap } from 'lucide-react'
 import MathRenderer from './MathRenderer'
+import { deriveQuizTitle, normalizeTopic } from './quizParser'
 import { chatService } from '../../services/chatService'
 import confetti from 'canvas-confetti'
 import toast from 'react-hot-toast'
@@ -47,6 +48,9 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
   const questions = quiz.questions || []
   const currentQuestion = questions[currentIndex]
   const totalQuestions = questions.length
+  // What the quiz is actually about — this is stored with the attempt and
+  // becomes the student's concept-mastery breakdown, so it must be specific.
+  const quizTopic = deriveQuizTitle(questions, quiz.title || quiz.topic)
 
   // Calculate score and save to backend when quiz is completed
   useEffect(() => {
@@ -60,6 +64,7 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
         
         return {
           question_text: q.question,
+          topic: normalizeTopic(q.topic),
           options: q.options,
           correct_option: q.correct_option,
           user_answer: selectedAnswers[idx] ?? null,
@@ -76,7 +81,7 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
       // Submit to backend
       submitQuizMutation.mutate({
         session_id: sessionId || null,
-        quiz_topic: quiz.title || quiz.topic || 'AI Generated Quiz',
+        quiz_topic: quizTopic,
         quiz_subject: quiz.subject || '',
         questions: questionsWithAnswers,
         time_taken_seconds: totalTimeSeconds
@@ -220,6 +225,23 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
   if (quizCompleted) {
     const percentage = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0
     const isGoodScore = percentage >= 70
+    // Per-concept breakdown, so the result tells the student what to fix
+    // instead of only how many they got right.
+    const topicBreakdown = []
+    questions.forEach((q, idx) => {
+      const topic = normalizeTopic(q.topic) || quizTopic
+      if (!topic) return
+      let entry = topicBreakdown.find((t) => t.topic === topic)
+      if (!entry) {
+        entry = { topic, correct: 0, total: 0 }
+        topicBreakdown.push(entry)
+      }
+      entry.total += 1
+      if (selectedAnswers[idx] === q.correct_option) entry.correct += 1
+    })
+    const weakTopics = topicBreakdown
+      .filter((t) => t.correct < t.total)
+      .sort((a, b) => a.correct / a.total - b.correct / b.total)
 
     return (
       <motion.div
@@ -288,6 +310,25 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
           </div>
         </div>
 
+        {/* What to revise */}
+        {weakTopics.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-900/40">
+            <p className="text-sm font-semibold text-warning-800 dark:text-warning-300 mb-2">
+              Concepts to revise
+            </p>
+            <div className="space-y-1.5">
+              {weakTopics.map((t) => (
+                <div key={t.topic} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate">{t.topic}</span>
+                  <span className="shrink-0 font-medium text-warning-700 dark:text-warning-400">
+                    {t.correct}/{t.total} correct
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Question Summary */}
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-6">
           {questions.map((q, idx) => {
@@ -340,7 +381,9 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
       <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-white">
           <span className="text-lg">📝</span>
-          <span className="font-semibold">Practice Quiz</span>
+          <span className="font-semibold truncate max-w-[220px]" title={quizTopic || 'Practice Quiz'}>
+            {quizTopic || 'Practice Quiz'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-white/80 text-sm">
@@ -381,6 +424,11 @@ const ChatQuiz = ({ quiz, sessionId, onComplete }) => {
               <span className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 rounded-lg text-sm font-semibold">
                 Q{currentIndex + 1}
               </span>
+              {normalizeTopic(currentQuestion.topic) && (
+                <span className="px-2 py-1 rounded-lg text-xs font-medium bg-surface-200 text-surface-700 dark:bg-surface-700 dark:text-surface-300">
+                  {normalizeTopic(currentQuestion.topic)}
+                </span>
+              )}
               {currentQuestion.difficulty && (
                 <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
                   currentQuestion.difficulty === 'easy' 

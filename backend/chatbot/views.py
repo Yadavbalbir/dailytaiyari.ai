@@ -10,10 +10,13 @@ from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 
+from collections import Counter
+
+from django.db.models import Q
 from django.utils import timezone
 from .models import (
     ChatSession, ChatMessage, SavedResponse, FrequentQuestion,
-    AIQuizAttempt, AIQuizQuestion, AILearningStats
+    AIQuizAttempt, AIQuizQuestion, AILearningStats, normalize_topic_label
 )
 from .serializers import (
     ChatSessionSerializer, ChatSessionDetailSerializer,
@@ -385,7 +388,7 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         attempt = AIQuizAttempt.objects.create(
             student=student,
             session=session,
-            quiz_topic=data.get('quiz_topic', ''),
+            quiz_topic=normalize_topic_label(data.get('quiz_topic', '')),
             quiz_subject=data.get('quiz_subject', ''),
             questions_data=data['questions'],
             time_taken_seconds=data.get('time_taken_seconds', 0),
@@ -393,21 +396,32 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         )
         
         # Create individual question records
+        question_topics = []
         for idx, q in enumerate(data['questions']):
             user_answer = q.get('user_answer')
             correct_option = q.get('correct_option', 0)
             is_correct = user_answer == correct_option if user_answer is not None else False
-            
+            question_topic = normalize_topic_label(q.get('topic', ''))
+            if question_topic:
+                question_topics.append(question_topic)
+
             AIQuizQuestion.objects.create(
                 attempt=attempt,
                 question_index=idx,
                 question_text=q.get('question_text', q.get('question', '')),
+                topic=question_topic,
                 options=q.get('options', []),
                 correct_option=correct_option,
                 user_answer=user_answer,
                 is_correct=is_correct,
                 explanation=q.get('explanation', '')
             )
+
+        # A quiz submitted without a usable topic still gets a meaningful title:
+        # the concept most of its questions cover.
+        if not attempt.quiz_topic and question_topics:
+            attempt.quiz_topic = Counter(question_topics).most_common(1)[0][0]
+            attempt.save(update_fields=['quiz_topic'])
         
         # Calculate results and XP
         attempt.calculate_results()
@@ -486,7 +500,9 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         
         queryset = self.get_queryset()
         if topic:
-            queryset = queryset.filter(quiz_topic__icontains=topic)
+            queryset = queryset.filter(
+                Q(quiz_topic__icontains=topic) | Q(questions__topic__icontains=topic)
+            ).distinct()
         
         return Response(AIQuizAttemptListSerializer(queryset[:20], many=True).data)
     
@@ -502,8 +518,10 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
         ).select_related('attempt')
         
         if topic:
+            # A question's own concept wins, but older rows only carry the
+            # quiz-level topic, so match either.
             wrong_questions = wrong_questions.filter(
-                attempt__quiz_topic__icontains=topic
+                Q(topic__icontains=topic) | Q(attempt__quiz_topic__icontains=topic)
             )
         
         questions = wrong_questions.order_by('-attempt__created_at')[:50]
@@ -517,6 +535,7 @@ class AIQuizAttemptViewSet(TenantAwareViewSet):
                 'correct_option': q.correct_option,
                 'user_answer': q.user_answer,
                 'explanation': q.explanation,
+                'topic': q.topic or q.attempt.quiz_topic,
                 'quiz_topic': q.attempt.quiz_topic,
                 'attempted_at': q.attempt.created_at
             })
