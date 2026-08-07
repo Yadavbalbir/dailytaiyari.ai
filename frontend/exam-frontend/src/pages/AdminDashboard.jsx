@@ -1320,10 +1320,7 @@ const EnrollmentRequests = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-primary-500" /> Enrollment Requests
-                </h2>
+            <div className="flex flex-wrap items-center justify-end gap-3">
                 <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-lg overflow-x-auto">
                     {['pending', 'approved', 'rejected', 'all'].map((f) => (
                         <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1.5 rounded-md text-sm font-semibold capitalize transition-all whitespace-nowrap ${filter === f ? 'bg-white dark:bg-surface-700 text-primary-600 shadow-sm' : 'text-surface-500'}`}>

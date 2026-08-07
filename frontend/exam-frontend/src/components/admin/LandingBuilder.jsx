@@ -512,11 +512,7 @@ const LandingBuilder = () => {
   return (
     <div className="max-w-4xl">
       {/* Header actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-surface-900 dark:text-surface-100">Home Page Builder</h2>
-          <p className="text-sm text-surface-500">Design your public landing page — no code required.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
         <div className="flex items-center gap-2">
           <a href="/?preview=1" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 px-3 py-2 text-sm font-medium text-surface-600 dark:text-surface-300">
             <ExternalLink size={15} /> Preview

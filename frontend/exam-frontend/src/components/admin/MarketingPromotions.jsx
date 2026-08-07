@@ -801,11 +801,6 @@ const MarketingPromotions = () => {
     ]
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-display font-bold">Marketing &amp; Promotions</h2>
-                <p className="text-surface-500">Run coupon campaigns and promote sales with a sitewide banner.</p>
-            </div>
-
             <div className="flex gap-2 border-b border-surface-200 dark:border-surface-800">
                 {tabs.map((t) => {
                     const Icon = t.icon
