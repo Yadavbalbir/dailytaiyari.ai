@@ -13,6 +13,21 @@ import {
   ChevronDown
 } from 'lucide-react'
 
+const PodiumAvatar = ({ entry, className }) => (
+  <div className={`rounded-full overflow-hidden flex items-center justify-center text-white font-bold mb-2 mx-auto ${className}`}>
+    {entry.student_avatar ? (
+      <img
+        src={entry.student_avatar}
+        alt={entry.student_name || 'Avatar'}
+        className="w-full h-full object-cover"
+        onError={(e) => { e.currentTarget.style.display = 'none' }}
+      />
+    ) : (
+      entry.student_name?.charAt(0)
+    )}
+  </div>
+)
+
 const Leaderboard = () => {
   const [period, setPeriod] = useState('daily')
   const { profile } = useAuthStore()
@@ -133,9 +148,10 @@ const Leaderboard = () => {
               {/* 2nd Place */}
               {entries[1] && (
                 <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-xl font-bold mb-2 mx-auto">
-                    {entries[1].student_name?.charAt(0)}
-                  </div>
+                  <PodiumAvatar
+                    entry={entries[1]}
+                    className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 text-xl"
+                  />
                   <p className="text-xs font-medium truncate w-16">{entries[1].student_name?.split(' ')[0]}</p>
                   <div className="h-16 w-16 bg-gray-200 dark:bg-surface-700 rounded-t-lg mt-2 flex items-center justify-center text-surface-400">
                     <Award size={32} />
@@ -146,9 +162,10 @@ const Leaderboard = () => {
               {/* 1st Place */}
               {entries[0] && (
                 <div className="text-center -mb-4">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center text-white text-2xl font-bold mb-2 mx-auto ring-4 ring-yellow-200">
-                    {entries[0].student_name?.charAt(0)}
-                  </div>
+                  <PodiumAvatar
+                    entry={entries[0]}
+                    className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-500 text-2xl ring-4 ring-yellow-200"
+                  />
                   <p className="text-sm font-medium truncate w-20">{entries[0].student_name?.split(' ')[0]}</p>
                   <div className="h-24 w-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-t-lg mt-2 flex items-center justify-center mx-auto text-warning-500">
                     <Award size={40} />
@@ -159,9 +176,10 @@ const Leaderboard = () => {
               {/* 3rd Place */}
               {entries[2] && (
                 <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white text-xl font-bold mb-2 mx-auto">
-                    {entries[2].student_name?.charAt(0)}
-                  </div>
+                  <PodiumAvatar
+                    entry={entries[2]}
+                    className="w-16 h-16 bg-gradient-to-br from-amber-600 to-amber-700 text-xl"
+                  />
                   <p className="text-xs font-medium truncate w-16">{entries[2].student_name?.split(' ')[0]}</p>
                   <div className="h-12 w-16 bg-amber-100 dark:bg-amber-900/30 rounded-t-lg mt-2 flex items-center justify-center text-orange-400">
                     <Award size={28} />
