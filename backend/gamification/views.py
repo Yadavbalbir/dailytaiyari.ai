@@ -118,6 +118,10 @@ class LeaderboardView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         # Get leaderboard entries (tenant-scoped)
         entries = GamificationService.get_leaderboard(period, course, limit, tenant=tenant)
+        for entry in entries:
+            avatar = entry.get('student_avatar')
+            if avatar and not avatar.startswith(('http://', 'https://')):
+                entry['student_avatar'] = request.build_absolute_uri(avatar)
         # Get user's rank (same tenant scope)
         student = request.user.profile
         user_rank = GamificationService.get_student_rank(student, period, course, tenant=tenant)

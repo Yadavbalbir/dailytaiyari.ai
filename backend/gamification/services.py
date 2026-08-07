@@ -1,6 +1,7 @@
 """
 Gamification service layer.
 """
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Sum, Count, F, Q, Case, When, Value, FloatField
 from django.utils import timezone
@@ -418,6 +419,16 @@ class GamificationService:
     )
 
     @staticmethod
+    def _avatar_url(name):
+        """Resolve a stored avatar path to a servable URL (local or cloud storage)."""
+        if not name:
+            return None
+        try:
+            return default_storage.url(name)
+        except Exception:
+            return None
+
+    @staticmethod
     def get_leaderboard(period='daily', course=None, limit=50, tenant=None):
         """
         Get leaderboard data from DailyActivity. Scoped to tenant when provided.
@@ -435,6 +446,7 @@ class GamificationService:
                 'student__user__first_name',
                 'student__user__last_name',
                 'student__user__role',
+                'student__user__avatar',
                 'student__current_level',
             )
             .annotate(
@@ -454,6 +466,7 @@ class GamificationService:
             result.append({
                 'id': str(row['student']),
                 'student_name': name,
+                'student_avatar': GamificationService._avatar_url(row['student__user__avatar']),
                 'role': row['student__user__role'],
                 'student_level': row['student__current_level'],
                 'xp_earned': row['total_xp'] or 0,

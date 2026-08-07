@@ -28,8 +28,17 @@ const LeaderboardRow = ({ entry, rank, isCurrentUser = false }) => {
       </div>
 
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-semibold">
-        {entry.student_name?.charAt(0) || '?'}
+      <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white font-semibold">
+        {entry.student_avatar ? (
+          <img
+            src={entry.student_avatar}
+            alt={entry.student_name || 'Avatar'}
+            className="w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        ) : (
+          entry.student_name?.charAt(0) || '?'
+        )}
       </div>
 
       {/* Info */}
