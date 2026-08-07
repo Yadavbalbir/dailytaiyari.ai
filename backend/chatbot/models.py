@@ -11,6 +11,36 @@ from exams.models import Topic, Subject
 AI_QUIZ_XP_CAP_PER_ATTEMPT = 25
 AI_QUIZ_XP_DAILY_CAP = 75
 
+# Labels a model (or an older client) may send as a "topic" that carry no
+# diagnostic value — they tell the student nothing about what to revise, so we
+# refuse to record them as concepts.
+GENERIC_TOPIC_LABELS = {
+    'quiz', 'quizzes', 'practice', 'practice quiz', 'practice quizzes',
+    'practice questions', 'ai quiz', 'ai generated quiz', 'ai-generated quiz',
+    'general', 'general quiz', 'general knowledge', 'misc', 'miscellaneous',
+    'mcq', 'mcqs', 'test', 'mock test', 'questions', 'revision', 'topic',
+    'untitled', 'n/a', 'na', 'none', 'other', 'others',
+}
+
+
+def normalize_topic_label(value):
+    """Clean a model-supplied topic label, or return '' when it is useless.
+
+    Trims markdown/punctuation noise, collapses whitespace and drops generic
+    labels such as "Practice Quiz" so mastery tracking only ever accumulates
+    against real concept names.
+    """
+    if not value or not isinstance(value, str):
+        return ''
+    label = value.replace('*', '').replace('#', '').strip()
+    label = ' '.join(label.split())
+    label = label.strip(' .:-–—"\'')
+    if not label or len(label) < 2:
+        return ''
+    if label.casefold() in GENERIC_TOPIC_LABELS:
+        return ''
+    return label[:200]
+
 
 class ChatSession(TimeStampedModel):
     """
@@ -268,6 +298,9 @@ class AIQuizQuestion(TimeStampedModel):
     # Question data
     question_index = models.PositiveIntegerField(default=0)
     question_text = models.TextField()
+    # The concept this question tests (e.g. "Free Body Diagrams"). Drives the
+    # per-concept mastery breakdown on the AI Learning page.
+    topic = models.CharField(max_length=200, blank=True)
     options = models.JSONField(default=list)  # List of option strings
     correct_option = models.PositiveIntegerField(default=0)  # Index of correct option
     
@@ -342,14 +375,33 @@ class AILearningStats(TimeStampedModel):
         if self.total_questions_attempted > 0:
             self.average_accuracy = (self.total_correct_answers / self.total_questions_attempted) * 100
         
-        # Update topic performance
-        if attempt.quiz_topic:
-            topic = attempt.quiz_topic
-            if topic not in self.topic_performance:
-                self.topic_performance[topic] = {'attempted': 0, 'correct': 0, 'quizzes': 0}
-            self.topic_performance[topic]['attempted'] += attempt.total_questions
-            self.topic_performance[topic]['correct'] += attempt.correct_answers
-            self.topic_performance[topic]['quizzes'] += 1
+        # Update topic performance.
+        # Questions carry the concept they test, so a single quiz can improve
+        # (or expose) several concepts at once. Fall back to the quiz-level
+        # topic for questions the model did not tag.
+        fallback_topic = normalize_topic_label(attempt.quiz_topic)
+        per_topic = {}
+        for question in attempt.questions.all():
+            topic = normalize_topic_label(question.topic) or fallback_topic
+            if not topic:
+                continue
+            bucket = per_topic.setdefault(topic, {'attempted': 0, 'correct': 0})
+            bucket['attempted'] += 1
+            bucket['correct'] += 1 if question.is_correct else 0
+
+        if not per_topic and fallback_topic:
+            per_topic[fallback_topic] = {
+                'attempted': attempt.total_questions,
+                'correct': attempt.correct_answers,
+            }
+
+        for topic, counts in per_topic.items():
+            entry = self.topic_performance.setdefault(
+                topic, {'attempted': 0, 'correct': 0, 'quizzes': 0}
+            )
+            entry['attempted'] = entry.get('attempted', 0) + counts['attempted']
+            entry['correct'] = entry.get('correct', 0) + counts['correct']
+            entry['quizzes'] = entry.get('quizzes', 0) + 1
         
         # Update achievements
         if attempt.percentage == 100:

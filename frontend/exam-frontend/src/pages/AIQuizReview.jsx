@@ -141,8 +141,15 @@ const AIQuizReview = () => {
           className="card p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-surface-500">
-              Question {currentIndex + 1} of {totalQuestions}
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-medium text-surface-500">
+                Question {currentIndex + 1} of {totalQuestions}
+              </span>
+              {currentQuestion.topic && (
+                <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300 truncate">
+                  {currentQuestion.topic}
+                </span>
+              )}
             </span>
             <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 ${currentQuestion.is_correct
                 ? 'bg-success-100 text-success-700'

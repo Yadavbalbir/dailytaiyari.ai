@@ -3,11 +3,65 @@
  * structured shape <ChatQuiz /> renders.
  *
  * Models are asked (in the backend system prompt) to emit a fixed
- * "Q1. / A) / Answer: / Explanation:" layout, but they drift — different
- * providers bold things differently, number questions differently, or wrap the
- * quiz in a JSON block. This parser accepts all of those variants and returns
- * `null` when the message is ordinary prose.
+ * "Q1. / A) / Answer: / Topic: / Explanation:" layout, but they drift —
+ * different providers bold things differently, number questions differently, or
+ * wrap the quiz in a JSON block. This parser accepts all of those variants and
+ * returns `null` when the message is ordinary prose.
+ *
+ * The `Topic:` lines matter beyond cosmetics: they are submitted with the
+ * attempt and become the student's per-concept mastery breakdown, so a quiz
+ * must never be filed away under a meaningless label like "Practice Quiz".
  */
+
+/**
+ * Matches "Topic: Kinematics", "**Quiz Topic:** Kinematics", "Concept - Optics".
+ * Group 1 is set only for the quiz-level header, group 2 is the label.
+ */
+const TOPIC_LINE = /^\*{0,2}(Quiz\s+)?(?:Topic|Concept|Tests)\s*\*{0,2}\s*[:\-–]\s*\*{0,2}(.+)$/i
+
+/** Labels that carry no diagnostic value — mirrored in chatbot/models.py. */const GENERIC_TOPIC_LABELS = new Set([
+  'quiz', 'quizzes', 'practice', 'practice quiz', 'practice quizzes',
+  'practice questions', 'ai quiz', 'ai generated quiz', 'ai-generated quiz',
+  'general', 'general quiz', 'general knowledge', 'misc', 'miscellaneous',
+  'mcq', 'mcqs', 'test', 'mock test', 'questions', 'revision', 'topic',
+  'untitled', 'n/a', 'na', 'none', 'other', 'others',
+])
+
+/** Cleans a model-supplied topic label, returning '' when it is useless. */
+export const normalizeTopic = (value) => {
+  if (!value || typeof value !== 'string') return ''
+  const label = value
+    .replace(/[*#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[.:\-–—"']+|[.:\-–—"']+$/g, '')
+    .trim()
+  if (label.length < 2) return ''
+  if (GENERIC_TOPIC_LABELS.has(label.toLowerCase())) return ''
+  return label.slice(0, 200)
+}
+
+/**
+ * Picks the label shown for the whole quiz: the model's own quiz topic when it
+ * gave one, otherwise the concept most of the questions test.
+ */
+export const deriveQuizTitle = (questions = [], explicitTopic = '') => {
+  const explicit = normalizeTopic(explicitTopic)
+  if (explicit) return explicit
+
+  const counts = new Map()
+  questions.forEach((q) => {
+    const topic = normalizeTopic(q?.topic)
+    if (topic) counts.set(topic, (counts.get(topic) || 0) + 1)
+  })
+  if (counts.size === 0) return ''
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  if (ranked.length === 1) return ranked[0][0]
+  // A mixed quiz is named after its dominant concept, with the rest counted.
+  return `${ranked[0][0]} +${ranked.length - 1} more`
+}
+
 export const parseQuizFromMessage = (content) => {
   if (!content) return null
 
@@ -17,8 +71,16 @@ export const parseQuizFromMessage = (content) => {
     try {
       const quiz = JSON.parse(jsonMatch[1])
       if (quiz.type === 'quiz' && quiz.questions) {
+        const questions = quiz.questions.map((q) => ({
+          ...q,
+          topic: normalizeTopic(q?.topic || q?.concept),
+        }))
         return {
-          quiz,
+          quiz: {
+            ...quiz,
+            questions,
+            title: deriveQuizTitle(questions, quiz.topic || quiz.title),
+          },
           remainingContent: content.replace(jsonMatch[0], '').trim(),
         }
       }
@@ -33,6 +95,8 @@ export const parseQuizFromMessage = (content) => {
   let currentOptions = []
   let currentExplanation = ''
   let correctAnswer = null
+  let currentTopic = ''
+  let quizTopic = ''
   const introText = []
   let isInQuiz = false
 
@@ -52,6 +116,7 @@ export const parseQuizFromMessage = (content) => {
         options: currentOptions.map((o) => o.text),
         correct_option: correctIndex,
         explanation: currentExplanation.trim() || null,
+        topic: currentTopic,
         difficulty: 'medium',
       })
     }
@@ -59,11 +124,24 @@ export const parseQuizFromMessage = (content) => {
     currentOptions = []
     currentExplanation = ''
     correctAnswer = null
+    currentTopic = ''
   }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
+
+    const topicMatch = line.match(TOPIC_LINE)
+    if (topicMatch) {
+      const label = normalizeTopic(topicMatch[2])
+      if (currentQuestion) {
+        currentTopic = label
+      } else if (!quizTopic) {
+        quizTopic = label
+      }
+      isInQuiz = isInQuiz || Boolean(topicMatch[1])
+      continue
+    }
 
     const questionMatch =
       line.match(/^\*{0,2}Q(?:uestion)?\.?\s*(\d+)[.):\s]+\*{0,2}\s*(.+)/i) ||
@@ -113,7 +191,8 @@ export const parseQuizFromMessage = (content) => {
           !nextLine ||
           nextLine.match(/^\*{0,2}Q(?:uestion)?\.?\s*\d+/i) ||
           nextLine.match(/^\d+[.)]\s+/) ||
-          nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i)
+          nextLine.match(/^\*{0,2}(?:Correct\s+)?Answer\*{0,2}[:\s]/i) ||
+          TOPIC_LINE.test(nextLine)
         ) {
           break
         }
@@ -130,7 +209,11 @@ export const parseQuizFromMessage = (content) => {
 
   if (questions.length >= 1) {
     return {
-      quiz: { type: 'quiz', title: 'Practice Quiz', questions },
+      quiz: {
+        type: 'quiz',
+        title: deriveQuizTitle(questions, quizTopic),
+        questions,
+      },
       remainingContent: introText.join('\n').trim(),
     }
   }

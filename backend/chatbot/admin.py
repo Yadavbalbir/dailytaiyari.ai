@@ -52,8 +52,9 @@ class AIQuizAttemptAdmin(admin.ModelAdmin):
 
 @admin.register(AIQuizQuestion)
 class AIQuizQuestionAdmin(admin.ModelAdmin):
-    list_display = ['attempt', 'question_index', 'question_short', 'is_correct', 'user_answer', 'correct_option']
+    list_display = ['attempt', 'question_index', 'question_short', 'topic', 'is_correct', 'user_answer', 'correct_option']
     list_filter = ['is_correct']
+    search_fields = ['topic', 'question_text']
     raw_id_fields = ['attempt']
     
     def question_short(self, obj):

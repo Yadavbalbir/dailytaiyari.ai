@@ -49,6 +49,12 @@ const AILearning = () => {
     queryFn: () => chatService.getWrongQuestions(selectedTopic),
   })
 
+  // Jump from a weak concept straight into the questions that exposed it.
+  const reviseTopic = (topic) => {
+    setSelectedTopic(topic)
+    setActiveTab('revision')
+  }
+
   if (statsLoading) return <Loading fullScreen />
 
   const quizzes = quizHistory?.results || quizHistory || []
@@ -56,7 +62,8 @@ const AILearning = () => {
     topic,
     accuracy: data.attempted > 0 ? Math.round((data.correct / data.attempted) * 100) : 0,
     quizzes: data.quizzes || 0,
-    questions: data.attempted || 0
+    questions: data.attempted || 0,
+    wrong: Math.max(0, (data.attempted || 0) - (data.correct || 0))
   }))
 
   const accuracyDistribution = [
@@ -232,6 +239,31 @@ const AILearning = () => {
             <div className="card p-6">
               <h3 className="font-semibold mb-4">Topic Insights</h3>
               <div className="space-y-4">
+                {stats?.weak_topics?.length > 0 && (
+                  <div>
+                    <h4 className="text-sm text-error-600 font-medium mb-2 flex items-center gap-1.5">
+                      <Book size={16} /> Fix These First
+                    </h4>
+                    <div className="space-y-2">
+                      {stats.weak_topics.slice(0, 3).map((t) => (
+                        <button
+                          key={t.topic}
+                          onClick={() => reviseTopic(t.topic)}
+                          className="w-full flex items-center justify-between gap-3 p-2 bg-error-50 dark:bg-error-900/20 rounded-lg text-left hover:bg-error-100 dark:hover:bg-error-900/40 transition-colors"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-sm truncate">{t.topic}</span>
+                            <span className="block text-xs text-surface-500">
+                              {t.wrong ?? (t.attempted - (t.correct ?? 0))} wrong of {t.attempted}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-error-600">{t.accuracy}%</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {stats?.strong_topics?.length > 0 && (
                   <div>
                     <h4 className="text-sm text-success-600 font-medium mb-2 flex items-center gap-1.5">
@@ -239,25 +271,14 @@ const AILearning = () => {
                     </h4>
                     <div className="space-y-2">
                       {stats.strong_topics.slice(0, 3).map((t) => (
-                        <div key={t.topic} className="flex items-center justify-between p-2 bg-success-50 dark:bg-success-900/20 rounded-lg">
-                          <span className="text-sm">{t.topic}</span>
-                          <span className="text-sm font-semibold text-success-600">{t.accuracy}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {stats?.weak_topics?.length > 0 && (
-                  <div>
-                    <h4 className="text-sm text-error-600 font-medium mb-2 flex items-center gap-1.5">
-                      <Book size={16} /> Need Practice
-                    </h4>
-                    <div className="space-y-2">
-                      {stats.weak_topics.slice(0, 3).map((t) => (
-                        <div key={t.topic} className="flex items-center justify-between p-2 bg-error-50 dark:bg-error-900/20 rounded-lg">
-                          <span className="text-sm">{t.topic}</span>
-                          <span className="text-sm font-semibold text-error-600">{t.accuracy}%</span>
+                        <div key={t.topic} className="flex items-center justify-between gap-3 p-2 bg-success-50 dark:bg-success-900/20 rounded-lg">
+                          <span className="min-w-0">
+                            <span className="block text-sm truncate">{t.topic}</span>
+                            <span className="block text-xs text-surface-500">
+                              {t.correct ?? 0} right of {t.attempted}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold text-success-600">{t.accuracy}%</span>
                         </div>
                       ))}
                     </div>
@@ -290,7 +311,7 @@ const AILearning = () => {
                           {quiz.percentage >= 80 ? <PartyPopper size={20} /> : quiz.percentage >= 60 ? <ThumbsUp size={20} /> : <BookOpen size={20} />}
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{quiz.quiz_topic || 'General Quiz'}</p>
+                          <p className="font-medium text-sm">{quiz.quiz_topic || 'Untagged quiz'}</p>
                           <p className="text-xs text-surface-500">
                             {quiz.correct_answers}/{quiz.total_questions} correct • {new Date(quiz.created_at).toLocaleDateString()}
                           </p>
@@ -343,7 +364,7 @@ const AILearning = () => {
                         {quiz.percentage >= 80 ? <Trophy size={24} /> : quiz.percentage >= 60 ? <CheckCircle2 size={24} /> : <Book size={24} />}
                       </div>
                       <div>
-                        <h3 className="font-semibold">{quiz.quiz_topic || 'AI Quiz'}</h3>
+                        <h3 className="font-semibold">{quiz.quiz_topic || 'Untagged quiz'}</h3>
                         <p className="text-sm text-surface-500">
                           {quiz.quiz_subject && `${quiz.quiz_subject} • `}
                           {quiz.total_questions} questions • {Math.floor(quiz.time_taken_seconds / 60)}m {quiz.time_taken_seconds % 60}s
@@ -397,11 +418,15 @@ const AILearning = () => {
           >
             {topicData.length > 0 ? (
               <div className="grid md:grid-cols-2 gap-4">
-                {topicData.sort((a, b) => b.quizzes - a.quizzes).map((topic) => (
+                {topicData
+                  .slice()
+                  .sort((a, b) => a.accuracy - b.accuracy || b.questions - a.questions)
+                  .map((topic) => (
                   <div
                     key={topic.topic}
                     className="card p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => setSelectedTopic(topic.topic)}
+                    onClick={() => reviseTopic(topic.topic)}
+                    title={`Revise the questions you got wrong on ${topic.topic}`}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold">{topic.topic}</h3>
@@ -423,8 +448,12 @@ const AILearning = () => {
                         />
                       </div>
                       <div className="flex justify-between text-xs text-surface-500">
-                        <span>{topic.quizzes} quizzes</span>
-                        <span>{topic.questions} questions</span>
+                        <span>{topic.quizzes} {topic.quizzes === 1 ? 'quiz' : 'quizzes'}</span>
+                        <span>
+                          {topic.wrong > 0
+                            ? `${topic.wrong} wrong of ${topic.questions}`
+                            : `${topic.questions} questions`}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -457,9 +486,22 @@ const AILearning = () => {
                 <RefreshCw size={20} /> Smart Revision
               </h3>
               <p className="text-sm text-white/80">
-                Review questions you got wrong. Practice makes perfect!
+                {selectedTopic
+                  ? `Questions you got wrong on ${selectedTopic}.`
+                  : 'Review questions you got wrong. Practice makes perfect!'}
               </p>
             </div>
+
+            {selectedTopic && (
+              <button
+                onClick={() => setSelectedTopic(null)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+              >
+                <span className="font-medium">{selectedTopic}</span>
+                <XCircle size={14} />
+                <span className="sr-only">Clear topic filter</span>
+              </button>
+            )}
 
             {wrongLoading ? (
               <Loading />
@@ -469,7 +511,7 @@ const AILearning = () => {
                   <div key={q.id} className="card p-4">
                     <div className="flex items-start justify-between mb-3">
                       <span className="px-2 py-1 bg-error-100 text-error-700 rounded-lg text-xs font-medium">
-                        {q.quiz_topic || 'General'}
+                        {q.topic || q.quiz_topic || 'Untagged concept'}
                       </span>
                       <span className="text-xs text-surface-500">
                         {new Date(q.attempted_at).toLocaleDateString()}
@@ -522,7 +564,9 @@ const AILearning = () => {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">All Caught Up!</h3>
                 <p className="text-surface-500">
-                  No wrong answers to revise. Keep up the great work!
+                  {selectedTopic
+                    ? `No wrong answers left on ${selectedTopic}.`
+                    : 'No wrong answers to revise. Keep up the great work!'}
                 </p>
               </div>
             )}
