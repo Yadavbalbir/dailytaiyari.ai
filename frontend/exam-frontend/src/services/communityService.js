@@ -15,6 +15,14 @@ export const communityService = {
         return response.data
     },
 
+    // Course-scoped teaser used on the course landing page / study workspace.
+    getCoursePreview: async (courseId, limit = 4) => {
+        const response = await api.get('/community/posts/course_preview/', {
+            params: { course: courseId, limit }
+        })
+        return response.data
+    },
+
     getPost: async (id) => {
         const response = await api.get(`/community/posts/${id}/`)
         return response.data

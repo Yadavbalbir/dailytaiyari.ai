@@ -4,16 +4,19 @@ Community views - Posts, Comments, Likes, Polls, Quizzes, Leaderboard.
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db.models import F, Q
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.db.models import F, Q, Count, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from datetime import timedelta
 
+from users.models import CourseEnrollment
 from .models import (
     Post, Comment, Like, PollOption, PollVote,
     CommunityQuiz, QuizAttempt, CommunityStats, CommunityLeaderboard
 )
 from .serializers import (
-    PostSerializer, PostCreateSerializer,
+    PostSerializer, PostCreateSerializer, PostPreviewSerializer,
     CommentSerializer, CommentCreateSerializer,
     CommunityStatsSerializer, CommunityLeaderboardSerializer,
     QuizAttemptSerializer
@@ -149,6 +152,13 @@ class PostViewSet(TenantAwareViewSet):
             return PostCreateSerializer
         return PostSerializer
 
+    def get_permissions(self):
+        # The course-level teaser is intentionally public so course landing
+        # pages can advertise an active community to logged-out visitors.
+        if self.action == 'course_preview':
+            return [AllowAny()]
+        return super().get_permissions()
+
     @action(detail=False, methods=['get'])
     def filter_options(self, request):
         """Courses the user can filter by / post into.
@@ -172,6 +182,113 @@ class PostViewSet(TenantAwareViewSet):
         return Response({
             'courses': courses,
             'is_staff': _is_staff_user(request.user),
+        })
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def course_preview(self, request):
+        """Teaser of a single course's community activity.
+
+        Powers the community preview block on the course landing page and the
+        learner's course workspace. Open to anonymous visitors on purpose: the
+        payload is a teaser (title + short excerpt + counters only) so it can
+        advertise an active community without leaking discussion content.
+        """
+        from exams.models import Course
+
+        tenant = getattr(request, 'tenant', None)
+        course_id = request.query_params.get('course')
+        if not tenant or not course_id:
+            return Response(
+                {'detail': 'A course id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course = Course.objects.filter(id=course_id, tenant=tenant).first()
+        if not course:
+            return Response({'detail': 'Course not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            limit = min(max(int(request.query_params.get('limit', 4)), 1), 10)
+        except (TypeError, ValueError):
+            limit = 4
+
+        posts_qs = Post.objects.filter(
+            tenant=tenant, status='active'
+        ).filter(
+            Q(courses=course) | Q(course_id=course.id)
+        ).distinct()
+        # Re-anchor on plain ids: the OR above joins the M2M table, which would
+        # otherwise skew aggregates for posts linked both ways.
+        post_ids = list(posts_qs.values_list('id', flat=True))
+        posts = Post.objects.filter(id__in=post_ids).select_related('author__user')
+
+        is_authenticated = request.user.is_authenticated
+        is_staff = is_authenticated and _is_staff_user(request.user)
+        is_enrolled = is_authenticated and course.id in _student_course_ids(request.user)
+        can_participate = bool(is_staff or is_enrolled)
+
+        week_ago = timezone.now() - timedelta(days=7)
+        totals = posts.aggregate(
+            posts=Count('id'),
+            questions=Count('id', filter=Q(post_type='question')),
+            solved=Count('id', filter=Q(is_solved=True)),
+            answers=Sum('comments_count'),
+            new_this_week=Count('id', filter=Q(created_at__gte=week_ago)),
+        )
+
+        members = CourseEnrollment.objects.filter(
+            course=course, status='approved', is_active=True
+        ).count()
+
+        # Distinct people who have started or replied to a discussion here.
+        contributor_ids = set(posts.values_list('author_id', flat=True))
+        contributor_ids |= set(
+            Comment.objects.filter(post_id__in=post_ids).values_list('author_id', flat=True)
+        )
+
+        # Featured teasers: newest first, topped up with the highest-traction
+        # posts so the block never looks empty or stale.
+        featured = list(posts.order_by('-created_at')[:limit])
+        if len(featured) < limit:
+            featured += [
+                p for p in posts.order_by('-likes_count', '-comments_count')[:limit]
+                if p not in featured
+            ][: limit - len(featured)]
+
+        # Small avatar stack of recent voices (de-duplicated, max 5).
+        seen, contributors_preview = set(), []
+        for p in posts.order_by('-created_at')[:20]:
+            author_user = getattr(p.author, 'user', None)
+            if author_user is None or author_user.id in seen:
+                continue
+            seen.add(author_user.id)
+            avatar = getattr(author_user, 'avatar', None)
+            contributors_preview.append({
+                'full_name': author_user.full_name,
+                'first_name': author_user.first_name,
+                'avatar': request.build_absolute_uri(avatar.url) if avatar else None,
+            })
+            if len(contributors_preview) == 5:
+                break
+
+        return Response({
+            'course': {'id': str(course.id), 'name': course.name, 'code': course.code},
+            'is_authenticated': is_authenticated,
+            'is_enrolled': is_enrolled,
+            'can_participate': can_participate,
+            'stats': {
+                'posts': totals['posts'] or 0,
+                'questions': totals['questions'] or 0,
+                'solved': totals['solved'] or 0,
+                'answers': totals['answers'] or 0,
+                'new_this_week': totals['new_this_week'] or 0,
+                'members': members,
+                'contributors': len(contributor_ids),
+            },
+            'contributors_preview': contributors_preview,
+            'posts': PostPreviewSerializer(
+                featured, many=True, context={'request': request}
+            ).data,
         })
 
     def retrieve(self, request, *args, **kwargs):

@@ -1,6 +1,8 @@
 """
 Community serializers.
 """
+from django.utils.html import strip_tags
+from django.utils.text import Truncator
 from rest_framework import serializers
 from .models import (
     Post, Comment, Like, PollOption, PollVote,
@@ -212,6 +214,49 @@ class PostSerializer(serializers.ModelSerializer):
     def get_top_comments(self, obj):
         comments = obj.comments.filter(parent__isnull=True)[:3]
         return CommentSerializer(comments, many=True, context=self.context).data
+
+
+class PostPreviewSerializer(serializers.ModelSerializer):
+    """Lightweight teaser used by the course-level community preview.
+
+    Deliberately omits the full post body, poll options, quiz answers and
+    comments so the payload can safely be shown to visitors who are not yet
+    enrolled in the course.
+    """
+    author = serializers.SerializerMethodField()
+    excerpt = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = [
+            'id', 'post_type', 'title', 'excerpt', 'author',
+            'likes_count', 'comments_count', 'views_count',
+            'is_solved', 'created_at',
+        ]
+
+    def get_author(self, obj):
+        user = getattr(obj.author, 'user', None)
+        if user is None:
+            return None
+        request = self.context.get('request')
+        avatar = getattr(user, 'avatar', None)
+        avatar_url = None
+        if avatar:
+            try:
+                avatar_url = request.build_absolute_uri(avatar.url) if request else avatar.url
+            except Exception:
+                avatar_url = None
+        return {
+            'full_name': user.full_name,
+            'first_name': user.first_name,
+            'role': getattr(user, 'role', None),
+            'avatar': avatar_url,
+            'current_level': obj.author.current_level,
+        }
+
+    def get_excerpt(self, obj):
+        text = strip_tags(obj.content or '').replace('&nbsp;', ' ')
+        return Truncator(' '.join(text.split())).chars(180)
 
 
 class PostCreateSerializer(serializers.ModelSerializer):

@@ -13,6 +13,8 @@ import { marketingService } from '../services/marketingService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CourseThumbnail from '../components/course/CourseThumbnail'
+import CourseCommunityPreview from '../components/community/CourseCommunityPreview'
+import { useTenantStore } from '../context/tenantStore'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, ArrowRight, GraduationCap, CheckCircle2, Clock, PlusCircle,
@@ -99,6 +101,7 @@ const CourseDetail = () => {
   const { user, profile, isAuthenticated } = useAuthStore()
   const role = user?.role || profile?.user?.role
   const isAdmin = role === 'admin'
+  const communityEnabled = useTenantStore((s) => s.isFeatureEnabled)('community')
 
   const [tab, setTab] = useState('overview')
   const [requesting, setRequesting] = useState(false)
@@ -252,6 +255,7 @@ const CourseDetail = () => {
     { key: 'overview', label: 'Overview' },
     { key: 'curriculum', label: 'Curriculum' },
     ...(instructors.length ? [{ key: 'instructors', label: 'Faculty' }] : []),
+    ...(communityEnabled ? [{ key: 'community', label: 'Community' }] : []),
   ]
 
   const enrollMode = course.enroll_mode || 'request'
@@ -446,6 +450,43 @@ const CourseDetail = () => {
                   </p>
                 </section>
               )}
+
+              {communityEnabled && (
+                <section>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h2 className="text-lg font-display font-bold flex items-center gap-2">
+                      <Users size={18} className="text-primary-500" /> Community
+                    </h2>
+                    <button
+                      onClick={() => setTab('community')}
+                      className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                    >
+                      See more
+                    </button>
+                  </div>
+                  <CourseCommunityPreview
+                    courseId={course.id}
+                    courseName={course.name}
+                    accentColor={course.color}
+                  />
+                </section>
+              )}
+            </div>
+          )}
+
+          {tab === 'community' && communityEnabled && (
+            <div className="space-y-4">
+              <CourseCommunityPreview
+                courseId={course.id}
+                courseName={course.name}
+                accentColor={course.color}
+              />
+              <p className="text-sm text-surface-500 leading-relaxed">
+                Every question, poll, quiz and live event posted here is scoped to{' '}
+                <span className="font-medium text-surface-700 dark:text-surface-200">{course.name}</span>,
+                so the discussion stays focused on what you are actually studying. Answer
+                well and you earn community XP that counts towards your level.
+              </p>
             </div>
           )}
 

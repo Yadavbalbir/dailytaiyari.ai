@@ -7,6 +7,7 @@ import { certificateService } from '../services/certificateService'
 import { useAuthStore } from '../context/authStore'
 import Loading from '../components/common/Loading'
 import CertificateModal from '../components/certificate/CertificateModal'
+import CourseCommunityPreview from '../components/community/CourseCommunityPreview'
 import {
   BookOpen, Atom, FlaskConical, Calculator, Leaf, Bug,
   ChevronRight, ChevronDown, GraduationCap, ArrowLeft, Settings2,
@@ -592,6 +593,14 @@ const StudyCourse = () => {
                 )}
               </div>
             )}
+
+            {/* Course community */}
+            <CourseCommunityPreview
+              courseId={courseId}
+              courseName={course?.name}
+              accentColor={course?.color}
+              variant="compact"
+            />
 
             {/* Leaderboard by completion */}
             {leaderboard && leaderboard.length > 0 && (

@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     MessageCircle, MessageSquare, ThumbsUp, Eye, CheckCircle,
     Plus, Filter, TrendingUp, Clock, HelpCircle,
-    BarChart3, Zap, Trophy, Users, BookOpen, Globe, Calendar, EyeOff
+    BarChart3, Zap, Trophy, Users, BookOpen, Globe, Calendar, EyeOff,
+    Maximize2, Minimize2, X
 } from 'lucide-react'
 import { communityService } from '../services/communityService'
 import { useAuthStore } from '../context/authStore'
-import Loading from '../components/common/Loading'
 import CreatePostModal from '../components/community/CreatePostModal'
 import PostCard from '../components/community/PostCard'
 import CommunityLeaderboard from '../components/community/CommunityLeaderboard'
@@ -19,14 +19,67 @@ import toast from 'react-hot-toast'
 const Community = () => {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const [searchParams, setSearchParams] = useSearchParams()
     const { user, profile } = useAuthStore()
     const role = user?.role || profile?.user?.role
     const isAdmin = role === 'admin' || role === 'instructor'
     const [activeTab, setActiveTab] = useState('all')
     const [sortBy, setSortBy] = useState('recent')
-    const [courseFilter, setCourseFilter] = useState('all')
+    // Deep links from a course page land here as /community?course=<id> so the
+    // forum opens already focused on that course's discussions.
+    const [courseFilter, setCourseFilter] = useState(() => searchParams.get('course') || 'all')
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createType, setCreateType] = useState('question')
+    const [focusMode, setFocusMode] = useState(false)
+    const containerRef = useRef(null)
+
+    // Keep the URL in sync so the scoped view is shareable / refresh-safe.
+    useEffect(() => {
+        const current = searchParams.get('course') || 'all'
+        if (current === courseFilter) return
+        const next = new URLSearchParams(searchParams)
+        if (courseFilter === 'all') next.delete('course')
+        else next.set('course', courseFilter)
+        setSearchParams(next, { replace: true })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [courseFilter])
+
+    // Back/forward navigation should move the filter too.
+    useEffect(() => {
+        const fromUrl = searchParams.get('course') || 'all'
+        if (fromUrl !== courseFilter) setCourseFilter(fromUrl)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
+
+    // Immersive "full screen" reading mode for the forum.
+    const toggleFocusMode = () => {
+        const next = !focusMode
+        setFocusMode(next)
+        try {
+            if (next && containerRef.current?.requestFullscreen) {
+                containerRef.current.requestFullscreen().catch(() => { })
+            } else if (!next && document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => { })
+            }
+        } catch {
+            /* Fullscreen API unavailable — the in-page overlay still applies. */
+        }
+    }
+
+    useEffect(() => {
+        const onFsChange = () => {
+            if (!document.fullscreenElement) setFocusMode(false)
+        }
+        const onKey = (e) => {
+            if (e.key === 'Escape') setFocusMode(false)
+        }
+        document.addEventListener('fullscreenchange', onFsChange)
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('fullscreenchange', onFsChange)
+            document.removeEventListener('keydown', onKey)
+        }
+    }, [])
 
     // Courses the user belongs to (for scoping the forum by course).
     const { data: filterOptions } = useQuery({
@@ -113,10 +166,42 @@ const Community = () => {
         setShowCreateModal(true)
     }
 
-    if (postsLoading) return <Loading fullScreen />
+    const activeCourse = courses.find((c) => String(c.id) === String(courseFilter))
 
     return (
-        <div className="space-y-6">
+        <div
+            ref={containerRef}
+            className={
+                focusMode
+                    ? 'fixed inset-0 z-50 overflow-y-auto bg-surface-50 dark:bg-surface-950 p-4 sm:p-8 space-y-6'
+                    : 'space-y-6'
+            }
+        >
+            {/* Course scope banner — shown when the forum was opened from a course */}
+            {activeCourse && (
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-accent-600 text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3"
+                >
+                    <div className="absolute -top-10 -right-6 w-32 h-32 rounded-full bg-white/10" />
+                    <div className="relative min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
+                            Focused discussions
+                        </p>
+                        <h2 className="text-lg font-display font-bold truncate flex items-center gap-2">
+                            <BookOpen size={18} /> {activeCourse.name}
+                        </h2>
+                    </div>
+                    <button
+                        onClick={() => setCourseFilter('all')}
+                        className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-white/15 hover:bg-white/25 ring-1 ring-white/20 backdrop-blur-sm transition-colors"
+                    >
+                        <X size={14} /> Clear course filter
+                    </button>
+                </motion.div>
+            )}
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -128,6 +213,14 @@ const Community = () => {
 
                 {/* Create Buttons */}
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={toggleFocusMode}
+                        className="btn-secondary flex items-center gap-2"
+                        title={focusMode ? 'Exit full screen' : 'Read the forum full screen'}
+                    >
+                        {focusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        <span className="hidden lg:inline">{focusMode ? 'Exit full screen' : 'Full screen'}</span>
+                    </button>
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -302,7 +395,20 @@ const Community = () => {
                             </div>
                         )}
                         <AnimatePresence mode="popLayout">
-                            {posts.length > 0 ? (
+                            {postsLoading ? (
+                                <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                                    {[0, 1, 2].map((i) => (
+                                        <div key={i} className="card p-5 animate-pulse space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-surface-200 dark:bg-surface-800" />
+                                                <div className="h-3 w-32 rounded bg-surface-200 dark:bg-surface-800" />
+                                            </div>
+                                            <div className="h-4 w-3/4 rounded bg-surface-200 dark:bg-surface-800" />
+                                            <div className="h-3 w-full rounded bg-surface-100 dark:bg-surface-800" />
+                                        </div>
+                                    ))}
+                                </motion.div>
+                            ) : posts.length > 0 ? (
                                 posts.map((post, index) => (
                                     <motion.div
                                         key={post.id}
@@ -373,6 +479,7 @@ const Community = () => {
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 postType={createType}
+                defaultCourseId={activeCourse ? String(activeCourse.id) : null}
             />
         </div>
     )
