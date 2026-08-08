@@ -18,6 +18,7 @@ import {
   Megaphone,
   Bell,
   Sparkles,
+  Wand2,
 } from 'lucide-react'
 
 // Admin navigation sections. `tab` items drive the in-page section shown by
@@ -31,6 +32,7 @@ export const ADMIN_NAV_ITEMS = [
   { tab: 'announcements', label: 'Announcements', icon: Bell },
   { tab: 'performance', label: 'Reports', icon: BarChart3 },
   { tab: 'content', label: 'Course Builder', icon: Library },
+  { tab: 'ai-studio', label: 'AI Course Studio', icon: Wand2 },
   { tab: 'landing', label: 'Landing Page', icon: LayoutTemplate },
   { path: '/admin/mock-tests', label: 'Mock Tests', icon: ClipboardList },
   { path: '/admin/jobs', label: 'Jobs', icon: Briefcase },
