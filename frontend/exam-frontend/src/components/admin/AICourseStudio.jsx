@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
     ArrowLeft, ChevronDown, Clock, Coins, History, Loader2, RotateCcw,
-    Save, Send, Sparkles, Trash2, Wand2, X,
+    Save, Send, Sparkles, Trash2, X,
 } from 'lucide-react'
 import courseAiService from '../../services/courseAiService'
 import useVoiceDictation from '../../hooks/useVoiceDictation'
@@ -308,32 +308,21 @@ const AICourseStudio = ({ initialCourseId = null, onClose = null }) => {
 
     return (
         <div className="space-y-5">
-            {/* -------------------------------------------------------- header */}
-            <div className="flex flex-wrap items-center gap-3">
+            {/* Header actions only — AdminDashboard renders the section title. */}
+            <div className="flex flex-wrap items-center justify-end gap-3">
                 {onClose && (
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-700"
+                        className="mr-auto flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-700"
                     >
                         <ArrowLeft className="h-4 w-4" /> Back
                     </button>
                 )}
-                <div className="flex items-center gap-2.5">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/25">
-                        <Wand2 className="h-5 w-5" />
-                    </span>
-                    <div>
-                        <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">AI Course Studio</h2>
-                        <p className="text-xs text-surface-500">
-                            Drafts course material for you to review — nothing is saved until you approve it.
-                        </p>
-                    </div>
-                </div>
                 <button
                     type="button"
                     onClick={() => setShowHistory(true)}
-                    className="ml-auto flex items-center gap-1.5 rounded-lg border border-surface-200 px-3 py-2 text-sm text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-700"
+                    className="flex items-center gap-1.5 rounded-lg border border-surface-200 px-3 py-2 text-sm text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-700"
                 >
                     <History className="h-4 w-4" /> History
                 </button>
