@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'analytics.apps.AnalyticsConfig',
     'gamification.apps.GamificationConfig',
     'chatbot.apps.ChatbotConfig',
+    'coursegen.apps.CourseGenConfig',
     'community.apps.CommunityConfig',
     'assignments.apps.AssignmentsConfig',
     'coding.apps.CodingConfig',
