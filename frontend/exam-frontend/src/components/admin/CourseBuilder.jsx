@@ -124,7 +124,7 @@ const CourseBuilder = () => {
                     {aiReady && (
                         <button
                             type="button"
-                            onClick={() => navigate('/admin?tab=ai-studio')}
+                            onClick={() => navigate('/admin-dashboard?tab=ai-studio')}
                             title="Draft a course with AI — you review everything before it is saved"
                             className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2.5 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800/50 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:bg-primary-900/30"
                         >
