@@ -10,10 +10,12 @@ import {
     Code2, Trash2, Image as ImageIcon, Upload, Radio, Calendar, Link2,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../services/contentBuilderService'
+import courseAiService from '../services/courseAiService'
 import { useAuthStore } from '../context/authStore'
 import {
     EntityModal, ConfirmDialog, RowActions, QuestionModal, formatApiError, QTYPE_LABEL,
 } from '../components/admin/builderShared'
+import TopicStudio from '../components/admin/aiStudio/TopicStudio'
 import Loading from '../components/common/Loading'
 
 /* Content-type icon + tint */
@@ -258,7 +260,7 @@ const QuizSection = ({ topic, subjectId, openModal, askDelete }) => {
 /* ===========================================================================
  * Topic list inside a chapter (in the left navigator)
  * ========================================================================= */
-const TopicList = ({ chapter, subjectId, sel, onSelectTopic, openModal, askDelete }) => {
+const TopicList = ({ chapter, subjectId, subjectName, sel, onSelectTopic, openModal, askDelete }) => {
     const { data: topics = [], isLoading } = useQuery({
         queryKey: ['cb-topics', chapter.id],
         queryFn: () => svc.getTopics({ chapterId: chapter.id }),
@@ -277,7 +279,7 @@ const TopicList = ({ chapter, subjectId, sel, onSelectTopic, openModal, askDelet
                         <div
                             key={tp.id}
                             className={`group flex items-center justify-between gap-1 pl-2 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-primary-50 dark:bg-primary-900/25 text-primary-700 dark:text-primary-300' : 'hover:bg-surface-100 dark:hover:bg-surface-800'}`}
-                            onClick={() => onSelectTopic(tp, subjectId, chapter.id)}
+                            onClick={() => onSelectTopic(tp, subjectId, chapter.id, subjectName)}
                         >
                             <span className="flex items-center gap-1.5 min-w-0 text-sm">
                                 <FileText className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-primary-500' : 'text-surface-400'}`} />
@@ -338,7 +340,7 @@ const ChapterList = ({ subject, sel, onSelectTopic, openModal, askDelete }) => {
                         <AnimatePresence>
                             {open[ch.id] && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                    <TopicList chapter={ch} subjectId={subject.id} sel={sel} onSelectTopic={onSelectTopic} openModal={openModal} askDelete={askDelete} />
+                                    <TopicList chapter={ch} subjectId={subject.id} subjectName={subject.name} sel={sel} onSelectTopic={onSelectTopic} openModal={openModal} askDelete={askDelete} />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -1051,8 +1053,29 @@ const LiveClassSection = ({ topic, subjectId }) => {
     )
 }
 
-const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
+const TopicPanel = ({ topic, subjectId, subjectName, openModal, askDelete }) => {
+    const { courseId } = useParams()
+    const queryClient = useQueryClient()
     const [tab, setTab] = useState('content')
+    const [aiOpen, setAiOpen] = useState(false)
+
+    // The studio entry point only appears once we know an AI provider is
+    // actually configured — a button that always fails is worse than no button.
+    const { data: aiHealth } = useQuery({
+        queryKey: ['coursegen-health'],
+        queryFn: courseAiService.getHealth,
+        staleTime: 5 * 60_000,
+        retry: false,
+    })
+
+    // Everything the panel shows for this topic is refetched after a write, so
+    // generated material appears in the tabs without a manual reload.
+    const refreshTopic = () => {
+        for (const key of ['cb-contents', 'cb-quizzes', 'cb-assignments', 'cb-coding']) {
+            queryClient.invalidateQueries({ queryKey: [key, topic.id] })
+        }
+    }
+
     return (
         <div className="card p-4 sm:p-6">
             <div className="flex items-start justify-between gap-3 mb-1">
@@ -1063,9 +1086,16 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
                         {topic.importance && <span className="text-[11px] px-2 py-0.5 rounded-md bg-surface-100 dark:bg-surface-800 text-surface-500 capitalize">{topic.importance} importance</span>}
                     </div>
                 </div>
-                <button onClick={() => openModal('topic', topic, { subjectId })} className="btn-secondary text-xs px-3 py-1.5 shrink-0">
-                    <Pencil className="w-3.5 h-3.5" /> Edit topic
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    {aiHealth?.is_ready && (
+                        <button onClick={() => setAiOpen(true)} className="btn-primary text-xs px-3 py-1.5">
+                            <Sparkles className="w-3.5 h-3.5" /> Generate with AI
+                        </button>
+                    )}
+                    <button onClick={() => openModal('topic', topic, { subjectId })} className="btn-secondary text-xs px-3 py-1.5">
+                        <Pencil className="w-3.5 h-3.5" /> Edit topic
+                    </button>
+                </div>
             </div>
 
             <div className="flex gap-1 p-1 bg-surface-100 dark:bg-surface-800 rounded-xl w-fit my-4">
@@ -1085,6 +1115,18 @@ const TopicPanel = ({ topic, subjectId, openModal, askDelete }) => {
             {tab === 'assignments' && <AssignmentSection topic={topic} subjectId={subjectId} openModal={openModal} askDelete={askDelete} />}
             {tab === 'coding' && <CodingSection topic={topic} subjectId={subjectId} />}
             {tab === 'live' && <LiveClassSection topic={topic} subjectId={subjectId} />}
+
+            <AnimatePresence>
+                {aiOpen && (
+                    <TopicStudio
+                        courseId={courseId}
+                        topic={topic}
+                        subjectName={subjectName}
+                        onClose={() => setAiOpen(false)}
+                        onApplied={refreshTopic}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     )
 }
@@ -1272,7 +1314,7 @@ const CourseManager = () => {
     })
     const course = courses.find((c) => String(c.id) === String(courseId))
 
-    const onSelectTopic = (topic, subjectId, chapterId) => setSel({ subjectId, chapterId, topicId: topic.id, topic })
+    const onSelectTopic = (topic, subjectId, chapterId, subjectName) => setSel({ subjectId, chapterId, topicId: topic.id, topic, subjectName })
     const openModal = (type, instance, extra = {}) => setModal({ type, instance, extra })
     const askDelete = (type, instance, label) => setDel({ type, instance, label })
 
@@ -1376,7 +1418,7 @@ const CourseManager = () => {
                 <Navigator courseId={courseId} sel={sel} onSelectTopic={onSelectTopic} openModal={openModal} askDelete={askDelete} />
 
                 {sel.topic ? (
-                    <TopicPanel topic={sel.topic} subjectId={sel.subjectId} openModal={openModal} askDelete={askDelete} />
+                    <TopicPanel topic={sel.topic} subjectId={sel.subjectId} subjectName={sel.subjectName} openModal={openModal} askDelete={askDelete} />
                 ) : (
                     <div className="card p-10 flex flex-col items-center justify-center text-center min-h-[300px]">
                         <div className="w-14 h-14 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mb-3">

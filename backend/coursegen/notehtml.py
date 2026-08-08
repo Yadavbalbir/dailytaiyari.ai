@@ -226,6 +226,15 @@ def blocks_to_plain_text(blocks, limit=400) -> str:
     return joined[:limit].rstrip()
 
 
+def html_to_plain_text(html, limit=400) -> str:
+    """Strip tags from stored note HTML, for excerpts fed back into a prompt."""
+    if not html:
+        return ''
+    text = re.sub(r'<[^>]+>', ' ', str(html))
+    text = _html.unescape(text)
+    return ' '.join(text.split())[:limit].rstrip()
+
+
 def estimate_reading_minutes(blocks) -> int:
     """Rough reading time (≈200 words/min), floored at 3 minutes."""
     words = len(blocks_to_plain_text(blocks, limit=100000).split())

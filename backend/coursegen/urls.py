@@ -9,6 +9,7 @@ from .views import (
     JobListCreateView,
     JobRefineView,
     StudioOptionsView,
+    TopicMaterialView,
     TranscribeView,
     studio_health,
 )
@@ -17,6 +18,10 @@ urlpatterns = [
     path('options/', StudioOptionsView.as_view(), name='coursegen-options'),
     path('health/', studio_health, name='coursegen-health'),
     path('courses/<uuid:course_id>/tree/', CourseTreeView.as_view(), name='coursegen-course-tree'),
+    path(
+        'courses/<uuid:course_id>/topics/<uuid:topic_id>/material/',
+        TopicMaterialView.as_view(), name='coursegen-topic-material',
+    ),
     path('transcribe/', TranscribeView.as_view(), name='coursegen-transcribe'),
     path('jobs/', JobListCreateView.as_view(), name='coursegen-jobs'),
     path('jobs/<uuid:job_id>/', JobDetailView.as_view(), name='coursegen-job-detail'),

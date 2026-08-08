@@ -2,6 +2,7 @@
 from rest_framework import serializers
 
 from .models import CourseGenerationJob
+from .prompts import MATERIAL_TYPES, requested_materials
 from .schema import (
     MAX_TOPICS_PER_CONTENT_JOB,
     draft_summary,
@@ -109,6 +110,31 @@ class GenerateSerializer(serializers.Serializer):
                         'topics at a time so you can review it properly.'
                     )
                 })
+
+            options = attrs.get('options') or {}
+            materials = options.get('materials')
+            if materials is not None:
+                if not isinstance(materials, (list, tuple)):
+                    raise serializers.ValidationError(
+                        {'options': 'materials must be a list.'}
+                    )
+                unknown = {str(m) for m in materials} - set(MATERIAL_TYPES)
+                if unknown:
+                    raise serializers.ValidationError({
+                        'options': (
+                            f'Unknown material type(s): {", ".join(sorted(unknown))}. '
+                            f'Choose from {", ".join(MATERIAL_TYPES)}.'
+                        )
+                    })
+                if not materials:
+                    raise serializers.ValidationError(
+                        {'options': 'Pick at least one kind of material to generate.'}
+                    )
+            mode = options.get('mode')
+            if mode is not None and mode not in ('replace', 'add'):
+                raise serializers.ValidationError(
+                    {'options': 'mode must be either "replace" or "add".'}
+                )
         attrs['prompt'] = prompt
         return attrs
 
@@ -141,7 +167,11 @@ class DraftUpdateSerializer(serializers.Serializer):
                 }
                 for entry in (instance.draft or {}).get('topics') or []
             ]
-            draft = normalize_content(payload, requested_topics=requested)
+            draft = normalize_content(
+                payload,
+                requested_topics=requested,
+                materials=requested_materials(instance.options),
+            )
         else:
             draft = normalize_meta(payload)
 

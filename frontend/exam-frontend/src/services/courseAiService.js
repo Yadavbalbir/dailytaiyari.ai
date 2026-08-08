@@ -33,6 +33,13 @@ export const courseAiService = {
         return response.data
     },
 
+    // Everything already attached to one topic — the focused studio opens on
+    // this so "add more" is an informed choice rather than a guess.
+    getTopicMaterial: async (courseId, topicId) => {
+        const response = await api.get(`${BASE}/courses/${courseId}/topics/${topicId}/material/`)
+        return response.data
+    },
+
     listJobs: async (params = {}) => {
         const response = await api.get(`${BASE}/jobs/`, { params })
         const data = response.data
