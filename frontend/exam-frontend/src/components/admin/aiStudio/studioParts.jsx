@@ -14,7 +14,7 @@ export const KIND_META = {
     },
     content: {
         label: 'Study material',
-        blurb: 'Reading notes and a practice quiz for topics you pick.',
+        blurb: 'Notes, quizzes, assignments and coding problems for topics you pick.',
         placeholder:
             'Optional: anything specific you want emphasised — worked examples, exam traps, '
             + 'a particular syllabus, the tone to use.',
@@ -165,7 +165,14 @@ export const summaryLine = (kind, summary) => {
         return `${summary.subjects || 0} modules · ${summary.chapters || 0} chapters · ${summary.topics || 0} topics`
     }
     if (kind === 'content') {
-        return `${summary.notes || 0} notes · ${summary.quizzes || 0} quizzes · ${summary.questions || 0} questions`
+        const parts = [
+            summary.notes ? `${summary.notes} notes` : null,
+            summary.quizzes ? `${summary.quizzes} quizzes` : null,
+            summary.questions ? `${summary.questions} questions` : null,
+            summary.assignments ? `${summary.assignments} assignments` : null,
+            summary.coding_problems ? `${summary.coding_problems} coding problems` : null,
+        ].filter(Boolean)
+        return parts.join(' · ') || 'nothing generated'
     }
     if (kind === 'meta') return `${summary.fields || 0} fields`
     return ''

@@ -28,6 +28,13 @@ const toSelection = (buckets) => ({
     fields: new Set(buckets.fields),
 })
 
+const CONTENT_MATERIALS = [
+    { id: 'notes', label: 'Reading notes' },
+    { id: 'quiz', label: 'Practice quiz' },
+    { id: 'assignment', label: 'Assignment' },
+    { id: 'coding', label: 'Coding problem' },
+]
+
 /** Only send the buckets the current kind actually uses. */
 const selectionPayload = (kind, selection) => {
     if (kind === 'outline') {
@@ -71,6 +78,7 @@ const AICourseStudio = ({ initialCourseId = null, onClose = null }) => {
         chapters_per_subject: 5,
         topics_per_chapter: 4,
         questions_per_quiz: 5,
+        materials: ['notes', 'quiz'],
         depth: 'standard',
         language: 'English',
         publish_immediately: false,
@@ -470,28 +478,63 @@ const AICourseStudio = ({ initialCourseId = null, onClose = null }) => {
                                 </div>
                             )}
                             {kind === 'content' && (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Field label="Questions / quiz">
-                                        <input
-                                            type="number" min={0}
-                                            max={config.limits?.max_questions_per_quiz || 20}
-                                            className={inputClass}
-                                            value={options.questions_per_quiz}
-                                            onChange={(e) => setOptions((o) => ({ ...o, questions_per_quiz: Number(e.target.value) }))}
-                                        />
+                                <>
+                                    <Field
+                                        label="Material to write"
+                                        hint="Assignments and coding problems are written per topic, alongside the notes and quiz."
+                                    >
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            {CONTENT_MATERIALS.map((item) => {
+                                                const active = options.materials.includes(item.id)
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        onClick={() => setOptions((o) => ({
+                                                            ...o,
+                                                            materials: active
+                                                                ? o.materials.filter((m) => m !== item.id)
+                                                                : [...o.materials, item.id],
+                                                        }))}
+                                                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                                                            active
+                                                                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                                                                : 'border-surface-200 text-surface-500 hover:border-surface-300 dark:border-surface-700'
+                                                        }`}
+                                                    >
+                                                        {item.label}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     </Field>
-                                    <Field label="Depth">
-                                        <select
-                                            className={inputClass}
-                                            value={options.depth}
-                                            onChange={(e) => setOptions((o) => ({ ...o, depth: e.target.value }))}
-                                        >
-                                            <option value="concise">Concise</option>
-                                            <option value="standard">Standard</option>
-                                            <option value="detailed">Detailed</option>
-                                        </select>
-                                    </Field>
-                                </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {options.materials.includes('quiz') && (
+                                            <Field label="Questions / quiz">
+                                                <input
+                                                    type="number" min={0}
+                                                    max={config.limits?.max_questions_per_quiz || 20}
+                                                    className={inputClass}
+                                                    value={options.questions_per_quiz}
+                                                    onChange={(e) => setOptions((o) => ({ ...o, questions_per_quiz: Number(e.target.value) }))}
+                                                />
+                                            </Field>
+                                        )}
+                                        {options.materials.includes('notes') && (
+                                            <Field label="Depth">
+                                                <select
+                                                    className={inputClass}
+                                                    value={options.depth}
+                                                    onChange={(e) => setOptions((o) => ({ ...o, depth: e.target.value }))}
+                                                >
+                                                    <option value="concise">Concise</option>
+                                                    <option value="standard">Standard</option>
+                                                    <option value="deep">Detailed</option>
+                                                </select>
+                                            </Field>
+                                        )}
+                                    </div>
+                                </>
                             )}
                             <Field label="Language">
                                 <input

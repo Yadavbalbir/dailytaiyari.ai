@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-    AlertTriangle, BookOpen, ChevronDown, ChevronRight, FileText,
+    AlertTriangle, BookOpen, ChevronDown, ChevronRight, ClipboardList, Code2, FileText,
     HelpCircle, Layers, ListChecks, Sparkles,
 } from 'lucide-react'
 import { CheckRow, Pill, inputClass } from './studioParts'
@@ -163,11 +163,87 @@ const QuestionCard = ({ question, index }) => (
     </li>
 )
 
+const SUBMISSION_LABELS = {
+    text: 'Text answer',
+    pdf: 'File upload',
+    either: 'Text or file',
+}
+
+const AssignmentCard = ({ assignment }) => (
+    <div className="rounded-lg border border-surface-200 p-3 dark:border-surface-700">
+        <div className="flex flex-wrap items-center gap-2">
+            <h5 className="text-sm font-semibold text-surface-900 dark:text-surface-100">{assignment.title}</h5>
+            <Pill tone="surface">{SUBMISSION_LABELS[assignment.submission_type] || assignment.submission_type}</Pill>
+            {assignment.max_marks ? <Pill tone="surface">{assignment.max_marks} marks</Pill> : null}
+        </div>
+        <div
+            className="prose prose-sm mt-2 max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: assignment.html || '' }}
+        />
+    </div>
+)
+
+const CodingCard = ({ problem }) => {
+    const cases = problem.test_cases || []
+    const samples = cases.filter((c) => c.is_sample)
+    return (
+        <div className="rounded-lg border border-surface-200 p-3 dark:border-surface-700">
+            <div className="flex flex-wrap items-center gap-2">
+                <h5 className="text-sm font-semibold text-surface-900 dark:text-surface-100">{problem.title}</h5>
+                <Pill tone={problem.difficulty === 'hard' ? 'amber' : 'surface'}>{problem.difficulty}</Pill>
+                <Pill tone="surface">{(problem.allowed_languages || []).join(', ')}</Pill>
+                <Pill tone="emerald">{cases.length} test cases ({samples.length} sample)</Pill>
+            </div>
+            <div
+                className="prose prose-sm mt-2 max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: problem.html || '' }}
+            />
+            {cases.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                    {cases.map((testCase, index) => (
+                        <div key={index} className="rounded-md bg-surface-50 p-2 text-xs dark:bg-surface-900/40">
+                            <div className="mb-1 flex items-center gap-2">
+                                <span className="font-medium text-surface-600 dark:text-surface-300">
+                                    Case {index + 1}
+                                </span>
+                                <Pill tone={testCase.is_sample ? 'primary' : 'surface'}>
+                                    {testCase.is_sample ? 'sample' : 'hidden'}
+                                </Pill>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-surface-600 dark:text-surface-300">
+                                    in: {testCase.stdin || '(none)'}
+                                </pre>
+                                <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-surface-600 dark:text-surface-300">
+                                    out: {testCase.expected_output}
+                                </pre>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 const ContentTopicCard = ({ entry, checked, onToggle }) => {
-    const [tab, setTab] = useState('note')
     const note = entry.note || {}
     const quiz = entry.quiz || {}
     const questions = quiz.questions || []
+    const assignments = entry.assignments || []
+    const codingProblems = entry.coding_problems || []
+
+    // Only offer tabs for material this draft actually contains — a focused
+    // "just a quiz" run should not show three empty tabs.
+    const tabs = useMemo(() => [
+        note.include && { id: 'note', label: 'Reading notes' },
+        quiz.include && { id: 'quiz', label: `Quiz (${questions.length})` },
+        assignments.length && { id: 'assignments', label: `Assignments (${assignments.length})` },
+        codingProblems.length && { id: 'coding', label: `Coding (${codingProblems.length})` },
+    ].filter(Boolean), [note.include, quiz.include, questions.length, assignments.length, codingProblems.length])
+
+    const [tab, setTab] = useState(() => tabs[0]?.id || 'note')
+    const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id
 
     return (
         <Section>
@@ -175,43 +251,33 @@ const ContentTopicCard = ({ entry, checked, onToggle }) => {
                 <CheckRow checked={checked} onChange={onToggle}>
                     <span className="font-medium text-surface-900 dark:text-surface-100">{entry.topic_name}</span>
                 </CheckRow>
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ml-auto flex flex-wrap items-center gap-1.5">
                     {note.include && <Pill tone="primary"><FileText className="h-3 w-3" />{note.estimated_time_minutes || 0} min read</Pill>}
                     {quiz.include && <Pill tone="emerald"><ListChecks className="h-3 w-3" />{questions.length} questions</Pill>}
+                    {assignments.length > 0 && <Pill tone="surface"><ClipboardList className="h-3 w-3" />{assignments.length} assignment{assignments.length > 1 ? 's' : ''}</Pill>}
+                    {codingProblems.length > 0 && <Pill tone="surface"><Code2 className="h-3 w-3" />{codingProblems.length} problem{codingProblems.length > 1 ? 's' : ''}</Pill>}
                 </div>
             </div>
 
-            <div className="flex gap-1 border-b border-surface-100 px-4 pt-2 dark:border-surface-700">
-                {note.include && (
+            <div className="flex flex-wrap gap-1 border-b border-surface-100 px-4 pt-2 dark:border-surface-700">
+                {tabs.map((item) => (
                     <button
+                        key={item.id}
                         type="button"
-                        onClick={() => setTab('note')}
+                        onClick={() => setTab(item.id)}
                         className={`rounded-t-md px-3 py-1.5 text-xs font-medium transition ${
-                            tab === 'note'
+                            activeTab === item.id
                                 ? 'bg-surface-100 text-surface-900 dark:bg-surface-700 dark:text-surface-100'
                                 : 'text-surface-500 hover:text-surface-700'
                         }`}
                     >
-                        Reading notes
+                        {item.label}
                     </button>
-                )}
-                {quiz.include && (
-                    <button
-                        type="button"
-                        onClick={() => setTab('quiz')}
-                        className={`rounded-t-md px-3 py-1.5 text-xs font-medium transition ${
-                            tab === 'quiz'
-                                ? 'bg-surface-100 text-surface-900 dark:bg-surface-700 dark:text-surface-100'
-                                : 'text-surface-500 hover:text-surface-700'
-                        }`}
-                    >
-                        Quiz
-                    </button>
-                )}
+                ))}
             </div>
 
             <div className="max-h-[28rem] overflow-y-auto p-4">
-                {tab === 'note' && note.include && (
+                {activeTab === 'note' && note.include && (
                     <>
                         <h4 className="mb-3 text-sm font-semibold text-surface-900 dark:text-surface-100">{note.title}</h4>
                         {/* Rendered server-side from typed blocks — model text is escaped there,
@@ -222,7 +288,7 @@ const ContentTopicCard = ({ entry, checked, onToggle }) => {
                         />
                     </>
                 )}
-                {tab === 'quiz' && quiz.include && (
+                {activeTab === 'quiz' && quiz.include && (
                     <>
                         <h4 className="mb-3 text-sm font-semibold text-surface-900 dark:text-surface-100">
                             {quiz.title}
@@ -234,6 +300,20 @@ const ContentTopicCard = ({ entry, checked, onToggle }) => {
                             ))}
                         </ul>
                     </>
+                )}
+                {activeTab === 'assignments' && (
+                    <div className="space-y-3">
+                        {assignments.map((assignment, index) => (
+                            <AssignmentCard key={index} assignment={assignment} />
+                        ))}
+                    </div>
+                )}
+                {activeTab === 'coding' && (
+                    <div className="space-y-3">
+                        {codingProblems.map((problem, index) => (
+                            <CodingCard key={index} problem={problem} />
+                        ))}
+                    </div>
                 )}
             </div>
         </Section>

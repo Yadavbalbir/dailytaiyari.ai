@@ -13,6 +13,8 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from assignments.models import Assignment
+from coding.models import CodingProblem
 from content.models import Content
 from core.models import Tenant
 from coursegen.models import CourseGenerationJob
@@ -462,3 +464,230 @@ class NormalisationTests(TestCase):
             'name': 'S', 'chapters': [{'name': 'Empty', 'topics': []}],
         }]})
         self.assertEqual(draft['subjects'], [])
+
+
+RICH_CONTENT_RESPONSE = """
+{"topics": [{
+  "topic_code": "variables", "topic_name": "Variables",
+  "assignments": [{
+    "title": "Name three things",
+    "submission_type": "text",
+    "max_marks": 15,
+    "instructions": [
+      {"type": "paragraph", "text": "Write a short program using three variables."},
+      {"type": "bullets", "items": ["Use clear names", "Explain each choice"]}
+    ]
+  }],
+  "coding_problems": [{
+    "title": "Swap two numbers",
+    "difficulty": "easy",
+    "allowed_languages": ["python", "brainfuck"],
+    "max_marks": 12,
+    "statement": [{"type": "paragraph", "text": "Read two integers and print them swapped."}],
+    "starter_code": {"python": "def solve():\\n    pass", "brainfuck": "+++"},
+    "test_cases": [
+      {"stdin": "1 2", "expected_output": "2 1", "is_sample": true, "explanation": "Swapped."},
+      {"stdin": "5 9", "expected_output": "9 5"},
+      {"stdin": "", "expected_output": "   "}
+    ]
+  }]
+}]}
+"""
+
+
+class RichMaterialNormalisationTests(TestCase):
+    """Assignments and coding problems get the same structural guarantees."""
+
+    def _topic(self):
+        import json
+        draft = normalize_content(json.loads(RICH_CONTENT_RESPONSE))
+        return draft['topics'][0], draft
+
+    def test_assignment_is_normalised_and_rendered(self):
+        topic, _ = self._topic()
+        assignment = topic['assignments'][0]
+        self.assertEqual(assignment['title'], 'Name three things')
+        self.assertEqual(assignment['submission_type'], 'text')
+        self.assertEqual(assignment['max_marks'], 15)
+        # Rendered server-side so the preview is byte-for-byte what is stored.
+        self.assertIn('<', assignment['html'])
+        self.assertIn('Use clear names', assignment['html'])
+
+    def test_unsupported_language_is_dropped(self):
+        topic, _ = self._topic()
+        problem = topic['coding_problems'][0]
+        self.assertEqual(problem['allowed_languages'], ['python'])
+        # Starter code for a language we cannot run must go with it.
+        self.assertEqual(list(problem['starter_code']), ['python'])
+
+    def test_blank_expected_output_case_is_dropped(self):
+        topic, _ = self._topic()
+        cases = topic['coding_problems'][0]['test_cases']
+        self.assertEqual(len(cases), 2)
+        self.assertTrue(cases[0]['is_sample'])
+
+    def test_stats_count_the_new_material(self):
+        _, draft = self._topic()
+        stats = draft['stats']
+        self.assertEqual(stats['assignments'], 1)
+        self.assertEqual(stats['coding_problems'], 1)
+        self.assertEqual(stats['test_cases'], 2)
+
+    def test_problem_without_test_cases_is_rejected(self):
+        draft = normalize_content({'topics': [{
+            'topic_name': 'Variables',
+            'coding_problems': [{
+                'title': 'No cases',
+                'statement': [{'type': 'paragraph', 'text': 'Do something.'}],
+            }],
+        }]})
+        # A problem nobody can pass is worse than no problem at all.
+        self.assertEqual(draft['topics'], [])
+
+
+class RichMaterialApplyTests(_StudioTestCase):
+    """Applying assignments and coding problems, in both modes."""
+
+    def _job(self, mode='replace'):
+        with self.stub_provider(), self.stub_llm(RICH_CONTENT_RESPONSE):
+            response = self.post(self.admin, '/jobs/', {
+                'kind': 'content', 'course': str(self.course.id),
+                'topic_ids': [str(self.topic.id)],
+                'options': {'materials': ['assignment', 'coding'], 'mode': mode},
+            })
+        self.assertEqual(response.status_code, 201, response.data)
+        return response.data['id']
+
+    def test_generation_still_writes_nothing(self):
+        self._job()
+        self.assertEqual(Assignment.objects.count(), 0)
+        self.assertEqual(CodingProblem.objects.count(), 0)
+
+    def test_apply_creates_assignment_and_problem(self):
+        self.post(self.admin, f'/jobs/{self._job()}/apply/', {'confirm': True})
+
+        assignment = Assignment.objects.get(topic=self.topic)
+        self.assertEqual(assignment.submission_type, 'text')
+        self.assertEqual(assignment.max_marks, 15)
+        self.assertEqual(assignment.course, self.course)
+        self.assertEqual(assignment.status, 'draft')
+        self.assertIn('Use clear names', assignment.instructions)
+
+        problem = CodingProblem.objects.get(topic=self.topic)
+        self.assertEqual(problem.allowed_languages, ['python'])
+        self.assertEqual(problem.test_cases.count(), 2)
+        self.assertEqual(problem.test_cases.filter(is_sample=True).count(), 1)
+
+    def test_replace_mode_updates_in_place(self):
+        self.post(self.admin, f'/jobs/{self._job()}/apply/', {'confirm': True})
+        self.post(self.admin, f'/jobs/{self._job()}/apply/', {'confirm': True})
+
+        self.assertEqual(Assignment.objects.filter(topic=self.topic).count(), 1)
+        self.assertEqual(CodingProblem.objects.filter(topic=self.topic).count(), 1)
+        # Test cases are replaced wholesale, never appended to.
+        self.assertEqual(CodingProblem.objects.get(topic=self.topic).test_cases.count(), 2)
+
+    def test_add_mode_stacks_new_material(self):
+        self.post(self.admin, f'/jobs/{self._job()}/apply/', {'confirm': True})
+        self.post(self.admin, f'/jobs/{self._job(mode="add")}/apply/', {'confirm': True})
+
+        self.assertEqual(Assignment.objects.filter(topic=self.topic).count(), 2)
+        self.assertEqual(CodingProblem.objects.filter(topic=self.topic).count(), 2)
+
+    def test_unknown_material_type_is_rejected(self):
+        response = self.post(self.admin, '/jobs/', {
+            'kind': 'content', 'course': str(self.course.id),
+            'topic_ids': [str(self.topic.id)],
+            'options': {'materials': ['podcast']},
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_topic_material_endpoint_lists_what_exists(self):
+        self.post(self.admin, f'/jobs/{self._job()}/apply/', {'confirm': True})
+        response = self.get(
+            self.admin, f'/courses/{self.course.id}/topics/{self.topic.id}/material/'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['counts']['assignments'], 1)
+        self.assertEqual(response.data['counts']['coding_problems'], 1)
+        self.assertFalse(response.data['assignments'][0]['locked'])
+
+
+class RequestedMaterialsAreEnforcedTests(_StudioTestCase):
+    """A model that volunteers extra material must not be able to write it.
+
+    The prompt asks for a specific set, but LLMs routinely return more. In
+    'replace' mode an unrequested note would overwrite a hand-written one the
+    admin never offered up, so the set is enforced server-side too.
+    """
+
+    def test_unrequested_note_is_dropped(self):
+        handwritten = Content.objects.create(
+            tenant=self.tenant, topic=self.topic, subject=self.subject,
+            title='Written by a human', slug='written-by-a-human',
+            content_type='notes', content_html='<p>Careful prose.</p>',
+        )
+        # CONTENT_RESPONSE contains BOTH a note and a quiz; only a quiz is asked for.
+        with self.stub_provider(), self.stub_llm(CONTENT_RESPONSE):
+            job_id = self.post(self.admin, '/jobs/', {
+                'kind': 'content', 'course': str(self.course.id),
+                'topic_ids': [str(self.topic.id)],
+                'options': {'materials': ['quiz'], 'mode': 'replace'},
+            }).data['id']
+
+        job = CourseGenerationJob.objects.get(id=job_id)
+        entry = job.draft['topics'][0]
+        self.assertFalse(entry['note']['include'])
+        self.assertTrue(entry['quiz']['include'])
+
+        self.post(self.admin, f'/jobs/{job_id}/apply/', {'confirm': True})
+        handwritten.refresh_from_db()
+        self.assertEqual(handwritten.content_html, '<p>Careful prose.</p>')
+        self.assertEqual(Quiz.objects.filter(topic=self.topic).count(), 1)
+
+    def test_unrequested_assignment_is_dropped(self):
+        with self.stub_provider(), self.stub_llm(RICH_CONTENT_RESPONSE):
+            self.post(self.admin, '/jobs/', {
+                'kind': 'content', 'course': str(self.course.id),
+                'topic_ids': [str(self.topic.id)],
+                'options': {'materials': ['coding']},
+            })
+        job = CourseGenerationJob.objects.latest('created_at')
+        entry = job.draft['topics'][0]
+        self.assertEqual(entry['assignments'], [])
+        self.assertEqual(len(entry['coding_problems']), 1)
+
+
+class LooseModelOutputTests(TestCase):
+    """Shapes a model gets subtly wrong must degrade, not vanish."""
+
+    def test_language_casing_is_canonicalised(self):
+        draft = normalize_content({'topics': [{
+            'topic_name': 'Loops',
+            'coding_problems': [{
+                'title': 'Sum',
+                'statement': [{'type': 'paragraph', 'text': 'Add them.'}],
+                'allowed_languages': ['Python', 'PYTHON', 'C++'],
+                'starter_code': {'Python': 'def solve(): pass'},
+                'test_cases': [{'stdin': '1', 'expected_output': '1'}],
+            }],
+        }]})
+        problem = draft['topics'][0]['coding_problems'][0]
+        # Non-canonical keys would make normalized_languages() fall back to
+        # *every* language, silently widening what the problem accepts.
+        self.assertEqual(problem['allowed_languages'], ['python'])
+        self.assertEqual(problem['starter_code'], {'python': 'def solve(): pass'})
+
+    def test_prose_instead_of_blocks_is_accepted(self):
+        draft = normalize_content({'topics': [{
+            'topic_name': 'Loops',
+            'assignments': [{'title': 'Essay', 'instructions': 'Write 500 words on loops.'}],
+            'coding_problems': [{
+                'title': 'Sum',
+                'statement': 'Read two integers and print the sum.',
+                'test_cases': [{'stdin': '1 2', 'expected_output': '3'}],
+            }],
+        }]})
+        topic = draft['topics'][0]
+        self.assertIn('500 words', topic['assignments'][0]['html'])
+        self.assertIn('print the sum', topic['coding_problems'][0]['html'])

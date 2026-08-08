@@ -28,10 +28,19 @@ const describe = (job, selection) => {
         const notes = chosen.filter((t) => t.note?.include).length
         const quizzes = chosen.filter((t) => t.quiz?.include).length
         const questions = chosen.reduce((sum, t) => sum + (t.quiz?.include ? (t.quiz.questions || []).length : 0), 0)
+        const assignments = chosen.reduce((sum, t) => sum + (t.assignments || []).length, 0)
+        const problems = chosen.reduce((sum, t) => sum + (t.coding_problems || []).length, 0)
+        const cases = chosen.reduce(
+            (sum, t) => sum + (t.coding_problems || []).reduce((n, p) => n + (p.test_cases || []).length, 0),
+            0,
+        )
         items.push(
             line(notes, 'set of reading notes', 'sets of reading notes'),
             line(quizzes, 'quiz', 'quizzes'),
             line(questions, 'question', 'questions'),
+            line(assignments, 'assignment', 'assignments'),
+            line(problems, 'coding problem', 'coding problems'),
+            line(cases, 'test case', 'test cases'),
         )
     } else if (job?.kind === 'meta') {
         items.push(line(selection.fields.size, 'course field', 'course fields'))
@@ -44,6 +53,7 @@ const ConfirmApply = ({ job, selection, saving, onCancel, onConfirm }) => {
     const items = describe(job, selection)
     const publishing = !!job?.options?.publish_immediately
     const overwriting = job?.kind === 'content'
+    const adding = (job?.options?.mode || 'replace') === 'add'
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -89,13 +99,19 @@ const ConfirmApply = ({ job, selection, saving, onCancel, onConfirm }) => {
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div className="space-y-1">
                             {publishing && <p>This material will be published to learners immediately.</p>}
-                            {overwriting && (
+                            {overwriting && (adding ? (
                                 <p>
-                                    Existing reading notes on these topics will be replaced. A quiz that
-                                    learners have already attempted is never overwritten — a new one is
-                                    added alongside it.
+                                    This is added alongside the topic&rsquo;s existing material — nothing
+                                    already there is changed or removed.
                                 </p>
-                            )}
+                            ) : (
+                                <p>
+                                    Existing reading notes on these topics will be replaced, and an
+                                    assignment or coding problem with the same title will be updated in
+                                    place. Anything learners have already attempted or submitted to is
+                                    never overwritten — a new copy is added alongside it instead.
+                                </p>
+                            ))}
                         </div>
                     </div>
                 )}

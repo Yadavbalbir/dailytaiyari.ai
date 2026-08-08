@@ -30,7 +30,7 @@ class CourseGenerationJob(TimeStampedModel):
 
     KIND_CHOICES = [
         (KIND_OUTLINE, 'Course outline (subjects, chapters, topics)'),
-        (KIND_CONTENT, 'Topic study material (notes + quiz)'),
+        (KIND_CONTENT, 'Topic material (notes, quiz, assignments, coding)'),
         (KIND_META, 'Course description & marketing copy'),
     ]
 

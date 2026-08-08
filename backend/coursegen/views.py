@@ -20,16 +20,23 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from assignments.models import Assignment
 from chatbot import resolver
+from coding.languages import language_choices
+from coding.models import CodingProblem
 from content.models import Content
 from core.permissions import IsCourseEditor
-from exams.models import Course
+from exams.models import Course, Topic
 from quiz.models import Quiz
 
 from . import generation
 from .apply import ApplyError, apply_draft
+from .material import topic_material
 from .models import CourseGenerationJob
+from .prompts import MATERIAL_TYPES
 from .schema import (
+    MAX_ASSIGNMENTS_PER_TOPIC,
+    MAX_CODING_PROBLEMS_PER_TOPIC,
     MAX_QUESTIONS_PER_QUIZ,
     MAX_TOPICS_PER_CONTENT_JOB,
 )
@@ -104,11 +111,27 @@ class StudioOptionsView(_StudioView):
             'limits': {
                 'max_topics_per_content_job': MAX_TOPICS_PER_CONTENT_JOB,
                 'max_questions_per_quiz': MAX_QUESTIONS_PER_QUIZ,
+                'max_assignments_per_topic': MAX_ASSIGNMENTS_PER_TOPIC,
+                'max_coding_problems_per_topic': MAX_CODING_PROBLEMS_PER_TOPIC,
             },
+            'materials': [
+                {'id': 'notes', 'label': 'Reading notes'},
+                {'id': 'quiz', 'label': 'Practice quiz'},
+                {'id': 'assignment', 'label': 'Assignment'},
+                {'id': 'coding', 'label': 'Coding problem'},
+            ],
+            'coding_languages': [
+                {'id': key, 'label': label} for key, label in language_choices()
+            ],
             'defaults': {
                 'chapters_per_subject': 5,
                 'topics_per_chapter': 4,
                 'questions_per_quiz': 5,
+                'assignments_per_topic': 1,
+                'coding_problems_per_topic': 1,
+                'coding_languages': ['python'],
+                'materials': ['notes', 'quiz'],
+                'mode': 'replace',
                 'depth': 'standard',
                 'language': 'English',
                 'publish_immediately': False,
@@ -142,6 +165,12 @@ class CourseTreeView(_StudioView):
         topics_with_quiz = set(
             Quiz.objects.filter(course=course).exclude(topic=None).values_list('topic_id', flat=True)
         )
+        topics_with_assignment = set(
+            Assignment.objects.filter(course=course).values_list('topic_id', flat=True)
+        )
+        topics_with_coding = set(
+            CodingProblem.objects.filter(course=course).values_list('topic_id', flat=True)
+        )
 
         subjects = []
         for subject in course.subjects.all().order_by('order', 'name'):
@@ -163,6 +192,8 @@ class CourseTreeView(_StudioView):
                             'difficulty': link.topic.difficulty,
                             'has_notes': link.topic.id in topics_with_notes,
                             'has_quiz': link.topic.id in topics_with_quiz,
+                            'has_assignment': link.topic.id in topics_with_assignment,
+                            'has_coding': link.topic.id in topics_with_coding,
                         }
                         for link in links
                     ],
@@ -186,6 +217,30 @@ class CourseTreeView(_StudioView):
             },
             'subjects': subjects,
         })
+
+
+class TopicMaterialView(_StudioView):
+    """What one topic already has — the entry point for the focused studio.
+
+    The admin opens a topic, sees its existing readings, quizzes, assignments
+    and coding problems, and only then decides whether to add to them or replace
+    them. Nothing here writes.
+    """
+
+    def get(self, request, course_id, topic_id):
+        course = self.get_course(course_id)
+        topic = get_object_or_404(Topic, id=topic_id, subject__course=course)
+        payload = topic_material(topic)
+        payload['course'] = {'id': str(course.id), 'name': course.name}
+        payload['topic'] = {
+            'id': str(topic.id),
+            'name': topic.name,
+            'code': topic.code,
+            'summary': topic.description or '',
+            'difficulty': topic.difficulty,
+            'subject_name': topic.subject.name if topic.subject_id else '',
+        }
+        return Response(payload)
 
 
 class JobPagination(PageNumberPagination):

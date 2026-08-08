@@ -15,6 +15,9 @@ import re
 
 from django.utils.text import slugify
 
+from assignments.models import Assignment
+from coding.languages import LANGUAGE_KEYS
+from coding.models import CodingProblem
 from content.models import Content
 from exams.models import Course, Topic
 from quiz.models import Question
@@ -30,12 +33,18 @@ MAX_TOPICS_PER_CONTENT_JOB = 12
 MAX_QUESTIONS_PER_QUIZ = 20
 MAX_BLOCKS_PER_NOTE = 60
 MAX_HIGHLIGHTS = 10
+MAX_ASSIGNMENTS_PER_TOPIC = 5
+MAX_CODING_PROBLEMS_PER_TOPIC = 5
+MAX_TEST_CASES = 15
 
 COURSE_TYPES = {value for value, _label in Course.COURSE_TYPES}
 TOPIC_DIFFICULTIES = {value for value, _label in Topic.DIFFICULTY_CHOICES}
 TOPIC_IMPORTANCE = {value for value, _label in Topic.IMPORTANCE_CHOICES}
 QUESTION_DIFFICULTIES = {value for value, _label in Question.DIFFICULTY_CHOICES}
 CONTENT_DIFFICULTIES = {value for value, _label in Content.DIFFICULTY_CHOICES}
+ASSIGNMENT_SUBMISSION_TYPES = {value for value, _label in Assignment.SUBMISSION_TYPES}
+CODING_DIFFICULTIES = {value for value, _label in CodingProblem.DIFFICULTY_CHOICES}
+CODING_LANGUAGES = set(LANGUAGE_KEYS)
 
 
 def _text(value, limit, default=''):
@@ -77,6 +86,11 @@ def _code(value, fallback, used, limit=50):
         suffix += 1
     used.add(candidate)
     return candidate
+
+
+def _plain(value):
+    """``value`` only if the model sent prose where blocks were expected."""
+    return value if isinstance(value, str) else None
 
 
 def _string_list(value, limit, item_limit=200):
@@ -309,13 +323,131 @@ def normalize_question(raw, index=0):
     }
 
 
-def normalize_topic_content(raw, *, fallback_name='Topic'):
-    """One topic's note + quiz, with the note pre-rendered for preview."""
+def normalize_assignment(raw, index=0, *, fallback_name='Topic'):
+    """One assignment, with its instructions pre-rendered for preview."""
+    if not isinstance(raw, dict):
+        return None
+    blocks = normalize_blocks(raw.get('instructions') or raw.get('instruction_blocks'))
+    if not blocks:
+        # A plain-string brief is a common shortcut — accept it as one paragraph.
+        text = _long_text(
+            _plain(raw.get('instructions'))
+            or raw.get('instructions_text')
+            or raw.get('description'),
+            6000,
+        )
+        if text:
+            blocks = [{'type': 'paragraph', 'text': text}]
+    if not blocks:
+        return None
+    return {
+        'title': _text(raw.get('title'), 500, default=f'{fallback_name} Assignment'),
+        'instructions': blocks,
+        'html': render_blocks(blocks),
+        'submission_type': _choice(
+            raw.get('submission_type'), ASSIGNMENT_SUBMISSION_TYPES, 'either'
+        ),
+        'max_marks': int(_number(raw.get('max_marks'), 20, 1, 1000)),
+        'order': index,
+        'include': True,
+    }
+
+
+def normalize_test_case(raw, index=0):
+    if not isinstance(raw, dict):
+        return None
+    # stdin/expected_output are compared byte-for-byte by the judge, so they
+    # must never be whitespace-squashed the way prose is.
+    expected = str(raw.get('expected_output') or raw.get('output') or '')[:4000]
+    if not expected.strip():
+        return None
+    return {
+        'stdin': str(raw.get('stdin') or raw.get('input') or '')[:4000],
+        'expected_output': expected,
+        'is_sample': bool(raw.get('is_sample')),
+        'points': int(_number(raw.get('points'), 1, 1, 100)),
+        'explanation': _text(raw.get('explanation'), 500),
+        'order': index,
+    }
+
+
+def normalize_coding_problem(raw, index=0, *, fallback_name='Topic'):
+    """One coding problem plus its test cases, ready to preview."""
+    if not isinstance(raw, dict):
+        return None
+    blocks = normalize_blocks(raw.get('statement') or raw.get('statement_blocks'))
+    if not blocks:
+        text = _long_text(
+            _plain(raw.get('statement')) or raw.get('statement_text') or raw.get('description'),
+            6000,
+        )
+        if text:
+            blocks = [{'type': 'paragraph', 'text': text}]
+    if not blocks:
+        return None
+
+    cases = []
+    for case_index, raw_case in enumerate((raw.get('test_cases') or [])[:MAX_TEST_CASES]):
+        case = normalize_test_case(raw_case, index=len(cases))
+        if case:
+            cases.append(case)
+    # A problem with no runnable case can never be marked solved in-app.
+    if not cases:
+        return None
+    if not any(case['is_sample'] for case in cases):
+        cases[0]['is_sample'] = True
+
+    # Keys must be canonical lowercase: CodingProblem.normalized_languages()
+    # matches them exactly and silently falls back to *every* language when the
+    # match fails, which would let a Python-only problem accept C++ and Java.
+    languages = []
+    for raw_key in _string_list(raw.get('allowed_languages'), 10, 30):
+        key = raw_key.strip().lower()
+        if key in CODING_LANGUAGES and key not in languages:
+            languages.append(key)
+    languages = languages or ['python']
+
+    starter = {}
+    raw_starter = raw.get('starter_code')
+    if isinstance(raw_starter, dict):
+        for key, value in list(raw_starter.items())[:10]:
+            key = str(key).strip().lower()
+            if key in languages:
+                starter[key] = str(value or '')[:4000]
+
+    return {
+        'title': _text(raw.get('title'), 500, default=f'{fallback_name} Problem'),
+        'statement': blocks,
+        'html': render_blocks(blocks),
+        'difficulty': _choice(raw.get('difficulty'), CODING_DIFFICULTIES, 'easy'),
+        'allowed_languages': languages,
+        'starter_code': starter,
+        'time_limit_ms': int(_number(raw.get('time_limit_ms'), 3000, 500, 15000)),
+        'memory_limit_mb': int(_number(raw.get('memory_limit_mb'), 256, 32, 1024)),
+        'max_marks': int(_number(raw.get('max_marks'), 10, 1, 1000)),
+        'test_cases': cases,
+        'order': index,
+        'include': True,
+    }
+
+
+def normalize_topic_content(raw, *, fallback_name='Topic', materials=None):
+    """One topic's notes, quiz, assignments and coding problems.
+
+    ``materials`` is the set the admin actually asked for. Anything outside it
+    is dropped here rather than trusted to the prompt: models volunteer extra
+    material routinely, and in "replace" mode an unrequested note would
+    overwrite a hand-written one the admin never offered up.
+    """
     raw = raw if isinstance(raw, dict) else {}
+    wanted = set(materials) if materials else None
     topic_name = _text(raw.get('topic_name') or raw.get('name'), 300, default=fallback_name)
 
     raw_note = raw.get('note') if isinstance(raw.get('note'), dict) else {}
-    blocks = normalize_blocks(raw_note.get('blocks') or raw.get('blocks'))
+    blocks = (
+        normalize_blocks(raw_note.get('blocks') or raw.get('blocks'))
+        if wanted is None or 'notes' in wanted else []
+    )
     note = {
         'title': _text(raw_note.get('title'), 500, default=topic_name),
         'blocks': blocks,
@@ -332,6 +464,8 @@ def normalize_topic_content(raw, *, fallback_name='Topic'):
     raw_questions = raw_quiz.get('questions')
     if not isinstance(raw_questions, list):
         raw_questions = raw.get('questions') if isinstance(raw.get('questions'), list) else []
+    if wanted is not None and 'quiz' not in wanted:
+        raw_questions = []
     questions = []
     for index, raw_question in enumerate(raw_questions[:MAX_QUESTIONS_PER_QUIZ]):
         question = normalize_question(raw_question, index=len(questions))
@@ -344,27 +478,59 @@ def normalize_topic_content(raw, *, fallback_name='Topic'):
         'include': bool(questions),
     }
 
+    assignments = []
+    raw_assignments = raw.get('assignments') if wanted is None or 'assignment' in wanted else []
+    if isinstance(raw_assignments, dict):
+        raw_assignments = [raw_assignments]
+    for raw_assignment in (raw_assignments or [])[:MAX_ASSIGNMENTS_PER_TOPIC]:
+        assignment = normalize_assignment(
+            raw_assignment, index=len(assignments), fallback_name=topic_name
+        )
+        if assignment:
+            assignments.append(assignment)
+
+    coding_problems = []
+    raw_problems = (
+        (raw.get('coding_problems') or raw.get('coding'))
+        if wanted is None or 'coding' in wanted else []
+    )
+    if isinstance(raw_problems, dict):
+        raw_problems = [raw_problems]
+    for raw_problem in (raw_problems or [])[:MAX_CODING_PROBLEMS_PER_TOPIC]:
+        problem = normalize_coding_problem(
+            raw_problem, index=len(coding_problems), fallback_name=topic_name
+        )
+        if problem:
+            coding_problems.append(problem)
+
     return {
         'topic_id': _text(raw.get('topic_id'), 64) or None,
         'topic_name': topic_name,
         'topic_code': _text(raw.get('topic_code'), 100),
         'note': note,
         'quiz': quiz,
+        'assignments': assignments,
+        'coding_problems': coding_problems,
     }
 
 
-def normalize_content(payload, *, requested_topics=None):
+def normalize_content(payload, *, requested_topics=None, materials=None):
     """Coerce a model's content JSON into the canonical content draft.
 
     ``requested_topics`` is the list of ``{'id', 'name', 'code'}`` the admin
     asked for; it is used to re-attach topic ids the model may have dropped or
     hallucinated, so an apply always writes against topics we chose.
+    ``materials`` narrows the draft to the material types that were requested.
     """
     payload = payload if isinstance(payload, dict) else {}
     raw_topics = payload.get('topics')
     if not isinstance(raw_topics, list):
         # A single-topic response is common — accept it rather than fail.
-        raw_topics = [payload] if payload.get('note') or payload.get('blocks') else []
+        single = bool(
+            payload.get('note') or payload.get('blocks')
+            or payload.get('assignments') or payload.get('coding_problems')
+        )
+        raw_topics = [payload] if single else []
 
     requested = list(requested_topics or [])
     by_code = {str(t.get('code')): t for t in requested if t.get('code')}
@@ -374,7 +540,9 @@ def normalize_content(payload, *, requested_topics=None):
     for index, raw_topic in enumerate(raw_topics[:MAX_TOPICS_PER_CONTENT_JOB]):
         fallback = requested[index] if index < len(requested) else {}
         entry = normalize_topic_content(
-            raw_topic, fallback_name=fallback.get('name') or f'Topic {index + 1}'
+            raw_topic,
+            fallback_name=fallback.get('name') or f'Topic {index + 1}',
+            materials=materials,
         )
 
         # Re-anchor to a topic we actually asked for: match by code, then name,
@@ -388,25 +556,39 @@ def normalize_content(payload, *, requested_topics=None):
             entry['topic_id'] = str(match.get('id')) if match.get('id') else None
             entry['topic_name'] = match.get('name') or entry['topic_name']
             entry['topic_code'] = match.get('code') or entry['topic_code']
-        if entry['note']['blocks'] or entry['quiz']['questions']:
+        if (entry['note']['blocks'] or entry['quiz']['questions']
+                or entry['assignments'] or entry['coding_problems']):
             topics.append(entry)
 
     return {'topics': topics, 'stats': content_stats(topics)}
 
 
 def content_stats(topics):
-    notes = sum(1 for t in topics or [] if (t.get('note') or {}).get('include'))
-    quizzes = sum(1 for t in topics or [] if (t.get('quiz') or {}).get('include'))
+    topics = topics or []
+    notes = sum(1 for t in topics if (t.get('note') or {}).get('include'))
+    quizzes = sum(1 for t in topics if (t.get('quiz') or {}).get('include'))
     questions = sum(
         len((t.get('quiz') or {}).get('questions') or [])
-        for t in topics or []
+        for t in topics
         if (t.get('quiz') or {}).get('include')
     )
+    assignments = sum(
+        len([a for a in (t.get('assignments') or []) if a.get('include')]) for t in topics
+    )
+    coding_problems = [
+        problem
+        for t in topics
+        for problem in (t.get('coding_problems') or [])
+        if problem.get('include')
+    ]
     return {
-        'topics': len(topics or []),
+        'topics': len(topics),
         'notes': notes,
         'quizzes': quizzes,
         'questions': questions,
+        'assignments': assignments,
+        'coding_problems': len(coding_problems),
+        'test_cases': sum(len(p.get('test_cases') or []) for p in coding_problems),
     }
 
 

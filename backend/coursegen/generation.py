@@ -28,6 +28,7 @@ from chatbot.models import AIProviderConfig, AIUsageRecord
 from chatbot.providers import AIProviderError, ResolvedProvider, Usage, complete
 
 from . import prompts, schema
+from .material import existing_material_text
 from .models import CourseGenerationJob
 
 logger = logging.getLogger(__name__)
@@ -434,6 +435,9 @@ def generate_content(job, *, course, topics):
     )
     meter = _Meter()
     context = outline_text_for(course, limit=60)
+    # The prompt asks for these; the normaliser enforces them, so a model that
+    # volunteers extra material can never overwrite something unrequested.
+    wanted_materials = prompts.requested_materials(options)
 
     merged = []
     failures = []
@@ -447,10 +451,13 @@ def generate_content(job, *, course, topics):
             subject_name=batch[0].get('subject_name') or course.name,
             topics=batch,
             context=context,
+            existing=existing_material_text(batch),
         )
         try:
             raw = _call(resolved, prompts.CONTENT_SYSTEM, user, meter, tenant)
-            batch_draft = schema.normalize_content(extract_json(raw), requested_topics=batch)
+            batch_draft = schema.normalize_content(
+                extract_json(raw), requested_topics=batch, materials=wanted_materials,
+            )
         except GenerationError as exc:
             # One bad batch must not throw away the batches that succeeded.
             logger.warning('coursegen: content batch failed: %s', exc)
@@ -514,7 +521,11 @@ def refine(job, instruction):
             }
             for entry in (job.draft or {}).get('topics') or []
         ]
-        draft = schema.normalize_content(payload, requested_topics=requested)
+        draft = schema.normalize_content(
+            payload,
+            requested_topics=requested,
+            materials=prompts.requested_materials(job.options),
+        )
         if not draft.get('topics'):
             raise GenerationError('The revised material was empty — the change was not applied.')
     else:

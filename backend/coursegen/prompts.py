@@ -163,6 +163,38 @@ def outline_user_prompt(*, brief, options, course=None, existing_outline=None):
 # Topic content (notes + quiz)
 # ─────────────────────────────────────────────────────────────────────────────
 
+#: Every material type the studio can write for a single topic.
+MATERIAL_TYPES = ('notes', 'quiz', 'assignment', 'coding')
+
+MATERIAL_LABELS = {
+    'notes': 'reading notes',
+    'quiz': 'practice quiz',
+    'assignment': 'assignments',
+    'coding': 'coding problems',
+}
+
+
+def requested_materials(options):
+    """Which material types this job asked for, in canonical order.
+
+    ``options['materials']`` is the modern form. The older ``include_notes`` /
+    ``include_quiz`` booleans are still honoured so jobs created before
+    assignments existed keep generating exactly what they used to.
+    """
+    options = options or {}
+    raw = options.get('materials')
+    if isinstance(raw, (list, tuple, set)):
+        wanted = [m for m in MATERIAL_TYPES if m in {str(x).strip().lower() for x in raw}]
+        if wanted:
+            return wanted
+    legacy = []
+    if options.get('include_notes', True):
+        legacy.append('notes')
+    if options.get('include_quiz', True):
+        legacy.append('quiz')
+    return legacy or ['notes']
+
+
 CONTENT_SYSTEM = f"""
 You are a subject-matter expert who writes the reading material and practice
 questions for an online course. Your notes are the primary way a learner meets
@@ -196,7 +228,36 @@ SCHEMA:
             "concept": "The specific concept this question tests"
           }}
         ]
-      }}
+      }},
+      "assignments": [
+        {{
+          "title": "A specific deliverable, not 'Assignment 1'",
+          "submission_type": "text | pdf | either",
+          "max_marks": 20,
+          "instructions": [ ...content blocks: the brief, the tasks, what to submit... ]
+        }}
+      ],
+      "coding_problems": [
+        {{
+          "title": "The problem name",
+          "difficulty": "easy | medium | hard",
+          "allowed_languages": ["python", "cpp", "java"],
+          "time_limit_ms": 3000,
+          "memory_limit_mb": 256,
+          "max_marks": 10,
+          "statement": [ ...content blocks: story, input format, output format, constraints... ],
+          "starter_code": {{ "python": "def solve():\\n    pass" }},
+          "test_cases": [
+            {{
+              "stdin": "exact text fed to standard input",
+              "expected_output": "exact text the program must print",
+              "is_sample": true,
+              "points": 1,
+              "explanation": "Shown next to sample cases only"
+            }}
+          ]
+        }}
+      ]
     }}
   ]
 }}
@@ -217,12 +278,35 @@ QUIZ RULES:
   Law"), never a generic label like "Quiz" or "Practice".
 - Every question must be answerable from the note you just wrote.
 
+ASSIGNMENT RULES:
+- An assignment is graded work a human reads — it must ask for something the
+  learner produces, not something they tick.
+- State the deliverable, the steps, and the marking scheme, in that order.
+- Use "text" when the answer is written prose, "pdf" when a file or scan is the
+  natural artefact, "either" when both are acceptable.
+- Never invent a due date; timing is set by the admin.
+
+CODING PROBLEM RULES:
+- Only write coding problems when the topic is genuinely about programming.
+- The statement must fully specify input format, output format and constraints —
+  a solver should never have to guess.
+- "stdin" and "expected_output" must be the EXACT text, with real newlines. The
+  expected output must be what a correct program prints, character for character.
+- Give 2-3 "is_sample": true cases (visible, with an explanation) and 3-5 hidden
+  cases that cover the edge conditions the samples do not.
+- "allowed_languages" may only contain: python, cpp, java.
+- Starter code is a skeleton with the signature and a TODO — never the solution.
+
+OMISSION RULE:
+- Return an empty list (or an empty "blocks"/"questions" list) for any material
+  type you were not asked for. Never invent material the admin did not request.
+
 {TEACHING_STYLE}
 """.strip()
 
 
-def content_user_prompt(*, brief, options, course, subject_name, topics, context=''):
-    """Ask for notes + quiz for a specific batch of real topics."""
+def content_user_prompt(*, brief, options, course, subject_name, topics, context='', existing=''):
+    """Ask for the requested material for a specific batch of real topics."""
     depth = options.get('depth') or 'standard'
     depth_hint = {
         'concise': 'Aim for a 4-6 minute read: 3 sections, tight prose.',
@@ -247,18 +331,47 @@ def content_user_prompt(*, brief, options, course, subject_name, topics, context
             'SURROUNDING CURRICULUM (for continuity — do not write material for these):\n'
             + context
         )
+    if existing:
+        parts.append(
+            'MATERIAL THAT ALREADY EXISTS ON THESE TOPICS:\n' + existing + '\n'
+            + (
+                'The admin chose ADD MORE: your material sits ALONGSIDE the above. '
+                'Do not repeat any of it — cover angles, examples and questions it '
+                'does not already cover.'
+                if (options.get('mode') or 'replace') == 'add'
+                else 'The admin chose REPLACE: write the definitive version that '
+                     'supersedes the above.'
+            )
+        )
     if brief and brief.strip():
         parts.append(f'ADDITIONAL INSTRUCTIONS FROM THE ADMIN:\n"""\n{brief.strip()}\n"""')
 
-    settings = [depth_hint]
-    if options.get('questions_per_quiz'):
-        settings.append(f'Write exactly {options["questions_per_quiz"]} quiz questions per topic.')
-    else:
-        settings.append('Write 5 quiz questions per topic.')
-    if not options.get('include_quiz', True):
-        settings.append('Do NOT include a quiz; return an empty "questions" list.')
-    if not options.get('include_notes', True):
-        settings.append('Do NOT include reading notes; return an empty "blocks" list.')
+    wanted = requested_materials(options)
+    settings = [
+        'WRITE ONLY THESE MATERIAL TYPES: '
+        + ', '.join(MATERIAL_LABELS[m] for m in wanted)
+        + '. Leave every other field empty.'
+    ]
+
+    if 'notes' in wanted:
+        settings.append(depth_hint)
+    if 'quiz' in wanted:
+        count = options.get('questions_per_quiz') or 5
+        settings.append(f'Write exactly {count} quiz questions per topic.')
+    if 'assignment' in wanted:
+        count = options.get('assignments_per_topic') or 1
+        settings.append(
+            f'Write {count} assignment(s) per topic, each with a clear deliverable '
+            'and a marking scheme.'
+        )
+    if 'coding' in wanted:
+        count = options.get('coding_problems_per_topic') or 1
+        languages = options.get('coding_languages') or ['python']
+        settings.append(
+            f'Write {count} coding problem(s) per topic, allowing these languages: '
+            f'{", ".join(languages)}. Each needs 2-3 sample and 3-5 hidden test cases.'
+        )
+
     if options.get('language') and options['language'].lower() not in ('english', 'en'):
         settings.append(f'Write everything in {options["language"]}.')
     if options.get('tone'):
