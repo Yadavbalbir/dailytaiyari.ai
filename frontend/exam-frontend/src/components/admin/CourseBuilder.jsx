@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import {
-    GraduationCap, Plus, Search, X, Settings2, Pencil, Trash2, Loader2, Copy,
+    GraduationCap, Plus, Search, X, Settings2, Pencil, Trash2, Loader2, Copy, Wand2,
 } from 'lucide-react'
 import { contentBuilderService as svc } from '../../services/contentBuilderService'
+import courseAiService from '../../services/courseAiService'
 import { EntityModal, ConfirmDialog, formatApiError } from './builderShared'
 
 const statusPill = (status) =>
@@ -33,6 +34,15 @@ const CourseBuilder = () => {
         queryKey: ['cb-courses'],
         queryFn: () => svc.getExams(),
     })
+
+    // Cheap probe: only advertise AI authoring once a provider is connected.
+    const { data: aiHealth } = useQuery({
+        queryKey: ['coursegen-health'],
+        queryFn: () => courseAiService.getHealth(),
+        retry: false,
+        staleTime: 5 * 60 * 1000,
+    })
+    const aiReady = !!aiHealth?.is_ready
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase()
@@ -111,6 +121,16 @@ const CourseBuilder = () => {
                             </button>
                         )}
                     </div>
+                    {aiReady && (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/admin?tab=ai-studio')}
+                            title="Draft a course with AI — you review everything before it is saved"
+                            className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2.5 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800/50 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:bg-primary-900/30"
+                        >
+                            <Wand2 className="w-4 h-4" /> Generate with AI
+                        </button>
+                    )}
                     <button onClick={() => setModal({ instance: null })} className="btn-primary py-2.5 whitespace-nowrap">
                         <Plus className="w-4 h-4" /> New Course
                     </button>

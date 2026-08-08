@@ -10,6 +10,7 @@ import { useTenantStore } from '../context/tenantStore'
 import { THEME_LIST, applyTheme, DEFAULT_THEME } from '../config/themes'
 import { DEFAULT_AUTH_PANEL } from '../config/authPanel'
 import CourseBuilder from '../components/admin/CourseBuilder'
+import AICourseStudio from '../components/admin/AICourseStudio'
 import LandingBuilder from '../components/admin/LandingBuilder'
 import MarketingPromotions from '../components/admin/MarketingPromotions'
 import Announcements from '../components/admin/Announcements'
@@ -74,6 +75,7 @@ import {
     ArrowDownRight,
     Minus,
     Sparkles,
+    Wand2,
 } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -2913,6 +2915,7 @@ const TABS = [
     { id: 'announcements', label: 'Announcements', icon: Megaphone, subtitle: 'Broadcast updates to everyone or to specific courses via in-app notifications and branded email' },
     { id: 'performance', label: 'Reports', icon: BarChart3, subtitle: 'Generate and export detailed performance reports' },
     { id: 'content', label: 'Course Builder', icon: Library, subtitle: 'Create and organise your courses and content' },
+    { id: 'ai-studio', label: 'AI Course Studio', icon: Wand2, subtitle: 'Draft courses, outlines and study material with AI — you review and approve everything before it is saved' },
     { id: 'landing', label: 'Landing Page', icon: LayoutTemplate, subtitle: 'Design your public landing page' },
     { id: 'ai', label: 'AI Features', icon: Sparkles, subtitle: 'Connect your AI provider, tune the assistant and track usage & cost' },
     { id: 'settings', label: 'Settings', icon: SlidersIcon, subtitle: 'Manage branding, payments, email and platform settings' },
@@ -2987,6 +2990,7 @@ const AdminDashboard = () => {
                     {activeTab === 'announcements' && <Announcements />}
                     {activeTab === 'performance' && <PerformanceReports />}
                     {activeTab === 'content' && <CourseBuilder />}
+                    {activeTab === 'ai-studio' && <AICourseStudio />}
                     {activeTab === 'landing' && <LandingBuilder />}
                     {activeTab === 'ai' && <AIFeatures />}
                     {activeTab === 'settings' && <TenantSettings />}
